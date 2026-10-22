@@ -254,3 +254,56 @@ a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
 .avalehe-teade { margin-bottom: 12px; }
 .tabel.konfliktid td { vertical-align: top; }
 .tabel.konfliktid .tegevused .nupp { margin: 2px; }
+
+/* ---------- Etapp 5: sildid ---------- */
+.sildid-paigutus { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.sildid-nimekiri { max-height: 60vh; overflow-y: auto; border: 1px solid var(--joon); border-radius: var(--raadius); margin-top: 8px; }
+.sildid-nimekiri .tabel { margin: 0; }
+.sildid-nimekiri td.arv { width: 80px; }
+.sildid-nimekiri td.arv input { margin: 0; width: 70px; }
+.sildid-nimekiri .linnuke { margin: 0; align-items: flex-start; }
+.sildid-eelvaade { background: #e9edf2; border-radius: var(--raadius); padding: 12px; overflow: auto; max-height: 70vh; }
+.eelvaade-sisu .rull-leht { display: inline-block; margin: 0 10px 10px 0; vertical-align: top; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+.eelvaade-a4 .a4-leht { zoom: .55; background: #fff; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+.eelvaade-a4 .a4-lahter { outline: 1px dashed #c3cad4; }
+.kiir-eelvaade { margin: 12px 0; text-align: center; }
+.valjarida2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+@media (max-width: 800px) { .sildid-paigutus { grid-template-columns: 1fr; } }
+
+/* Silt ise (sama nii eelvaates kui prindis). Mõõdud tulevad js/sildid.js-ist millimeetrites. */
+/* NB: overflow:hidden sildil endal lõikas Chromiumi prindis teksti servi – lõikamine on lahtri/lehe tasemel. */
+.silt { box-sizing: border-box; background: #fff; color: #000; font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+  line-height: 1.1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.silt svg { display: block; width: 100%; height: 100%; }
+.silt-qr { flex: none; }
+.silt-toode { display: flex; gap: 1.5mm; align-items: stretch; }
+.silt-parem { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+.silt-nimi { font-weight: 700; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; padding-right: 1mm; }
+.silt-riba { width: 100%; }
+.silt-kood { font-family: "DejaVu Sans Mono", Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.silt-riiulitekst { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.silt-riiul .silt-kood { white-space: normal; }
+.silt-riiul { display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
+.silt-suurkood { font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.silt-vaike { display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+.silt-tyhi { font-size: 8pt; color: #b42318; }
+.a4-leht { display: grid; box-sizing: border-box; width: 210mm; height: 297mm; overflow: hidden; }
+.a4-lahter, .rull-leht { overflow: hidden; }
+
+/* Printimine: näidatakse ainult prinditavaid silte */
+#prindiala { display: none; }
+@media print {
+  body.prindib { background: #fff !important; margin: 0; padding: 0; }
+  body.prindib > *:not(#prindiala) { display: none !important; }
+  body.prindib #prindiala { display: block; }
+  .rull-leht { break-after: page; page-break-after: always; }
+  .rull-leht:last-child, .a4-leht:last-child { break-after: auto; page-break-after: auto; }
+  .a4-leht { break-after: page; page-break-after: always; }
+}
+
+/* ---------- Etapp 6: ülevaated ---------- */
+.rida-tyhistatud td { opacity: .5; text-decoration: line-through; }
+.rida-tyhistatud td .silt { text-decoration: none; }
+.tabel.ajalugu td { vertical-align: top; }
+.tooriba label.vaike { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.tooriba label.vaike input { margin: 0; }

@@ -158,7 +158,11 @@
         }
         var koodid = loodud.map(function (t) { return t.koodid.map(function (k) { return k.kood; }).join(', '); });
         teade(loodud.length > 1 ? 'Lisatud ' + loodud.length + ' eksemplari: ' + koodid.join('; ') : 'Lisatud: ' + koodid[0]);
-        return LAO.laeAndmed().catch(function () {}).then(function () { if (kuiValmis) kuiValmis(loodud); });
+        return LAO.laeAndmed().catch(function () {}).then(function () {
+          if (kuiValmis) kuiValmis(loodud);
+          // Arvutis (admin): paku kohe sildi printimist
+          if (admin && !LAO.onPuude() && loodud.length === 1 && confirm('Prindi silt kohe?')) LAO.kiirprint({ toode: loodud[0].id });
+        });
       });
     });
 
@@ -305,7 +309,8 @@
         : '') +
       '<section class="kaart">' +
       '  <div class="nupurida nupurida-vasak">' +
-      '    <button class="nupp" disabled title="Valmib etapis 5">Prindi silt</button>' +
+      '    <button class="nupp" id="prindiSilt"' + (t.ootel ? ' disabled title="Toode on veel serverisse saatmata"' : '') + '>🖨 Prindi silt</button>' +
+      '    <a class="nupp" href="#/ajalugu/' + encodeURIComponent(t.id) + '">Ajalugu</a>' +
       (t.arhiveeritud
         ? '<button id="arhiiviNupp" class="nupp">Taasta arhiivist</button>'
         : '<button id="arhiiviNupp" class="nupp nupp-oht">Arhiveeri</button>') +
@@ -363,6 +368,8 @@
         vaadeToode(t.id); // saldo on seadmes kohe uuendatud; server saab liikumise taustal
       }).catch(function (err) { LAO.hoivatud(iv, false); teade(err.message, 'viga'); });
     });
+
+    $('#prindiSilt').addEventListener('click', function () { LAO.kiirprint({ toode: t.id }); });
 
     // Arhiveerimine
     $('#arhiiviNupp').addEventListener('click', function () {

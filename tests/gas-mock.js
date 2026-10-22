@@ -74,7 +74,9 @@ function looKeskkond() {
     },
     Utilities: {
       getUuid: () => crypto.randomUUID(),
-      formatDate: (d, tz, f) => d.toISOString().slice(0, 16).replace('T', ' '),
+      formatDate: (d, tz, f) => f === 'H'
+        ? String(Number(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(d)))
+        : d.toISOString().slice(0, 16).replace('T', ' '),
       DigestAlgorithm: { SHA_256: 'sha256' },
       Charset: { UTF_8: 'utf8' },
       computeDigest: (alg, tekst) => [...crypto.createHash(alg).update(tekst, 'utf8').digest()].map(b => (b > 127 ? b - 256 : b))

@@ -84,6 +84,7 @@
           '<td class="tegevused">' +
           '<button class="nupp nupp-vaike" data-t="tooted" data-id="' + esc(r.id) + '">Tooted</button>' +
           '<button class="nupp nupp-vaike" data-t="muuda" data-id="' + esc(r.id) + '">Muuda</button>' +
+          '<button class="nupp nupp-vaike" data-t="silt" data-id="' + esc(r.id) + '">Prindi silt</button>' +
           (r.arhiveeritud
             ? '<button class="nupp nupp-vaike" data-t="taasta" data-id="' + esc(r.id) + '">Taasta</button>'
             : '<button class="nupp nupp-vaike nupp-oht" data-t="arhiveeri" data-id="' + esc(r.id) + '">Arhiveeri</button>') +
@@ -93,7 +94,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('#riiuliTabel [data-t]'), function (b) {
       b.addEventListener('click', function () {
         var r = LAO.riiul(b.dataset.id);
-        ({ tooted: naitaTooteid, muuda: avaMuudaRiiul, arhiveeri: arhiveeri, taasta: arhiveeri })[b.dataset.t](r, arv[r.id] || 0);
+        ({ tooted: naitaTooteid, muuda: avaMuudaRiiul, arhiveeri: arhiveeri, taasta: arhiveeri, silt: function (x) { LAO.kiirprint({ riiul: x.id }); } })[b.dataset.t](r, arv[r.id] || 0);
       });
     });
   }

@@ -235,7 +235,7 @@
     { pealkiri: 'KONFLIKTID', kirjeldus: 'Vajavad ülevaatust', href: '#/konfliktid', etapp: 4, admin: true },
     { pealkiri: 'SEADED', kirjeldus: 'API aadress', href: '#/seaded', etapp: 1 }
   ];
-  var VALMIS_ETAPP = 4; // tõsta pärast iga etapi valmimist
+  var VALMIS_ETAPP = 6; // tõsta pärast iga etapi valmimist
 
   function vaadeAvaleht(param, varske) {
     var admin = onAdmin();
@@ -470,6 +470,15 @@
     /** Joonistab praeguse vaate uuesti */
     marsruut: marsruut
   };
+
+  // PWA: service worker (sw.js) hoiab rakenduse faile seadmes, et see avaneks ka ilma internetita.
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    var oliKontroller = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').catch(function () { /* vana brauser – töötab ka ilma */ });
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (oliKontroller) teade('Rakendus uuendati. Värskenda lehte, et uus versioon kasutusele võtta.');
+    });
+  }
 
   // Kontrolli taustal, kas salvestatud seanss kehtib endiselt (nt kasutaja lukustati).
   if (API.seanss() && navigator.onLine) {
