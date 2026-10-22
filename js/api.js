@@ -69,6 +69,7 @@
     var oma = !(valikud && valikud.token) || (s && valikud.token === s.token);
     var token = valikud && valikud.token ? valikud.token : (s ? s.token : null);
     var keha = JSON.stringify({ action: action, token: token, data: data || {} });
+    var algus = performance.now();
 
     return fetch(url, { method: 'POST', body: keha, redirect: 'follow' })
       .catch(function () {
@@ -81,6 +82,7 @@
         });
       })
       .then(function (json) {
+        mootmine(action, performance.now() - algus, json.ms);
         if (json.ok) return json.data;
         if (json.code === 'SEANSS_KEHTETU' && oma) {
           // Järjekord jätab võtme meelde, kui sellel kasutajal on saatmata liikumisi
@@ -92,7 +94,32 @@
       });
   }
 
+  // -------------------------------------------------------------------------
+  // AJA MÕÕTMINE (arendusrežiim: SEADED → „Näita aegu”)
+  // -------------------------------------------------------------------------
+
+  var MOOTMISI = 60;
+  var mootmised = [];   // viimased mõõtmised: { aeg, nimi, ms, serveris }
+
+  /** Salvestab ühe mõõtmise. serveris = aeg Apps Scriptis (vastuse väli ms; vanemal serveril puudub). */
+  function mootmine(nimi, ms, serveris) {
+    mootmised.push({ aeg: Date.now(), nimi: nimi, ms: Math.round(ms * 10) / 10, serveris: typeof serveris === 'number' ? serveris : null });
+    if (mootmised.length > MOOTMISI) mootmised.shift();
+    try { document.dispatchEvent(new CustomEvent('lao:mootmine', { detail: mootmised[mootmised.length - 1] })); } catch (e) { /* vana brauser */ }
+  }
+
+  function arendus(sees) {
+    try {
+      if (sees === undefined) return localStorage.getItem('lao.arendus') === '1';
+      if (sees) localStorage.setItem('lao.arendus', '1'); else localStorage.removeItem('lao.arendus');
+    } catch (e) { return false; }
+    return sees;
+  }
+
   var API = {
+    mootmine: mootmine,
+    mootmised: function () { return mootmised.slice(); },
+    arendus: arendus,
     kutsu: kutsu,
     apiUrl: apiUrl,
     maaraApiUrl: maaraApiUrl,

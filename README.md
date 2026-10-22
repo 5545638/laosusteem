@@ -40,6 +40,9 @@ node tests/test-etapp2.js     # serveripoolsed testid (etapp 2)
 node tests/test-etapp3.js     # serveripoolsed testid (etapp 3)
 node tests/test-etapp4.js     # serveripoolsed testid (etapp 4)
 node tests/test-etapp56.js    # serveripoolsed testid (etapid 5–6)
+node tests/test-kiirus.js     # Saldode leht, kitsad lugemised, soojendus
+node tests/moot-kiirus.js     # serveri tabelilugemiste mõõtmine testandmetega
+VIIVITUS_MS=3000 node tests/dev-server.js   # API vastab 3 s viivitusega (nagu Apps Script)
 node tests/dev-server.js      # kohalik server http://localhost:8080, API on aadressil /api
 ```
 
@@ -51,3 +54,4 @@ node tests/dev-server.js      # kohalik server http://localhost:8080, API on aad
 4. ✅ Võrguühenduseta järjekord, sünkroonimine, konfliktid
 5. ✅ Sildiprint ja sildipõhjad
 6. ✅ Ülevaated, eksport, PWA
+7. ✅ Kiirus: skännimine ilma serveri ootamiseta, Saldode leht

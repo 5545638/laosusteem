@@ -150,4 +150,11 @@ test('vana seansirida jääb pärast lukustamist alles ka uue sisselogimise jär
   assert.strictEqual(r.data.kasutajaLukustatud, true);
 });
 
+console.log('Saldode leht');
+test('Saldode leht vastab liikumistest arvutatud seisule', () => {
+  const r = A('saldod.kontrolli', {});
+  assert(r.ok, JSON.stringify(r));
+  assert.deepStrictEqual(r.data.erinevused, [], JSON.stringify(r.data.erinevused));
+});
+
 console.log('\n' + ok + ' testi õnnestus');

@@ -50,7 +50,8 @@
       LAO.kuiLahkud = function () { skanner.peata(); LAO.aktiivneSkanner = null; };
 
       // Värskenda nimekirja taustal (nimetused ja saldod on kohe seadmest olemas)
-      if (navigator.onLine) LAO.laeAndmed().catch(function () { /* jätkame seadmes olevaga */ });
+      LAO.taustaUuendus(); // kui viimasest laadimisest on üle minuti
+
       if (algkood) kuiKood(algkood, new Date());
     };
   }
@@ -66,17 +67,18 @@
   // KOODI TÖÖTLEMINE
   // -------------------------------------------------------------------------
 
+  var ajad = {}; // arendusrežiimi jaoks: viimase skänni otsingu ja salvestuse aeg
+  var skanniNr = 0; // iga skänn suurendab – taustal saabunud vastus teab, kas see käib veel praeguse kohta
+
+  /** Otsing ainult seadme nimekirjast – serverit ei oodata. */
   function kuiKood(kood, aeg) {
+    skanniNr++;
+    var t0 = performance.now();
     var leitud = LAO.leiaKoodiga(kood);
+    ajad = { otsing: performance.now() - t0 };
+    API.mootmine('otsing', ajad.otsing);
     if (leitud) return kasitle(leitud, kood, aeg);
-    // Pole seadme nimekirjas – võib-olla lisas keegi just praegu. Kontrolli serverist.
-    skanner.paus(true);
-    $('#toiming').innerHTML = '<p class="juhis">Otsin koodi ' + esc(kood) + '…</p>';
-    LAO.laeAndmed().catch(function () {}).then(function () {
-      var uuesti = LAO.leiaKoodiga(kood);
-      if (uuesti) kasitle(uuesti, kood, aeg);
-      else tundmatu(kood, aeg);
-    });
+    tundmatu(kood, aeg);
   }
 
   function kasitle(leitud, kood, aeg) {
@@ -95,22 +97,45 @@
     return koguseVorm(t, aeg);
   }
 
-  /** Tundmatu kood → kiirlisamine; pärast salvestamist jätka sama toiminguga. */
+  /**
+   * Tundmatu kood → kiirlisamise vorm avaneb kohe; pärast salvestamist jätka sama toiminguga.
+   * Taustal kontrollitakse serverist, kas keegi on selle koodi vahepeal lisanud – kui jah,
+   * suletakse vorm ja jätkatakse olemasoleva tootega.
+   */
   function tundmatu(kood, aeg) {
     LAO.piiks('hoiatus');
+    skanner.paus(true);
+    var aken = null, salvestatud = false, minu = skanniNr;
     $('#toiming').innerHTML =
       '<div class="kaart-teade hoiatus"><b>Tundmatu kood:</b> <code>' + esc(kood) + '</code>' +
-      '<p>Seda koodi pole andmebaasis.</p>' +
+      '<p>Seda koodi pole seadme nimekirjas.</p>' +
       '<div class="nupurida nupurida-vasak"><button class="nupp nupp-pohi nupp-suur" id="kiirlisa">+ Lisa uus toode</button>' +
       '<button class="nupp nupp-suur" id="loobu">Loobu</button></div></div>';
-    $('#loobu').addEventListener('click', function () { valmis(); });
-    $('#kiirlisa').addEventListener('click', function () {
-      LAO.avaLisaToode({ kood: kood, tyyp: reziim === 'tooriist' ? 'TÖÖRIIST' : 'VARUOSA' }, function (loodud) {
+    $('#loobu').addEventListener('click', function () { if (aken) aken.close(); valmis(); });
+    function avaVorm() {
+      aken = LAO.avaLisaToode({ kood: kood, tyyp: reziim === 'tooriist' ? 'TÖÖRIIST' : 'VARUOSA' }, function (loodud) {
+        salvestatud = true;
         var t = LAO.toode(loodud[0].id);
         if (t) kasitle({ toode: t }, kood, aeg); else valmis();
+      }, { kohe: true });
+      aken.addEventListener('close', function () {
+        aken = null;
+        // Loobus vormist → tagasi skännima (kui vahepeal midagi muud ei juhtunud)
+        if (!salvestatud && minu === skanniNr) valmis('Kood ' + kood + ' jäi lisamata. ' + REZIIMID[reziim].vihje);
       });
-    });
-    $('#kiirlisa').focus();
+    }
+    $('#kiirlisa').addEventListener('click', avaVorm);
+    avaVorm();
+
+    if (!navigator.onLine) return;
+    LAO.laeAndmed().then(function () {
+      var leitud = LAO.leiaKoodiga(kood);
+      // Kasutaja on juba edasi läinud (salvestas, loobus või skännis uue koodi)
+      if (!leitud || salvestatud || minu !== skanniNr || !$('#kiirlisa')) return;
+      if (aken) { salvestatud = true; aken.close(); } // ära mine sulgemisel tagasi skännima
+      teade('See kood on juba olemas: ' + (leitud.toode ? leitud.toode.nimetus : 'riiul ' + leitud.riiul.kood));
+      kasitle(leitud, kood, aeg);
+    }).catch(function () { /* võrgu viga – kasutaja jätkab lisamisega */ });
   }
 
   function valeTyyp(t, tekst, r1, n1, r2, n2, kood) {
@@ -361,7 +386,10 @@
     if (vorm) LAO.hoivatud(vorm, true);
     var nupud = document.querySelectorAll('#toiming button');
     Array.prototype.forEach.call(nupud, function (b) { b.disabled = true; });
+    var t0 = performance.now();
     LAO.salvestaLiikumised([liikumine]).then(function (tul) {
+      ajad.salvestus = performance.now() - t0;
+      API.mootmine('salvestus', ajad.salvestus);
       var r = tul[0];
       if (!r.ok) throw new Error(r.viga || 'Salvestamine ebaõnnestus.');
       if (liikumine.kellele_kuhu && liikumine.tyyp === 'VÄLJA_ANTUD') jataKellegeMeelde(liikumine.kellele_kuhu);
@@ -386,7 +414,9 @@
     $('#tulemus').innerHTML =
       '<div class="tulemus tulemus-ok">' +
       '<div class="tulemus-tekst">✓ ' + esc(tekst) +
-      '<div class="vaike saatmise-olek">' + (navigator.onLine ? 'Salvestatud, saadan serverisse…' : 'Salvestatud seadmesse – saadetakse, kui internet tagasi tuleb.') + '</div></div>' +
+      '<div class="vaike saatmise-olek">' + (navigator.onLine ? 'Salvestatud, saadan serverisse…' : 'Salvestatud seadmesse – saadetakse, kui internet tagasi tuleb.') + '</div>' +
+      (API.arendus() ? '<div class="vaike ajarida">⏱ otsing ' + LAO.ajaTekst(ajad.otsing || 0) + ' · salvestus seadmesse ' + LAO.ajaTekst(ajad.salvestus || 0) +
+        ' · server <span class="serveriaeg">…</span></div>' : '') + '</div>' +
       (eiTyhista ? '' : '<button class="nupp nupp-vaike" id="tyhista">Tühista</button>') +
       '</div>';
     if (eiTyhista) return;
@@ -417,6 +447,10 @@
     } else {
       olek.textContent = '✓ Serveris';
     }
+    // Arendusrežiim: serverisse saatmise aeg (viimane liikumised.lisa mõõtmine)
+    var sa = kast.querySelector('.serveriaeg');
+    var m = API.mootmised().filter(function (x) { return x.nimi === 'liikumised.lisa'; }).pop();
+    if (sa && m) sa.textContent = LAO.ajaTekst(m.ms) + (m.serveris !== null ? ' (Apps Scriptis ' + LAO.ajaTekst(m.serveris) + ')' : '');
   });
 
   LAO.vaated['sisse'] = { fn: looVaade('sisse') };
