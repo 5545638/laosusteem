@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 
 var SEADED = {
-  VERSIOON: '1.5.0-etapp6',
+  VERSIOON: '1.6.0-kiirus',
   SEANSI_KEHTIVUS_PAEVI: 30,      // Mitu päeva telefon sisselogimist meeles peab
   // Aegunud/lukustatud seansi rida hoitakse veel nii mitu päeva alles, et lukustatud
   // kasutaja telefonist hiljem saabuvad liikumised saaks tema nimel KONFLIKTIDE alla panna.
@@ -48,7 +48,8 @@ var SEADED = {
   MAX_IMPORDI_RIDU: 500,          // Mitu rida ühes impordipäringus (esipaneel jagab suure faili osadeks)
   MAX_LIIKUMISI_PARINGUS: 200,    // Mitu liikumist korraga (telefoni järjekord saadab pakkidena)
   MAX_MINU_KONFLIKTE: 20,         // Mitu lahendamata konflikti näidatakse kasutajale telefonis
-  MAX_AJALOO_RIDU: 5000           // Mitu liikumist korraga AJALOO vaatesse/eksporti
+  MAX_AJALOO_RIDU: 5000,          // Mitu liikumist korraga AJALOO vaatesse/eksporti
+  SOOVITUSTE_RIDU: 1000           // Mitmest viimasest liikumisest „kellele/kuhu” soovitused tehakse
 };
 
 /** Toote tüübid */
@@ -93,6 +94,12 @@ var SKEEM = {
   Seansid: [
     // "võti" on seansivõtme räsi – võtit ennast tabelis ei hoita.
     ['võti', 's'], ['kasutaja_id', 's'], ['loodud', 'd'], ['kehtib_kuni', 'd'], ['seade', 's']
+  ],
+  // Iga toote praegune seis (arvutatakse liikumistest ja uuendatakse iga liikumisega),
+  // et saldo saamiseks ei peaks iga päringu ajal kogu Liikumiste lehte läbi lugema.
+  Saldod: [
+    ['toote_id', 's'], ['saldo', 'n'], ['olek', 's'], ['kellele', 's'], ['alates', 'd'],
+    ['viimati_muudetud', 'd']
   ],
   Sildipõhjad: [
     ['id', 's'], ['nimi', 's'], ['laius_mm', 'n'], ['kõrgus_mm', 'n'], ['paigutus', 's'],
@@ -152,6 +159,7 @@ function vastus_(obj) {
  */
 var TEGEVUSED = {
   'olek':                 { fn: tOlek_, avalik: true },
+  'soe':                  { fn: tSoe_, avalik: true },   // „äratus” – ei loe tabelit
   'esimeneAdmin':         { fn: tEsimeneAdmin_, avalik: true, kirjutab: true },
   'login':                { fn: tLogin_, avalik: true, kirjutab: true },
   'logout':               { fn: tLogout_, kirjutab: true },
@@ -189,7 +197,11 @@ var TEGEVUSED = {
   'sildipohjad.kustuta':  { fn: tSildipohjadKustuta_, roll: ROLL.ADMIN, kirjutab: true },
 
   // Etapp 6: ajalugu
-  'liikumised.nimekiri':  { fn: tLiikumisedNimekiri_ }
+  'liikumised.nimekiri':  { fn: tLiikumisedNimekiri_ },
+
+  // Saldode kontroll: Saldode leht vs liikumistest arvutatud seis
+  'saldod.kontrolli':     { fn: tSaldodKontrolli_, roll: ROLL.ADMIN },
+  'saldod.paranda':       { fn: tSaldodParanda_, roll: ROLL.ADMIN, kirjutab: true }
 };
 
 /**
@@ -197,6 +209,7 @@ var TEGEVUSED = {
  * võtab vajadusel luku ning püüab vead kinni.
  */
 function kasitle_(paring) {
+  var algus = Date.now();
   var lukk = null;
   try {
     var tegevus = TEGEVUSED[paring.action];
@@ -217,6 +230,9 @@ function kasitle_(paring) {
       }
     }
 
+    // Lukk võetakse alles pärast seansi kontrolli ja ainult andmeid muutvatele tegevustele.
+    // Luku all peab olema ka lugemine (nt saldo enne VÄLJA), muidu võiks kaks samaaegset
+    // päringut lugeda sama vana saldo ja üks muudatus läheks kaotsi.
     if (tegevus.kirjutab) {
       lukk = LockService.getScriptLock();
       if (!lukk.tryLock(SEADED.LUKU_OOTEAEG_MS)) {
@@ -225,19 +241,27 @@ function kasitle_(paring) {
     }
 
     var tulemus = tegevus.fn(paring.data || {}, kasutaja, paring);
-    return { ok: true, data: tulemus === undefined ? null : tulemus };
+    return { ok: true, data: tulemus === undefined ? null : tulemus, ms: Date.now() - algus };
   } catch (err) {
     if (err instanceof ApiViga_) {
-      return { ok: false, error: err.message, code: err.code };
+      return { ok: false, error: err.message, code: err.code, ms: Date.now() - algus };
     }
     console.error(err && err.stack ? err.stack : err);
-    return { ok: false, error: 'Serveri viga: ' + (err && err.message ? err.message : err), code: 'SERVERI_VIGA' };
+    return { ok: false, error: 'Serveri viga: ' + (err && err.message ? err.message : err), code: 'SERVERI_VIGA', ms: Date.now() - algus };
   } finally {
     if (lukk) {
       SpreadsheetApp.flush(); // kirjuta muudatused tabelisse enne luku vabastamist
       lukk.releaseLock();
     }
   }
+}
+
+/**
+ * „Äratus”: esipaneel kutsub seda rakenduse avamisel taustal, et Apps Script oleks
+ * skännimise ajaks juba käivitunud. Tabelit ei loeta, et vastus oleks võimalikult kiire.
+ */
+function tSoe_() {
+  return { versioon: SEADED.VERSIOON };
 }
 
 /** Viga, mille tekst näidatakse kasutajale. */
@@ -715,6 +739,50 @@ function uuendaRida_(nimi, reaNr, muutus) {
   }
 }
 
+/** Kirjutab terve rea ühe päringuga (kõik lehe veerud; puuduvad väljad jäävad tühjaks). */
+function kirjutaRida_(nimi, reaNr, obj) {
+  var sh = leht_(nimi);
+  var kaart = paiseKaart_(sh);
+  var tyybid = veeruTyybid_(nimi);
+  var rida = [];
+  for (var i = 0; i < sh.getLastColumn(); i++) rida.push('');
+  for (var veerg in kaart) {
+    if (veerg in obj) rida[kaart[veerg]] = teisendaKirjutatav_(obj[veerg], tyybid[veerg]);
+  }
+  sh.getRange(reaNr, 1, 1, rida.length).setValues([rida]);
+}
+
+/** Ühe veeru väärtused (ilma päiseta). Indeks i vastab tabeli reale i + 2. */
+function loeVeerg_(nimi, veerg) {
+  var sh = leht_(nimi);
+  var viimane = sh.getLastRow();
+  if (viimane < 2) return [];
+  var kaart = paiseKaart_(sh);
+  if (!(veerg in kaart)) throw new ApiViga_('Lehel "' + nimi + '" puudub veerg "' + veerg + '".', 'SEADISTAMATA');
+  var tyyp = veeruTyybid_(nimi)[veerg];
+  return sh.getRange(2, kaart[veerg] + 1, viimane - 1, 1).getValues().map(function (r) { return teisendaLoetud_(r[0], tyyp); });
+}
+
+/** Loeb read alates reast „algus” (kuni lehe lõpuni või „arv” rida) objektidena (obj._rida = rea number). */
+function loeReadAlates_(nimi, algus, arv) {
+  var sh = leht_(nimi);
+  var viimane = sh.getLastRow();
+  algus = Math.max(2, algus);
+  if (arv) viimane = Math.min(viimane, algus + arv - 1);
+  if (viimane < algus) return [];
+  var kaart = paiseKaart_(sh);
+  var tyybid = veeruTyybid_(nimi);
+  var vaartused = sh.getRange(algus, 1, viimane - algus + 1, sh.getLastColumn()).getValues();
+  var tulemus = [];
+  for (var i = 0; i < vaartused.length; i++) {
+    if (vaartused[i].join('') === '') continue;
+    var obj = { _rida: algus + i };
+    for (var veerg in kaart) obj[veerg] = teisendaLoetud_(vaartused[i][kaart[veerg]], tyybid[veerg]);
+    tulemus.push(obj);
+  }
+  return tulemus;
+}
+
 /** Kustutab kõik tingimusele vastavad read (alt üles, et reanumbrid ei nihkuks). */
 function kustutaRead_(nimi, tingimus) {
   var sh = leht_(nimi);
@@ -771,8 +839,7 @@ function tAndmed_(data, kasutaja) {
   loeLeht_('Koodid').forEach(function (k) {
     (koodid[k.toote_id] = koodid[k.toote_id] || []).push({ kood: k.kood, tyyp: k['koodi_tüüp'] });
   });
-  var liikumised = loeLeht_('Liikumised');
-  var seis = arvutaSeisListist_(liikumised);
+  var seis = loeSaldod_().seis; // kogu Liikumiste lehte ei loeta
   var tooted = loeLeht_('Tooted').map(function (t) {
     var s = seis[t.id] || {};
     return {
@@ -798,7 +865,8 @@ function tAndmed_(data, kasutaja) {
   // Lahendamata konfliktid: adminile arv, kasutajale tema enda omad (telefonis teateks)
   var nimed = {};
   tooted.forEach(function (t) { nimed[t.id] = t.nimetus; });
-  var lahtised = lahendamataKonfliktid_(liikumised);
+  var viimased = viimasedLiikumised_();
+  var lahtised = lahendamataKonfliktid_(viimased.read);
   var minu = lahtised.filter(function (l) { return l.kasutaja_id === kasutaja.id; })
     .slice(-SEADED.MAX_MINU_KONFLIKTE).reverse()
     .map(function (l) {
@@ -808,11 +876,26 @@ function tAndmed_(data, kasutaja) {
   return {
     tooted: tooted,
     riiulid: riiulid,
-    kelleleSoovitused: kelleleSoovitused_(liikumised),
+    kelleleSoovitused: kelleleSoovitused_(viimased.read.slice(-SEADED.SOOVITUSTE_RIDU)),
     minuKonfliktid: minu,
     konfliktideArv: kasutaja.roll === ROLL.ADMIN ? lahtised.length : null,
     serveriAeg: new Date().toISOString()
   };
+}
+
+/**
+ * Liikumiste lehe lõpp: viimased SOOVITUSTE_RIDU rida ning kõik read alates vanimast
+ * lahendamata konfliktist (et konflikti hilisem TÜHISTUS oleks kindlasti kaasas).
+ * Konfliktid leitakse kahe kitsa veeru (konflikt, lahendatud) järgi – kogu lehte ei loeta.
+ */
+function viimasedLiikumised_() {
+  var konflikt = loeVeerg_('Liikumised', 'konflikt');
+  var lahendatud = loeVeerg_('Liikumised', 'lahendatud');
+  var algus = Math.max(2, konflikt.length + 2 - SEADED.SOOVITUSTE_RIDU);
+  for (var i = 0; i < konflikt.length; i++) {
+    if (konflikt[i] && !lahendatud[i]) { algus = Math.min(algus, i + 2); break; }
+  }
+  return { read: loeReadAlates_('Liikumised', algus) };
 }
 
 /** Viimati kasutatud „kellele/kuhu” väärtused (uuemad eespool), väljaandmise vormi soovitusteks. */
@@ -867,6 +950,134 @@ function arvutaSeisListist_(koikLiikumised) {
     s.saldo = Math.round(s.saldo * 1000) / 1000; // väldi ujukomavigu (0.1 + 0.2)
   });
   return seis;
+}
+
+// ---------------------------------------------------------------------------
+// SALDOD-LEHT
+// ---------------------------------------------------------------------------
+// Leht Saldod hoiab iga toote praegust seisu (saldo / olek / kellel / alates).
+// Liikumise salvestamisel uuendatakse ainult puudutatud toodete ridu. Harvad
+// toimingud (tühistamine, konflikti lahendamine, lukustatud kasutaja liikumised)
+// arvutavad seisu kõigist liikumistest ja kirjutavad tulemuse samuti siia.
+// Kui lehte pole (vana tabel), luuakse see automaatselt ja täidetakse liikumiste põhjal.
+// Admin saab lehte kontrollida ja parandada (tegevused saldod.kontrolli / saldod.paranda).
+
+/** Saldode leht; puudumisel luuakse ja täidetakse. */
+function saldodLeht_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Saldod');
+  if (!sh) {
+    seadistaLeht_(ss, 'Saldod');
+    ehitaSaldod_();
+    sh = ss.getSheetByName('Saldod');
+  }
+  return sh;
+}
+
+/** Loeb Saldode lehe: { seis: { toote_id: {saldo, olek, kellele, alates} }, read: { toote_id: rea nr } } */
+function loeSaldod_() {
+  saldodLeht_();
+  var seis = {}, read = {};
+  loeLehtRidadega_('Saldod').forEach(function (r) {
+    var o = r.obj;
+    if (!o.toote_id) return;
+    seis[o.toote_id] = { saldo: Number(o.saldo) || 0, olek: o.olek || 'LAOS', kellele: o.kellele || '', alates: o.alates || '' };
+    read[o.toote_id] = r.rida;
+  });
+  return { seis: seis, read: read };
+}
+
+/**
+ * Kirjutab etteantud toodete seisu Saldode lehele: olemasolev rida kirjutatakse
+ * üle (üks päring rea kohta), uued read lisatakse lõppu ühe päringuga.
+ * read = loeSaldod_().read (kui juba loetud), muidu loetakse.
+ */
+function kirjutaSaldod_(seis, tooteIdd, read) {
+  if (!tooteIdd.length) return;
+  read = read || loeSaldod_().read;
+  var sh = leht_('Saldod');
+  var kaart = paiseKaart_(sh), tyybid = veeruTyybid_('Saldod'), veerge = sh.getLastColumn();
+  var nuud = new Date(), olemas = {}, uued = [];
+  function massiiviks(tid) {
+    var s = seis[tid] || { saldo: 0, olek: 'LAOS', kellele: '', alates: '' };
+    var obj = { toote_id: tid, saldo: ymarda_(s.saldo || 0), olek: s.olek || 'LAOS', kellele: s.kellele || '',
+      alates: s.alates || '', viimati_muudetud: nuud };
+    var rida = [];
+    for (var i = 0; i < veerge; i++) rida.push('');
+    for (var v in kaart) if (v in obj) rida[kaart[v]] = teisendaKirjutatav_(obj[v], tyybid[v]);
+    return rida;
+  }
+  tooteIdd.forEach(function (tid) {
+    if (read[tid]) olemas[read[tid]] = massiiviks(tid);
+    else uued.push(massiiviks(tid));
+  });
+  var reaNrid = Object.keys(olemas).map(Number).sort(function (a, b) { return a - b; });
+  if (reaNrid.length <= 3) {
+    // Üks-kaks toodet (tavaline skännimine): iga rida eraldi
+    reaNrid.forEach(function (nr) { sh.getRange(nr, 1, 1, veerge).setValues([olemas[nr]]); });
+  } else if (reaNrid.length) {
+    // Palju tooteid: loe vahemik, asenda muutunud read ja kirjuta ühe päringuga tagasi
+    var algus = reaNrid[0], arv = reaNrid[reaNrid.length - 1] - algus + 1;
+    var plokk = sh.getRange(algus, 1, arv, veerge).getValues();
+    reaNrid.forEach(function (nr) { plokk[nr - algus] = olemas[nr]; });
+    sh.getRange(algus, 1, arv, veerge).setValues(plokk);
+  }
+  if (uued.length) {
+    var esimene = sh.getLastRow() + 1;
+    sh.getRange(esimene, 1, uued.length, veerge).setValues(uued);
+    uued.forEach(function (r, i) { read[r[kaart.toote_id]] = esimene + i; }); // järgmine kirjutus samas päringus leiab rea
+  }
+}
+
+/** Arvutab kõigi toodete seisu liikumistest ja kirjutab Saldode lehe üle. Tagastab ridade arvu. */
+function ehitaSaldod_() {
+  var seis = arvutaSeis_();
+  var sh = leht_('Saldod');
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
+  var nuud = new Date();
+  var read = loeLeht_('Tooted').map(function (t) {
+    var s = seis[t.id] || { saldo: 0, olek: 'LAOS', kellele: '', alates: '' };
+    return { toote_id: t.id, saldo: s.saldo, olek: s.olek, kellele: s.kellele, alates: s.alates, viimati_muudetud: nuud };
+  });
+  if (read.length) {
+    var kaart = paiseKaart_(sh), tyybid = veeruTyybid_('Saldod'), veerge = sh.getLastColumn();
+    sh.getRange(2, 1, read.length, veerge).setValues(read.map(function (obj) {
+      var rida = [];
+      for (var i = 0; i < veerge; i++) rida.push('');
+      for (var v in kaart) if (v in obj) rida[kaart[v]] = teisendaKirjutatav_(obj[v], tyybid[v]);
+      return rida;
+    }));
+  }
+  return read.length;
+}
+
+/** Võrdleb Saldode lehte liikumistest arvutatud seisuga (ainult loeb). */
+function tSaldodKontrolli_() {
+  var arvutatud = arvutaSeis_();
+  var leht = loeSaldod_().seis;
+  var erinevused = [];
+  var tooted = loeLeht_('Tooted');
+  tooted.forEach(function (t) {
+    var a = arvutatud[t.id] || { saldo: 0, olek: 'LAOS', kellele: '' };
+    var l = leht[t.id] || { saldo: 0, olek: 'LAOS', kellele: '' }; // rida puudub = liikumisteta toode
+    var tooriist = t['tüüp'] === TYYP.TOORIIST;
+    var sama = (tooriist ? (a.olek === l.olek && String(a.kellele || '') === String(l.kellele || ''))
+                              : ymarda_(a.saldo) === ymarda_(l.saldo));
+    if (!sama) {
+      erinevused.push({
+        id: t.id, nimetus: t.nimetus, tyyp: t['tüüp'],
+        lehel: tooriist ? l.olek + (l.kellele ? ' (' + l.kellele + ')' : '') : String(ymarda_(l.saldo)),
+        arvutatud: tooriist ? a.olek + (a.kellele ? ' (' + a.kellele + ')' : '') : String(ymarda_(a.saldo))
+      });
+    }
+  });
+  return { kontrollitud: tooted.length, erinevused: erinevused };
+}
+
+/** Kirjutab Saldode lehe liikumiste põhjal uuesti. */
+function tSaldodParanda_() {
+  saldodLeht_();
+  return { ridu: ehitaSaldod_() };
 }
 
 // ---------------------------------------------------------------------------
@@ -1127,6 +1338,11 @@ function looKontekst_() {
     lisaRead_('Tooted', ctx.uuedTooted);
     lisaRead_('Koodid', ctx.uuedKoodid);
     lisaRead_('Liikumised', ctx.uuedLiikumised);
+    // Algsaldo: uue toote seis tuleb ainult tema enda (just lisatud) liikumistest
+    if (ctx.uuedLiikumised.length) {
+      var uusSeis = arvutaSeisListist_(ctx.uuedLiikumised);
+      kirjutaSaldod_(uusSeis, Object.keys(uusSeis));
+    }
     if (ctx.loenduridMuutunud) {
       Object.keys(ctx.loendurid).forEach(function (t) {
         if (ctx.loenduriRead[t]) uuendaRida_('Loendurid', ctx.loenduriRead[t], { 'järgmine': ctx.loendurid[t] });
@@ -1383,7 +1599,10 @@ function tLiikumisedLisa_(data, kasutaja) {
   if (sisend.length > SEADED.MAX_LIIKUMISI_PARINGUS) {
     throw new ApiViga_('Korraga kuni ' + SEADED.MAX_LIIKUMISI_PARINGUS + ' liikumist.', 'VALE_SISEND');
   }
-  var ctx = looLiikumisteKontekst_(kasutaja);
+  // Tavaline liikumine: kiire kontekst (saldod Saldode lehelt, liikumistest ainult id-veerg).
+  // Tühistamine ja lukustatud kasutaja vajavad kogu ajalugu – siis loetakse kõik liikumised.
+  var koguAjalugu = kasutaja.lukustatud || sisend.some(function (l) { return l && l.tyyp === 'TÜHISTUS'; });
+  var ctx = koguAjalugu ? looLiikumisteKontekst_(kasutaja) : looKiireKontekst_(kasutaja);
   var tulemused = sisend.map(function (l) {
     try {
       return tootleLiikumine_(ctx, l || {});
@@ -1415,12 +1634,43 @@ function looLiikumisteKontekst_(kasutaja) {
   return ctx;
 }
 
-/** Kirjutab kontekstis kogutud uued liikumised ja riiulimuutused tabelisse. */
+/**
+ * Kiire kontekst tavaliste liikumiste jaoks: seis tuleb Saldode lehelt ja liikumistest
+ * loetakse ainult id-veerg (topeltsaatmise kontroll). Kogu Liikumiste lehte ei loeta.
+ */
+function looKiireKontekst_(kasutaja) {
+  var saldod = loeSaldod_();
+  var ctx = {
+    kasutaja: kasutaja,
+    koik: [],             // kiires kontekstis ainult selle päringu uued liikumised
+    ids: {},
+    idRida: {},           // olemasoleva liikumise id → rea number
+    tooted: {},
+    riiulid: {},
+    uued: [],
+    riiuliMuutused: {},
+    puudutatud: {},
+    seis: saldod.seis,
+    saldoRead: saldod.read
+  };
+  loeVeerg_('Liikumised', 'id').forEach(function (id, i) { if (id) ctx.idRida[id] = i + 2; });
+  loeLehtRidadega_('Tooted').forEach(function (r) { ctx.tooted[r.obj.id] = r; });
+  loeLeht_('Riiulid').forEach(function (r) { ctx.riiulid[r.id] = r; });
+  /** Varem salvestatud liikumine (topeltsaatmisel) – loetakse ainult see üks rida. */
+  ctx.loeVana = function (id) {
+    var rida = ctx.idRida[id];
+    return rida ? loeReadAlates_('Liikumised', rida, 1)[0] || null : null;
+  };
+  return ctx;
+}
+
+/** Kirjutab kontekstis kogutud uued liikumised, riiulimuutused ja puudutatud toodete saldod tabelisse. */
 function salvestaLiikumisteKontekst_(ctx) {
-  lisaRead_('Liikumised', ctx.uued);
+  lisaRead_('Liikumised', ctx.uued); // kõik uued liikumised ühe setValues-päringuga
   Object.keys(ctx.riiuliMuutused).forEach(function (tid) {
     uuendaRida_('Tooted', ctx.tooted[tid].rida, { riiul_id: ctx.riiuliMuutused[tid] });
   });
+  kirjutaSaldod_(ctx.seis, Object.keys(ctx.puudutatud), ctx.saldoRead);
   ctx.uued = [];
 }
 
@@ -1446,8 +1696,8 @@ function tootleLiikumine_(ctx, l) {
   if (!/^[A-Za-z0-9-]{8,60}$/.test(id)) throw new ApiViga_('Liikumisel puudub korrektne id.', 'VALE_SISEND');
 
   // Juba salvestatud (nt telefon saatis uuesti) → ei lisa teist korda
-  if (ctx.ids[id]) {
-    var vana = ctx.ids[id];
+  var vana = ctx.ids[id] || (ctx.loeVana ? ctx.loeVana(id) : null);
+  if (vana) {
     return { id: id, ok: true, duplikaat: true, konflikt: !!vana.konflikt, pohjus: vana.konflikti_põhjus || '' };
   }
 
@@ -1739,6 +1989,9 @@ function tKonfliktidLahenda_(data, admin) {
     }
   });
 
+  // Kinnitamine/tagasilükkamine muudab, mis arvesse läheb – arvuta seis uuesti
+  ctx.seis = arvutaSeisListist_(ctx.koik);
+  margitud.forEach(function (l) { if (ctx.tooted[l.toote_id]) ctx.puudutatud[l.toote_id] = true; });
   salvestaLiikumisteKontekst_(ctx);
   margitud.forEach(function (l) {
     uuendaRida_('Liikumised', l._rida, { lahendatud: true, 'konflikti_põhjus': l['konflikti_põhjus'] });
@@ -1883,27 +2136,9 @@ function seadista() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.setSpreadsheetTimeZone('Europe/Tallinn');
 
-  Object.keys(SKEEM).forEach(function (nimi) {
-    var sh = ss.getSheetByName(nimi) || ss.insertSheet(nimi);
-    var veerud = SKEEM[nimi];
-    // Kui lehel juba on päis, lisatakse ainult puuduvad veerud lõppu.
-    var olemas = sh.getLastColumn() > 0 ? paiseKaart_(sh) : {};
-    var lisada = veerud.filter(function (v) { return !(v[0] in olemas); });
-    if (lisada.length) {
-      var algus = sh.getLastColumn() + 1;
-      sh.getRange(1, algus, 1, lisada.length).setValues([lisada.map(function (v) { return v[0]; })]);
-    }
-    // Vormindus: päis paksult ja külmutatud, veergude andmetüübid.
-    var kaart = paiseKaart_(sh);
-    sh.setFrozenRows(1);
-    sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold').setBackground('#e8eef7');
-    veerud.forEach(function (v) {
-      var r = sh.getRange(2, kaart[v[0]] + 1, sh.getMaxRows() - 1, 1);
-      if (v[1] === 'd') r.setNumberFormat('dd.mm.yyyy hh:mm:ss');
-      else if (v[1] === 'n') r.setNumberFormat('0.###');
-      else r.setNumberFormat('@'); // lihttekst
-    });
-  });
+  var saldodPuudus = !ss.getSheetByName('Saldod');
+  Object.keys(SKEEM).forEach(function (nimi) { seadistaLeht_(ss, nimi); });
+  if (saldodPuudus) ehitaSaldod_(); // olemasolevas tabelis: saldod liikumiste põhjal
 
   // Loendurid algväärtustega
   var loendurid = loeLeht_('Loendurid').map(function (l) { return l['tüüp']; });
@@ -1934,6 +2169,61 @@ function seadista() {
   Logger.log(teade);
   try { SpreadsheetApp.getUi().alert(teade); } catch (e) { /* redaktorist käivitades UI-d pole */ }
   return teade;
+}
+
+/** Loob lehe (kui puudub) ja lisab puuduvad veerud; vormindab päise ja veerud. */
+function seadistaLeht_(ss, nimi) {
+  var sh = ss.getSheetByName(nimi) || ss.insertSheet(nimi);
+  var veerud = SKEEM[nimi];
+  // Kui lehel juba on päis, lisatakse ainult puuduvad veerud lõppu.
+  var olemas = sh.getLastColumn() > 0 ? paiseKaart_(sh) : {};
+  var lisada = veerud.filter(function (v) { return !(v[0] in olemas); });
+  if (lisada.length) {
+    var algus = sh.getLastColumn() + 1;
+    sh.getRange(1, algus, 1, lisada.length).setValues([lisada.map(function (v) { return v[0]; })]);
+  }
+  // Vormindus: päis paksult ja külmutatud, veergude andmetüübid.
+  var kaart = paiseKaart_(sh);
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold').setBackground('#e8eef7');
+  veerud.forEach(function (v) {
+    var r = sh.getRange(2, kaart[v[0]] + 1, sh.getMaxRows() - 1, 1);
+    if (v[1] === 'd') r.setNumberFormat('dd.mm.yyyy hh:mm:ss');
+    else if (v[1] === 'n') r.setNumberFormat('0.###');
+    else r.setNumberFormat('@'); // lihttekst
+  });
+  return sh;
+}
+
+// ---------------------------------------------------------------------------
+// SOOJENDUS: hoiab skripti „soojana”, et esimene päring pärast pausi oleks kiirem
+// ---------------------------------------------------------------------------
+// Käivita Apps Scripti redaktoris üks kord funktsioon paigaldaSoojendus. See loob
+// ajapõhise päästiku, mis kutsub iga 5 minuti järel funktsiooni soojenda.
+// Google ei garanteeri, et veebirakendus selle tõttu kiirem on – mõõda arendusrežiimis.
+
+function soojenda() {
+  CacheService.getScriptCache().get('soe');
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Tooted');
+}
+
+function paigaldaSoojendus() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'soojenda') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('soojenda').timeBased().everyMinutes(5).create();
+  var teade = 'Soojendus paigaldatud: funktsioon soojenda käivitub iga 5 minuti järel.';
+  Logger.log(teade);
+  return teade;
+}
+
+function eemaldaSoojendus() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'soojenda') { ScriptApp.deleteTrigger(t); n++; }
+  });
+  Logger.log('Eemaldatud päästikuid: ' + n);
+  return n;
 }
 
 /** Lisab tabeli ülaribale menüü "Laosüsteem". */

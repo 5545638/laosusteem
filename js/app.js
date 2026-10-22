@@ -405,6 +405,16 @@
       '      <button type="submit" class="nupp nupp-pohi">Salvesta</button></div>' +
       '    <p id="seadedTulemus" class="vaike"></p>' +
       '  </form>' +
+      (API.seanss() && onAdmin()
+        ? '  <h2>Saldode kontroll</h2>' +
+          '  <p class="vaike">Arvutab iga toote saldo/oleku kõigist liikumistest uuesti ja võrdleb tabeli lehega Saldod. ' +
+          'Erinevus tekib ainult siis, kui Liikumiste lehte on käsitsi muudetud.</p>' +
+          '  <div class="nupurida nupurida-vasak"><button type="button" id="kontrolliSaldosid" class="nupp">Kontrolli saldosid</button></div>' +
+          '  <div id="saldoKontroll"></div>'
+        : '') +
+      '  <h2>Arendusrežiim</h2>' +
+      '  <label class="linnuke"><input type="checkbox" id="arendus"' + (API.arendus() ? ' checked' : '') + '> Näita aegu (skännimisel ja siin)</label>' +
+      '  <div id="ajad"></div>' +
       '  <p class="vaike"><a href="#/avaleht">Tagasi</a></p>' +
       '</section>';
     var vorm = $('#seadedVorm');
@@ -425,7 +435,76 @@
         $('#seadedTulemus').textContent = 'Ei õnnestunud: ' + err.message;
       }).then(function () { API.maaraApiUrl(vana === configUrl ? '' : vana); });
     });
+    if ($('#kontrolliSaldosid')) $('#kontrolliSaldosid').addEventListener('click', kontrolliSaldosid);
+    $('#arendus').addEventListener('change', function () { API.arendus(this.checked); naitaAegu(); });
+    naitaAegu();
   }
+
+  /** Saldode lehe kontroll (admin): erinevused liikumistest arvutatud seisuga. */
+  function kontrolliSaldosid() {
+    var kast = $('#saldoKontroll');
+    kast.innerHTML = '<p class="vaike">Kontrollin… (loeb kõik liikumised, võib võtta mõne sekundi)</p>';
+    API.kutsu('saldod.kontrolli').then(function (r) {
+      if (!r.erinevused.length) {
+        kast.innerHTML = '<p class="kaart-teade info">✓ Kontrollitud ' + r.kontrollitud + ' toodet – kõik saldod klapivad.</p>';
+        return;
+      }
+      kast.innerHTML = '<p class="kaart-teade hoiatus">Kontrollitud ' + r.kontrollitud + ' toodet, erinevusi: <b>' + r.erinevused.length + '</b></p>' +
+        '<table class="tabel"><thead><tr><th>Toode</th><th>Saldode lehel</th><th>Liikumistest arvutatud</th></tr></thead><tbody>' +
+        r.erinevused.map(function (e) {
+          return '<tr><td data-silt="Toode">' + esc(e.nimetus) + '</td><td data-silt="Lehel">' + esc(e.lehel) +
+            '</td><td data-silt="Arvutatud"><b>' + esc(e.arvutatud) + '</b></td></tr>';
+        }).join('') + '</tbody></table>' +
+        '<div class="nupurida nupurida-vasak"><button type="button" id="parandaSaldod" class="nupp nupp-pohi">Paranda Saldode leht (kasuta arvutatud väärtusi)</button></div>';
+      $('#parandaSaldod').addEventListener('click', function () {
+        this.disabled = true;
+        API.kutsu('saldod.paranda').then(function (p) {
+          teade('Saldode leht kirjutati uuesti (' + p.ridu + ' toodet).');
+          LAO.laeAndmed().catch(function () {});
+          kontrolliSaldosid();
+        }).catch(function (err) { teade(err.message, 'viga'); });
+      });
+    }).catch(function (err) {
+      kast.innerHTML = '<p class="vormi-viga">' + esc(err.code === 'VALE_PARING' ? 'Server on vana – kleebi uus Code.gs ja tee uus juurutus.' : err.message) + '</p>';
+    });
+  }
+
+  var AJA_NIMED = {
+    'otsing': 'Otsing seadmest', 'salvestus': 'Salvestus seadmesse', 'liikumised.lisa': 'Serverisse saatmine',
+    'andmed': 'Nimekirja laadimine', 'tooted.lisa': 'Toote saatmine', 'soe': 'Äratus (soe)'
+  };
+
+  /** Arendusrežiimi aegade tabel (viimased mõõtmised, uuemad ees). */
+  function naitaAegu() {
+    var kast = $('#ajad');
+    if (!kast) return;
+    if (!API.arendus()) { kast.innerHTML = ''; return; }
+    var m = API.mootmised().reverse();
+    kast.innerHTML = !m.length ? '<p class="vaike">Mõõtmisi veel pole – skänni midagi.</p>' :
+      '<table class="tabel ajad"><thead><tr><th>Kell</th><th>Tegevus</th><th>Kokku</th><th>Apps Scriptis</th></tr></thead><tbody>' +
+      m.map(function (x) {
+        return '<tr><td data-silt="Kell">' + new Date(x.aeg).toLocaleTimeString('et-EE') + '</td><td data-silt="Tegevus"><b>' + esc(AJA_NIMED[x.nimi] || x.nimi) +
+          '</b></td><td data-silt="Kokku">' + esc(ajaTekst(x.ms)) + '</td><td data-silt="Apps Scriptis">' + (x.serveris === null ? '–' : esc(ajaTekst(x.serveris))) + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<div class="nupurida nupurida-vasak"><button type="button" class="nupp nupp-vaike" id="kopeeriAjad">Kopeeri tabel</button></div>';
+    var k = $('#kopeeriAjad');
+    if (k) k.addEventListener('click', function () {
+      var tekst = m.map(function (x) {
+        return new Date(x.aeg).toLocaleTimeString('et-EE') + '\t' + (AJA_NIMED[x.nimi] || x.nimi) + '\t' + ajaTekst(x.ms) +
+          '\t' + (x.serveris === null ? '–' : ajaTekst(x.serveris));
+      }).join('\n');
+      (navigator.clipboard ? navigator.clipboard.writeText(tekst) : Promise.reject()).then(function () { teade('Kopeeritud.'); },
+        function () { teade('Kopeerimine ei õnnestunud – tee ekraanipilt.', 'viga'); });
+    });
+  }
+
+  /** Millisekundid loetavalt: 0,4 ms / 85 ms / 2,3 s */
+  function ajaTekst(ms) {
+    if (ms < 10) return String(Math.round(ms * 10) / 10).replace('.', ',') + ' ms';
+    if (ms < 1000) return Math.round(ms) + ' ms';
+    return String(Math.round(ms / 100) / 10).replace('.', ',') + ' s';
+  }
+  document.addEventListener('lao:mootmine', function () { if ($('#ajad')) naitaAegu(); });
 
   // -------------------------------------------------------------------------
   // NAVIGEERIMINE
@@ -460,7 +539,12 @@
 
   window.addEventListener('hashchange', marsruut);
   // Esimene joonistamine alles siis, kui ka teised vaadete failid (nt js/tooted.js) on laetud
-  document.addEventListener('DOMContentLoaded', marsruut);
+  // ja seadmesse salvestatud toodete nimekiri on mälus (IndexedDB, tavaliselt mõni ms).
+  document.addEventListener('DOMContentLoaded', function () {
+    var ootan = LAO.andmedLaetud || Promise.resolve();
+    var aegub = new Promise(function (r) { setTimeout(r, 1500); });
+    Promise.race([ootan, aegub]).then(marsruut, marsruut);
+  });
 
   // Teistes failides kasutatavad abifunktsioonid ja vaadete tabel
   window.LAO = {
@@ -468,8 +552,12 @@
     onAdmin: onAdmin, MODAALI_NUPUD: MODAALI_NUPUD,
     vaated: VAATED,
     /** Joonistab praeguse vaate uuesti */
-    marsruut: marsruut
+    marsruut: marsruut,
+    ajaTekst: ajaTekst
   };
+
+  // „Äratus”: Apps Script käivitub taustal juba rakenduse avamisel, mitte esimese skännimise ajal
+  if (navigator.onLine && API.apiUrl()) API.kutsu('soe').catch(function () { /* vana server või võrk – pole oluline */ });
 
   // PWA: service worker (sw.js) hoiab rakenduse faile seadmes, et see avaneks ka ilma internetita.
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

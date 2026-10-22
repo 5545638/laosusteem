@@ -209,4 +209,16 @@ test('500 rea import', () => {
   assert.strictEqual(A('tooted.import', { read: read.concat([{ nimetus: 'x' }]) }).code, 'VALE_SISEND');
 });
 
+console.log('Saldode leht');
+test('käsitsi tabelisse lisatud liikumised: kontroll leiab erinevuse, parandus kirjutab saldod uuesti', () => {
+  // „Saldo arvutus” lisas liikumised otse lehele (nagu käsitsi muutmine) – Saldode leht ei tea neist
+  const r = A('saldod.kontrolli', {});
+  assert(r.ok, JSON.stringify(r));
+  assert.deepStrictEqual(r.data.erinevused.map(e => [e.nimetus, e.lehel, e.arvutatud]), [['Kruvi M6x20', '12.5', '19.5']]);
+  assert.strictEqual(A('saldod.kontrolli', {}, mati).code, 'POLE_OIGUST');
+  assert(A('saldod.paranda', {}).ok);
+  assert.deepStrictEqual(A('saldod.kontrolli', {}).data.erinevused, []);
+  assert.strictEqual(toode('Kruvi M6x20').saldo, 19.5);
+});
+
 console.log(`\n${ok} testi õnnestus` + (process.exitCode ? ', osa EBAÕNNESTUS' : ''));

@@ -10,6 +10,7 @@ const crypto = require('crypto');
 
 function looKeskkond() {
   const lehed = new Map();
+  const io = { lugemisi: 0, loetudRakke: 0, kirjutusi: 0, kirjutatudRakke: 0 }; // tabeli päringute loendur (kiiruse mõõtmiseks)
 
   function looLeht(nimi) {
     const andmed = []; // read massiividena
@@ -19,12 +20,13 @@ function looKeskkond() {
       getLastColumn: () => andmed.reduce((m, r) => Math.max(m, r.length), 0),
       getMaxRows: () => Math.max(1000, andmed.length),
       setFrozenRows: () => {},
-      appendRow: (rida) => { andmed.push(rida.slice()); },
+      appendRow: (rida) => { io.kirjutusi++; io.kirjutatudRakke += rida.length; andmed.push(rida.slice()); },
       deleteRow: (nr) => { andmed.splice(nr - 1, 1); },
       getRange: (r, c, nr = 1, nc = 1) => {
         if (nr < 1 || nc < 1) throw new Error('Vale vahemik');
         const range = {
           getValues: () => {
+            io.lugemisi++; io.loetudRakke += nr * nc;
             const out = [];
             for (let i = 0; i < nr; i++) {
               const rida = andmed[r - 1 + i] || [];
@@ -35,6 +37,7 @@ function looKeskkond() {
             return out;
           },
           setValues: (v) => {
+            io.kirjutusi++; io.kirjutatudRakke += nr * nc;
             for (let i = 0; i < nr; i++) {
               while (andmed.length < r + i) andmed.push([]);
               for (let j = 0; j < nc; j++) andmed[r - 1 + i][c - 1 + j] = v[i][j];
@@ -42,6 +45,15 @@ function looKeskkond() {
             return range;
           },
           setValue: (v) => range.setValues([[v]]),
+          clearContent: () => {
+            for (let i = 0; i < nr; i++) {
+              const rida = andmed[r - 1 + i];
+              if (rida) for (let j = 0; j < nc; j++) rida[c - 1 + j] = '';
+            }
+            // Tühjad read lõpust ära (nagu getLastRow päris tabelis)
+            while (andmed.length && andmed[andmed.length - 1].join('') === '') andmed.pop();
+            return range;
+          },
           setNumberFormat: () => range,
           setFontWeight: () => range,
           setBackground: () => range
@@ -101,14 +113,23 @@ function looKeskkond() {
       MimeType: { JSON: 'json' },
       createTextOutput: (s) => ({ setMimeType: function () { return this; }, getContent: () => s })
     },
-    Logger: { log: (s) => logi.push(s) }
+    Logger: { log: (s) => logi.push(s) },
+    ScriptApp: (() => {
+      const paastikud = [];
+      return {
+        _paastikud: paastikud,
+        getProjectTriggers: () => paastikud.slice(),
+        deleteTrigger: (t) => { const i = paastikud.indexOf(t); if (i >= 0) paastikud.splice(i, 1); },
+        newTrigger: (fn) => ({ timeBased: () => ({ everyMinutes: (m) => ({ create: () => { const t = { getHandlerFunction: () => fn, minutid: m }; paastikud.push(t); return t; } }) }) })
+      };
+    })()
   };
   vm.createContext(keskkond);
   const kood = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Code.gs'), 'utf8');
   vm.runInContext(kood, keskkond, { filename: 'Code.gs' });
 
   return {
-    g: keskkond, ss, props, cache, logi, lehed,
+    g: keskkond, ss, props, cache, logi, lehed, io,
     /** Saadab päringu nagu esipaneel. */
     post: (paring) => JSON.parse(keskkond.doPost({ postData: { contents: JSON.stringify(paring) } }).getContent()),
     get: (param) => JSON.parse(keskkond.doGet({ parameter: param || {} }).getContent())

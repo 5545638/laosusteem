@@ -42,7 +42,7 @@ Lehti (Tooted, Kasutajad jne) ei pea käsitsi looma, sest skript loob need sammu
 8. Allosas avaneb **Täitmislogi**, kus on rida:
    `Seadistus tehtud. Esimese admini loomise SEADISTUSKOOD: 1A2B3C4D`
    **Kirjuta see 8-märgiline kood üles**, sest seda läheb vaja sammus 6.
-9. Mine tagasi tabeli vahelehele. Tabelis on nüüd lehed Tooted, Koodid, Riiulid, Liikumised, Kasutajad, Seansid, Sildipõhjad ja Loendurid.
+9. Mine tagasi tabeli vahelehele. Tabelis on nüüd lehed Tooted, Koodid, Riiulid, Liikumised, Kasutajad, Seansid, Saldod, Sildipõhjad ja Loendurid.
 
 > Kui värskendad tabelit, tekib ülaribale menüü **Laosüsteem → Seadista / näita seadistuskoodi**. Sellega saad koodi hiljem uuesti vaadata. `seadista` võib käivitada mitu korda, sest olemasolevaid andmeid see ei muuda.
 
@@ -71,6 +71,20 @@ Kui kleebid hiljem uue `Code.gs` versiooni (järgmised etapid), siis **ära tee 
 4. Vali **Versioon:** **Uus versioon** ja vajuta **Juuruta**.
 
 Aadress jääb samaks.
+
+### Soojendus (soovituslik)
+
+Apps Script „jahtub” pärast mõneminutilist pausi maha ja esimene päring võtab siis mitu sekundit kauem. Selle vähendamiseks (tee see enne uue versiooni juurutamist, sest see annab ka vajaliku loa):
+
+1. Apps Scripti redaktoris vali ülal funktsioonide valikust **paigaldaSoojendus** ja vajuta **Käivita**.
+2. Esimesel korral küsib Google luba („Lubada käivitajate haldamist”). Anna luba samamoodi nagu punktis 2.
+3. Logis on „Soojendus paigaldatud…”. Edaspidi käivitub funktsioon **soojenda** iga 5 minuti järel (vaata vasakult ⏰ **Käivitajad**).
+
+Eemaldamiseks käivita **eemaldaSoojendus**. Google ei taga, et see veebirakendust alati kiiremaks teeb. Mõju näed arendusrežiimis (SEADED → Näita aegu).
+
+### Leht Saldod
+
+Leht **Saldod** hoiab iga toote praegust saldot ja olekut, et serveril ei peaks iga kord kõiki liikumisi läbi lugema. Rakendus uuendab seda ise, käsitsi seda muuta pole vaja. Kui muudad või kustutad **Liikumiste** lehel ridu käsitsi, ava seejärel **SEADED → Kontrolli saldosid** ja vajadusel **Paranda Saldode leht**.
 
 ## 4. Esipaneeli üleslaadimine GitHub Pagesisse
 

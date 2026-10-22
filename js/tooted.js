@@ -128,8 +128,14 @@
    * eel: eeltäidetud väärtused, nt { kood: '4006381333931' }
    * kuiValmis(loodudTooted): kutsutakse pärast salvestamist (andmed on juba värskendatud).
    */
-  function avaLisaToode(eel, kuiValmis) {
+  /**
+   * Toote lisamise aken. valikud.kohe (skännimisel): kui kood on olemas, salvestatakse toode
+   * kohe seadmesse ja saadetakse serverisse taustal – serveri vastust ei oodata.
+   * Tagastab akna (dialog), et kutsuja saaks selle vajadusel sulgeda.
+   */
+  function avaLisaToode(eel, kuiValmis, valikud) {
     eel = eel || {};
+    var kohe = !!(valikud && valikud.kohe);
     var admin = LAO.onAdmin();
     var d = modaalHtml(eel, admin);
     var dialog = LAO.modaal('Lisa toode', d, function (v) {
@@ -146,13 +152,16 @@
         algsaldo: admin && tyyp === 'VARUOSA' ? v.algsaldo.value : '',
         eksemplare: tyyp === 'TÖÖRIIST' && !v.kood.value.trim() ? v.eksemplare.value : 1
       };
-      var paring = navigator.onLine ? API.kutsu('tooted.lisa', data).catch(function (err) {
+      // Skännimisel (kood olemas, üks eksemplar) ei oodata serverit – toode läheb järjekorda
+      var seadmesse = !navigator.onLine || (kohe && data.kood && Number(data.eksemplare) <= 1);
+      var paring = !seadmesse ? API.kutsu('tooted.lisa', data).catch(function (err) {
         if (err.kood !== 'VORK') throw err;
         return lisaVorguta(data); // ühendus katkes – salvesta seadmesse
       }) : lisaVorguta(data);
       return paring.then(function (loodud) {
         if (loodud[0].ootel) {
-          teade('Toode salvestati seadmesse. Kood/sisekood tuleb serverist, kui internet tagasi tuleb.');
+          teade(navigator.onLine ? 'Toode lisatud: ' + data.nimetus + ' (saadan serverisse…)'
+            : 'Toode salvestati seadmesse. Kood/sisekood tuleb serverist, kui internet tagasi tuleb.');
           if (kuiValmis) kuiValmis(loodud);
           return;
         }

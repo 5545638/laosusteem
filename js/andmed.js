@@ -2,8 +2,12 @@
  * ANDMED – toodete ja riiulite nimekiri seadmes.
  *
  * Server saadab tegevusega "andmed" kõik tooted (koos koodide, saldo ja
- * olekuga) ning riiulid. Hoiame neid mälus ja seadme mälus (localStorage),
- * et vaated avaneksid kohe ja skännimine töötaks ka ilma internetita.
+ * olekuga) ning riiulid. Hoiame neid mälus ja seadme mälus (IndexedDB,
+ * varuvariandina localStorage), et vaated avaneksid kohe ja skännimisel
+ * leitaks toode kohe telefonist – serverit ei oodata.
+ *
+ * Nimekiri uueneb taustal: rakenduse avamisel, esiplaanile tulekul, pärast
+ * saadetud liikumisi ja iga UUENDUSE_VAHE_MS järel (vt taustaUuendus).
  *
  * Saatmata liikumised (js/jarjekord.js) arvestatakse seadmes kohe saldo ja
  * oleku sisse: iga toote juures on t._server = serveri viimati teatatud seis
@@ -12,7 +16,10 @@
 (function () {
   'use strict';
 
-  var VOTI = 'lao.andmed';
+  var VOTI = 'lao.andmed';            // vanem koht (localStorage) – loetakse üleminekuks
+  var DB_NIMI = 'laosusteem-andmed', POOD = 'kv';
+  var UUENDUSE_VAHE_MS = 3 * 60000;   // taustauuendus iga 3 minuti järel
+  var MIN_VAHE_MS = 60000;            // sagedamini kui kord minutis taustal ei laeta
 
   var andmed = { tooted: [], riiulid: [], kelleleSoovitused: [], minuKonfliktid: [], konfliktideArv: null, laetud: null };
   try {
@@ -20,11 +27,89 @@
     if (vana && vana.tooted) andmed = vana;
   } catch (e) { /* ignoreeri */ }
 
+  // -------------------------------------------------------------------------
+  // SEADME MÄLU (IndexedDB; kui see pole saadaval, siis localStorage)
+  // -------------------------------------------------------------------------
+
+  var db = null;
+
+  function idb(viis, fn) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(POOD, viis);
+      var p = fn(tx.objectStore(POOD));
+      tx.oncomplete = function () { resolve(p && p.result); };
+      tx.onerror = tx.onabort = function () { reject(tx.error); };
+    });
+  }
+
+  /** Laeb seadmesse salvestatud nimekirja. Rakendus joonistab esimese vaate alles pärast seda. */
+  var laetudSeadmest = new Promise(function (resolve, reject) {
+    if (!window.indexedDB) return reject(new Error('IndexedDB puudub'));
+    var p = indexedDB.open(DB_NIMI, 1);
+    p.onupgradeneeded = function () { p.result.createObjectStore(POOD); };
+    p.onsuccess = function () { resolve(p.result); };
+    p.onerror = function () { reject(p.error); };
+  }).then(function (d) {
+    db = d;
+    return idb('readonly', function (s) { return s.get('andmed'); });
+  }).then(function (v) {
+    // Võta seadme mälust, kui seal on värskem kui localStorage'is (üleminekul on vastupidi)
+    if (v && v.tooted && !(andmed.laetud && v.laetud && andmed.laetud > v.laetud)) {
+      Object.keys(v).forEach(function (k) { andmed[k] = v[k]; });
+    }
+    if (window.localStorage && localStorage.getItem(VOTI)) salvestaKohe();
+  }).catch(function () { db = null; });
+
+  var salvestusTaimer = null;
+
+  /** Salvestab nimekirja seadmesse veidi hiljem (mitu järjestikust muutust → üks kirjutus). */
+  function salvesta() {
+    clearTimeout(salvestusTaimer);
+    salvestusTaimer = setTimeout(salvestaKohe, 400);
+  }
+
+  function salvestaKohe() {
+    clearTimeout(salvestusTaimer);
+    salvestusTaimer = null;
+    if (db) {
+      return idb('readwrite', function (s) { return s.put(andmed, 'andmed'); }).then(function () {
+        try { localStorage.removeItem(VOTI); } catch (e) { /* ignoreeri */ }
+      }).catch(lsSalvesta);
+    }
+    lsSalvesta();
+  }
+
+  function lsSalvesta() {
+    try { localStorage.setItem(VOTI, JSON.stringify(andmed)); } catch (e) { /* liiga suur – pole hullu */ }
+  }
+
+  // Rakendus suletakse või läheb taustale → kirjuta ootel salvestus kohe
+  window.addEventListener('pagehide', function () { if (salvestusTaimer) salvestaKohe(); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && salvestusTaimer) salvestaKohe(); });
+
+  // -------------------------------------------------------------------------
+  // SERVERIST LAADIMINE (taustal)
+  // -------------------------------------------------------------------------
+
+  var laadimas = null;     // käimasolev laadimine (kaks korraga ei käivitata)
+  var viimatiLaetud = 0;   // millal viimati serverist laeti (Date.now())
+
   /** Laeb serverist värske nimekirja. Tagastab Promise'i andmetega. */
   function laeAndmed() {
-    return API.kutsu('andmed').then(function (d) {
+    if (laadimas) return laadimas;
+    var algus = Date.now();
+    laadimas = API.kutsu('andmed').then(function (d) {
+      viimatiLaetud = Date.now();
+      // Kui päringu ajal jõudis serverist mõne toote uuem seis (saadetud liikumise vastus),
+      // jääb see alles – muidu kaoks just saadetud liikumise mõju kuni järgmise laadimiseni.
+      var vanad = {};
+      andmed.tooted.forEach(function (t) { if (t._serverAeg > algus) vanad[t.id] = t; });
       andmed.tooted = d.tooted;
-      andmed.tooted.forEach(function (t) { t._server = seis(t); });
+      andmed.tooted.forEach(function (t) {
+        var v = vanad[t.id];
+        t._server = v ? v._server : seis(t);
+        if (v) t._serverAeg = v._serverAeg;
+      });
       andmed.riiulid = d.riiulid;
       andmed.kelleleSoovitused = d.kelleleSoovitused || [];
       andmed.minuKonfliktid = d.minuKonfliktid || [];
@@ -32,13 +117,28 @@
       andmed.laetud = d.serveriAeg;
       rakendaOotel();
       if (LAO.uuendaOlekuriba) LAO.uuendaOlekuriba();
+      document.dispatchEvent(new CustomEvent('lao:andmed'));
       return andmed;
     });
+    laadimas.then(lopp, lopp);
+    function lopp() { laadimas = null; }
+    return laadimas;
   }
 
-  function salvesta() {
-    try { localStorage.setItem(VOTI, JSON.stringify(andmed)); } catch (e) { /* liiga suur – pole hullu */ }
+  /**
+   * Taustauuendus: laeb nimekirja, kui kasutaja on sisse loginud, internet on olemas,
+   * rakendus on esiplaanil ja viimasest laadimisest on möödas vähemalt MIN_VAHE_MS.
+   */
+  function taustaUuendus() {
+    if (!API.seanss() || !navigator.onLine || document.hidden) return;
+    if (Date.now() - viimatiLaetud < MIN_VAHE_MS) return;
+    laeAndmed().catch(function () { /* jätkame seadmes olevaga */ });
   }
+  setInterval(taustaUuendus, UUENDUSE_VAHE_MS);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) taustaUuendus(); });
+  window.addEventListener('online', taustaUuendus);
+  // Pärast saadetud liikumisi: teiste kasutajate muudatused tulevad ka kaasa
+  document.addEventListener('lao:saadetud', taustaUuendus);
 
   /** Toote seisu väljad eraldi objektina. */
   function seis(t) {
@@ -67,6 +167,7 @@
       for (var v in t._server) t[v] = t._server[v];
     });
     ootel.forEach(function (k) { if (k.liik === 'liikumine') rakenda(k.andmed); });
+    koodiIndeks = null;
     salvesta();
   }
 
@@ -149,7 +250,21 @@
     return null;
   }
 
+  var koodiIndeks = null; // kood (suurtähtedega) → { toode } / { riiul }; luuakse uuesti pärast andmete muutust
+
   function leiaTapne(n) {
+    if (!koodiIndeks) {
+      koodiIndeks = {};
+      andmed.riiulid.forEach(function (r) { koodiIndeks[String(r.kood).toUpperCase()] = { riiul: r }; });
+      andmed.tooted.forEach(function (t) {
+        t.koodid.forEach(function (k) {
+          var v = String(k.kood).toUpperCase();
+          if (!koodiIndeks[v] || koodiIndeks[v].riiul) koodiIndeks[v] = { toode: t }; // nagu varem: esimene toode võidab
+        });
+      });
+    }
+    if (koodiIndeks[n]) return koodiIndeks[n];
+    // Igaks juhuks (indeks võib olla vananenud) – otsi ka kogu nimekirjast
     for (var i = 0; i < andmed.tooted.length; i++) {
       var t = andmed.tooted[i];
       for (var j = 0; j < t.koodid.length; j++) if (t.koodid[j].kood.toUpperCase() === n) return { toode: t };
@@ -220,7 +335,10 @@
   function uuendaSeisud(seisud) {
     (seisud || []).forEach(function (s) {
       var t = toode(s.id);
-      if (t) t._server = { saldo: s.saldo, olek: s.olek, kellele: s.kellele, alates: s.alates, riiul_id: s.riiul_id };
+      if (t) {
+        t._server = { saldo: s.saldo, olek: s.olek, kellele: s.kellele, alates: s.alates, riiul_id: s.riiul_id };
+        t._serverAeg = Date.now();
+      }
     });
     rakendaOotel();
   }
@@ -230,6 +348,8 @@
   LAO.rakendaOotel = rakendaOotel;
   LAO.andmed = andmed;
   LAO.laeAndmed = laeAndmed;
+  LAO.andmedLaetud = laetudSeadmest;
+  LAO.taustaUuendus = taustaUuendus;
   LAO.riiul = riiul;
   LAO.toode = toode;
   LAO.leiaKoodiga = leiaKoodiga;

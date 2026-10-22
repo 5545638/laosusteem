@@ -182,4 +182,11 @@ test('liiga suur pakk keelatud', () => {
   assert.strictEqual(r.code, 'VALE_SISEND');
 });
 
+console.log('Saldode leht');
+test('Saldode leht vastab liikumistest arvutatud seisule', () => {
+  const r = A('saldod.kontrolli', {});
+  assert(r.ok, JSON.stringify(r));
+  assert.deepStrictEqual(r.data.erinevused, []);
+});
+
 console.log(`\n${ok} testi õnnestus` + (process.exitCode ? ', osa EBAÕNNESTUS' : ''));

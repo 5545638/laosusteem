@@ -220,3 +220,62 @@ Sildiprinterit veel pole, seega prindi testid **„Salvesta PDF-ina”** (Save a
 - 6 uut automaattesti (`node tests/test-etapp56.js`). Need katavad sildipõhjade salvestamist ja kustutamist (ainult admin, mõõtude kontroll), ajaloo filtreid (kuupäev Tallinna aja järgi, toode, tüüp, kasutaja) ja tühistatud liikumiste märkimist. Lisaks läbivad endiselt 91 varasemat testi.
 - Brauseritest (Chromium): kõik neli põhja prinditi PDF-iks ja kontrollisin, et lehe suurus on täpne (nt 62 × 29 mm) ning et ükski tekst ega vöötkood ei lõigu. Kontrollisin ka oma põhja salvestamist, LADU / VÄLJAS / AJALUGU filtreid ja CSV-faile ning seda, et rakendus avaneb pärast esimest laadimist ka ilma võrguta.
 - Päris sildiprinteriga ja päris telefoni avakuvalt ma testida ei saanud.
+
+## Kiirus: skännimine ilma serveri ootamiseta
+
+### Mis muutus
+
+- **Telefon:** toodete, koodide, riiulite ja saldode nimekiri on telefonis (IndexedDB). See uueneb taustal rakenduse avamisel, esiplaanile tulekul, pärast saadetud liikumisi ja iga 3 minuti järel. Skännimisel otsitakse ainult telefonist.
+- **Tundmatu kood:** lisamise vorm avaneb kohe. Taustal kontrollitakse serverist, kas keegi on selle koodi vahepeal lisanud. Kui on, suletakse vorm ja jätkatakse olemasoleva tootega.
+- **Uus toode skännimisel** salvestatakse kohe telefoni ja saadetakse serverisse taustal (varem ootas see kaks serveri vastust).
+- **Server:** uus leht **Saldod**. Saldo saamiseks ei loeta enam kogu Liikumiste lehte. Liikumise salvestamisel loetakse liikumistest ainult id-veerg (topeltkirjete kontroll) ja uuendatakse ainult puudutatud toodete saldoridu.
+- **Äratus:** rakenduse avamisel saadetakse taustal kerge päring (`soe`). Soovi korral saab lisada 5-minutilise soojenduse (JUHEND, „Soojendus”).
+- **SEADED → Kontrolli saldosid** (admin) ja **SEADED → Näita aegu** (arendusrežiim).
+
+### Paigaldus koos enne/pärast mõõtmisega
+
+1. Ühenda pull request. Oota 2–3 minutit, kuni GitHub Pages uueneb.
+2. **Code.gs-i veel ära uuenda.** Telefonis ava rakendus uuesti (sulge vaheleht või äpp täiesti). Mine **SEADED** ja märgi **Näita aegu**.
+3. **Mõõtmine ENNE (vana server):** tee 3–4 korda SISSE, et saata liikumisi serverisse. Mine tagasi **SEADED** ja vaata tabelit. Huvitavad on read **Serverisse saatmine** ja **Nimekirja laadimine**. Vajuta **Kopeeri tabel** ja saada mulle (või tee ekraanipilt).
+4. Kleebi uus `Code.gs` ja salvesta.
+5. **Enne juurutamist** vali ülal funktsioonide valikust **paigaldaSoojendus** ja vajuta **Käivita**. Uus kood kasutab käivitajaid, seega küsib Google ühe korra uut luba. Anna see (nagu esimesel paigaldusel). Ilma loata ei pruugi API pärast juurutamist töötada.
+6. Tee **Deploy → Manage deployments → ✎ → New version → Deploy**. **Seaded → Testi ühendust** peab näitama versiooni **1.6.0-kiirus**. Leht **Saldod** luuakse ise esimese päringuga.
+7. **Mõõtmine PÄRAST:** tee samad toimingud uuesti ja kopeeri tabel.
+8. Admin: **SEADED → Kontrolli saldosid** peab näitama „kõik saldod klapivad”.
+
+### Testid telefonis
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 1 | SISSE → skänni tuttav toode | Koguse vorm avaneb kohe, ilma „Otsin…” tekstita |
+| 2 | **KINNITA** | Kohe on näha „✓ … Saldo nüüd N” ja saab skännida järgmist. Arendusrežiimis on all rida „⏱ otsing … · salvestus seadmesse … · server …”. Serveri aeg ilmub, kui vastus tuleb |
+| 3 | Skänni kood, mida pole | Lisamise vorm avaneb kohe |
+| 4 | Täida nimetus → **Salvesta** | Koguse vorm avaneb kohe. Teade „Toode lisatud … (saadan serverisse…)” |
+| 5 | Arvutis lisa uus toode. Kohe pärast seda skänni telefonis selle kood | Telefon avab lisamise vormi, aga sulgeb selle mõne sekundi pärast ise: „See kood on juba olemas: …”. Jätkub olemasoleva tootega |
+| 6 | Lisamise vormis vajuta **Loobu** | Tagasi skännimise juurde |
+| 7 | Lennukirežiim → tee liikumisi → internet tagasi | Nagu varem: järjekord saadetakse ja riba läheb roheliseks |
+| 8 | Arvutis tee telefoni tootele liikumine. Telefonis oota kuni 3 minutit või too rakendus esiplaanile | Telefoni saldo uueneb ise |
+
+### Mida ma ise testisin
+
+- Serveri testid: 9 uut (`node tests/test-kiirus.js`). Need katavad Saldode lehe uuendamist, vana tabeli automaatset üleminekut, topeltsaatmist, tühistamist, vanade konfliktide nähtavust, soojenduse päästikut ja `soe` päringut. Lisaks kontrollivad etappide 2–4 testid nüüd lõpus, et Saldode leht klapib liikumistega. Kokku läbib 109 testi.
+- Serveri tabelilugemised testandmetega (500 toodet, 20 000 liikumist, `node tests/moot-kiirus.js`):
+
+| Tegevus | Enne (loetud lahtreid) | Pärast |
+|---|---|---|
+| Nimekiri telefoni (`andmed`) | 246 024 | 61 054 |
+| 1 liikumise salvestus | 244 533 | 27 545 |
+| 20 liikumise salvestus | 244 545 | 27 690 |
+
+- Brauseris telefonivaates, kus API vastas 3 s viivitusega (nagu Apps Script):
+
+| Samm | Enne | Pärast |
+|---|---|---|
+| Tuttav kood → koguse vorm | 0,1 s | 0,1 s |
+| KINNITA → „Salvestatud” | 0,1 s | 0,1 s |
+| Tundmatu kood → lisamise vorm | 3,4 s | 0,1 s |
+| Uus toode salvesta → koguse vorm | 6,4 s | 0,1 s |
+
+- Lisaks läksid uuesti läbi etappide 4–6 brauseritestid (töö ilma võrguta, kaks telefoni, lukustatud kasutaja, konfliktid, sildid, PWA).
+- Leidsin ja parandasin veel ühe vea: roheline teade kattis 3 sekundiks ekraani alaosas olevaid nuppe (nt KINNITA), nii et vajutus ei läinud läbi. Nüüd läheb vajutus teatest läbi.
+- Päris Apps Scripti aegu ma mõõta ei saanud. Need näed arendusrežiimis.
