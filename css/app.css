@@ -1,0 +1,136 @@
+/*
+ * LAOSÜSTEEM – kujundus
+ * Telefonis suured nupud (töökinnastega kasutatav), arvutis laiemad tabelid.
+ * Värvid on muutujates – muuda siin, kui soovid teist värvilahendust.
+ */
+:root {
+  --pohi: #1f4e79;        /* põhivärv (nupud, ülariba) */
+  --pohi-tume: #163a5a;
+  --taust: #f2f4f7;
+  --kaart: #ffffff;
+  --tekst: #1b1f24;
+  --hall: #6b7280;
+  --joon: #d8dde5;
+  --ok: #1e7b34;
+  --ok-taust: #e3f4e7;
+  --hoiatus: #9a6700;
+  --hoiatus-taust: #fff4d6;
+  --viga: #b42318;
+  --viga-taust: #fde8e6;
+  --raadius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.4;
+  background: var(--taust);
+  color: var(--tekst);
+  -webkit-tap-highlight-color: transparent;
+}
+
+a { color: var(--pohi); }
+
+/* ---------- Ülariba ja olekuriba ---------- */
+.ylariba {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top));
+  background: var(--pohi); color: #fff;
+  position: sticky; top: 0; z-index: 10;
+}
+.ylariba .logo { color: #fff; font-weight: 700; text-decoration: none; font-size: 19px; }
+.ylariba .kasutaja { margin-left: auto; font-size: 15px; opacity: .9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ylariba .nupp { background: transparent; color: #fff; border-color: rgba(255,255,255,.5); }
+
+.olekuriba { padding: 6px 16px; font-size: 14px; font-weight: 600; }
+.olek-ok { background: var(--ok-taust); color: var(--ok); }
+.olek-hoiatus { background: var(--hoiatus-taust); color: var(--hoiatus); }
+.olek-viga { background: var(--viga-taust); color: var(--viga); }
+
+/* ---------- Sisu ---------- */
+.sisu { max-width: 1200px; margin: 0 auto; padding: 16px; }
+.kaart { background: var(--kaart); border-radius: var(--raadius); padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.kitsas { max-width: 440px; margin: 24px auto; }
+h1 { font-size: 24px; margin: 0 0 16px; }
+.vaike { font-size: 14px; color: var(--hall); }
+.pealkirjarida { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.pealkirjarida h1 { margin: 0; }
+
+/* ---------- Vormid ---------- */
+label { display: block; margin-bottom: 14px; font-weight: 600; font-size: 15px; }
+input, select, textarea {
+  display: block; width: 100%; margin-top: 6px;
+  font: inherit; font-size: 18px;
+  padding: 12px; min-height: 50px;
+  border: 1px solid var(--joon); border-radius: 8px; background: #fff;
+}
+input:focus, select:focus { outline: 3px solid rgba(31,78,121,.3); border-color: var(--pohi); }
+.vormi-viga { color: var(--viga); font-weight: 600; min-height: 1em; }
+
+/* ---------- Nupud ---------- */
+.nupp {
+  font: inherit; font-weight: 600; cursor: pointer;
+  padding: 10px 16px; min-height: 44px;
+  border: 1px solid var(--joon); border-radius: 8px;
+  background: #fff; color: var(--tekst);
+}
+.nupp:disabled { opacity: .5; cursor: default; }
+.nupp-pohi { background: var(--pohi); color: #fff; border-color: var(--pohi); }
+.nupp-pohi:hover { background: var(--pohi-tume); }
+.nupp-suur { width: 100%; min-height: 60px; font-size: 20px; margin-top: 6px; }
+.nupp-vaike { padding: 6px 10px; min-height: 36px; font-size: 14px; }
+.nupp-oht { color: var(--viga); border-color: var(--viga); }
+.nupurida { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
+
+/* ---------- Avalehe paanid ---------- */
+.paanid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (min-width: 700px) { .paanid { grid-template-columns: repeat(4, 1fr); } }
+.paan {
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  min-height: 110px; padding: 16px;
+  background: var(--kaart); border-radius: var(--raadius); box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  text-decoration: none; color: var(--tekst);
+}
+.paan b { font-size: 20px; color: var(--pohi); }
+.paan span { font-size: 14px; color: var(--hall); }
+a.paan:active { transform: scale(.98); }
+.paan-tulekul { opacity: .45; }
+
+/* ---------- Tabelid ---------- */
+.tabel { width: 100%; border-collapse: collapse; font-size: 15px; }
+.tabel th, .tabel td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--joon); vertical-align: middle; }
+.tabel th { font-size: 13px; color: var(--hall); text-transform: uppercase; letter-spacing: .03em; }
+.tabel .tegevused { white-space: nowrap; text-align: right; }
+.tabel .tegevused .nupp { margin-left: 4px; }
+
+/* Telefonis muutub tabel kaartideks: iga lahter omal real koos sildiga */
+@media (max-width: 699px) {
+  .tabel thead { display: none; }
+  .tabel tr { display: block; border: 1px solid var(--joon); border-radius: 8px; margin-bottom: 10px; padding: 6px 10px; }
+  .tabel td { display: flex; justify-content: space-between; gap: 10px; border: 0; padding: 6px 0; }
+  .tabel td[data-silt]::before { content: attr(data-silt); color: var(--hall); font-size: 13px; }
+  .tabel .tegevused { justify-content: flex-start; flex-wrap: wrap; white-space: normal; }
+  .tabel .tegevused .nupp { margin: 4px 6px 0 0; }
+}
+
+.silt { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 13px; font-weight: 600; }
+.silt-ok { background: var(--ok-taust); color: var(--ok); }
+.silt-hoiatus { background: var(--hoiatus-taust); color: var(--hoiatus); }
+.silt-viga { background: var(--viga-taust); color: var(--viga); }
+
+/* ---------- Modaalaken ---------- */
+.modaal { border: 0; border-radius: var(--raadius); padding: 20px; width: min(440px, calc(100vw - 32px)); }
+.modaal::backdrop { background: rgba(0,0,0,.4); }
+.modaal h2 { margin-top: 0; }
+
+/* ---------- Lühiteade ---------- */
+.teade {
+  position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  padding: 14px 20px; border-radius: 8px; font-weight: 600; z-index: 100;
+  max-width: calc(100vw - 32px); box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+.teade-ok { background: var(--ok); color: #fff; }
+.teade-viga { background: var(--viga); color: #fff; }

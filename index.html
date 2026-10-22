@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="et">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f4e79">
+  <title>Laosüsteem</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <!-- Ülariba: rakenduse nimi, sisseloginud kasutaja ja väljalogimine -->
+  <header id="ylariba" class="ylariba" hidden>
+    <a href="#/avaleht" class="logo">Laosüsteem</a>
+    <span id="kasutajaNimi" class="kasutaja"></span>
+    <button id="valjaNupp" class="nupp nupp-vaike" type="button">Logi välja</button>
+  </header>
+
+  <!-- Olekuriba: võrgu ja sünkroonimise olek (sünkroonimisjärjekord tuleb etapis 4) -->
+  <div id="olekuriba" class="olekuriba" hidden></div>
+
+  <!-- Siia joonistatakse aktiivne vaade (vt js/app.js) -->
+  <main id="sisu" class="sisu"></main>
+
+  <!-- Lühiteated (nt "Salvestatud") -->
+  <div id="teade" class="teade" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

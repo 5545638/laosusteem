@@ -1,0 +1,444 @@
+/**
+ * RAKENDUS – vaated ja navigeerimine.
+ *
+ * Vaated vahetuvad aadressi #-osa järgi (nt #/kasutajad). Iga vaade on
+ * funktsioon, mis joonistab sisu elementi <main id="sisu">.
+ * Uue vaate lisamiseks: kirjuta funktsioon ja lisa see VAATED tabelisse.
+ */
+(function () {
+  'use strict';
+
+  var sisu = document.getElementById('sisu');
+
+  // -------------------------------------------------------------------------
+  // ABIFUNKTSIOONID
+  // -------------------------------------------------------------------------
+
+  /** Muudab teksti HTML-i jaoks ohutuks (kasutajate sisestatud tekst!). */
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function $(sel, juur) { return (juur || document).querySelector(sel); }
+
+  /** Näitab ekraani allservas lühiteadet. tyyp: 'ok' | 'viga' */
+  var teateTaimer = null;
+  function teade(tekst, tyyp) {
+    var el = document.getElementById('teade');
+    el.textContent = tekst;
+    el.className = 'teade ' + (tyyp === 'viga' ? 'teade-viga' : 'teade-ok');
+    el.hidden = false;
+    clearTimeout(teateTaimer);
+    teateTaimer = setTimeout(function () { el.hidden = true; }, tyyp === 'viga' ? 6000 : 3000);
+  }
+
+  /** Kuupäev ja kellaaeg Eesti vormingus. */
+  function aeg(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString('et-EE', { timeZone: 'Europe/Tallinn', dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  /** Lukustab vormi nupud päringu ajaks, et topeltklõps ei saadaks kaks korda. */
+  function hoivatud(vorm, jah) {
+    Array.prototype.forEach.call(vorm.querySelectorAll('button, input, select'), function (el) { el.disabled = jah; });
+  }
+
+  /** Kas sisseloginud kasutaja on admin. */
+  function onAdmin() {
+    var s = API.seanss();
+    return !!(s && s.kasutaja.roll === 'ADMIN');
+  }
+
+  /**
+   * Lihtne modaalaken. sisuHtml peab sisaldama <form>-i.
+   * kuiSaadab(vorm) tagastab Promise'i; õnnestumisel aken suletakse.
+   */
+  function modaal(pealkiri, sisuHtml, kuiSaadab) {
+    var d = document.createElement('dialog');
+    d.className = 'modaal';
+    d.innerHTML = '<h2>' + esc(pealkiri) + '</h2>' + sisuHtml;
+    document.body.appendChild(d);
+    var vorm = d.querySelector('form');
+    var viga = document.createElement('p');
+    viga.className = 'vormi-viga';
+    vorm.appendChild(viga);
+    d.querySelector('[data-sulge]').addEventListener('click', function () { d.close(); });
+    d.addEventListener('close', function () { d.remove(); });
+    vorm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      viga.textContent = '';
+      hoivatud(vorm, true);
+      Promise.resolve(kuiSaadab(vorm)).then(function () { d.close(); }, function (err) {
+        hoivatud(vorm, false);
+        viga.textContent = err.message;
+      });
+    });
+    d.showModal();
+    var esimene = vorm.querySelector('input, select');
+    if (esimene) esimene.focus();
+    return d;
+  }
+
+  // -------------------------------------------------------------------------
+  // ÜLARIBA JA OLEKURIBA
+  // -------------------------------------------------------------------------
+
+  function uuendaYlariba() {
+    var s = API.seanss();
+    $('#ylariba').hidden = !s;
+    $('#olekuriba').hidden = !s;
+    if (s) $('#kasutajaNimi').textContent = s.kasutaja.nimi + (s.kasutaja.roll === 'ADMIN' ? ' (admin)' : '');
+    uuendaOlekuriba();
+  }
+
+  /** Etapis 4 lisandub siia "Ootel: N liikumist" ja sünkroonimise olek. */
+  function uuendaOlekuriba() {
+    var el = $('#olekuriba');
+    if (navigator.onLine) {
+      el.textContent = 'Ühendus olemas';
+      el.className = 'olekuriba olek-ok';
+    } else {
+      el.textContent = 'Võrguühendus puudub';
+      el.className = 'olekuriba olek-viga';
+    }
+  }
+  window.addEventListener('online', uuendaOlekuriba);
+  window.addEventListener('offline', uuendaOlekuriba);
+
+  $('#valjaNupp').addEventListener('click', function () {
+    if (!confirm('Kas logid välja?')) return;
+    API.kutsu('logout').catch(function () { /* seadmest kustutame igal juhul */ });
+    API.salvestaSeanss(null);
+    location.hash = '#/login';
+  });
+
+  // Kui server ütleb, et seanss on kehtetu (aegunud või kasutaja lukustatud).
+  API.kuiSeanssKehtetu = function (pohjus) {
+    teade(pohjus || 'Logi uuesti sisse.', 'viga');
+    location.hash = '#/login';
+  };
+
+  // -------------------------------------------------------------------------
+  // VAADE: SISSELOGIMINE
+  // -------------------------------------------------------------------------
+
+  function vaadeLogin() {
+    if (API.seanss()) { location.hash = '#/avaleht'; return; }
+    sisu.innerHTML =
+      '<section class="kaart kitsas">' +
+      '  <h1>Logi sisse</h1>' +
+      '  <form id="loginVorm" autocomplete="on">' +
+      '    <label>Kasutajanimi<input name="kasutajanimi" autocomplete="username" autocapitalize="none" required></label>' +
+      '    <label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]*" ' +
+      '      minlength="4" maxlength="6" autocomplete="current-password" required></label>' +
+      '    <button class="nupp nupp-suur nupp-pohi" type="submit">Logi sisse</button>' +
+      '    <p class="vormi-viga" id="loginViga"></p>' +
+      '  </form>' +
+      '  <p id="seadistusLink" class="vaike" hidden><a href="#/seadistus">Süsteem on seadistamata – loo esimene admin</a></p>' +
+      '  <p class="vaike"><a href="#/seaded">Seaded</a></p>' +
+      '</section>';
+
+    var vorm = $('#loginVorm');
+    if (!API.apiUrl()) {
+      $('#loginViga').innerHTML = 'API aadress on seadistamata. Ava <a href="#/seaded">Seaded</a>.';
+    } else {
+      // Kontrolli, kas esimene admin on loomata.
+      API.kutsu('olek').then(function (o) { if (o.nouabSeadistust) $('#seadistusLink').hidden = false; })
+        .catch(function (err) { $('#loginViga').textContent = err.message; });
+    }
+
+    vorm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      $('#loginViga').textContent = '';
+      hoivatud(vorm, true);
+      API.kutsu('login', {
+        kasutajanimi: vorm.kasutajanimi.value,
+        pin: vorm.pin.value,
+        seade: API.seadmeKirjeldus()
+      }).then(function (s) {
+        API.salvestaSeanss(s);
+        location.hash = '#/avaleht';
+      }).catch(function (err) {
+        hoivatud(vorm, false);
+        vorm.pin.value = '';
+        $('#loginViga').textContent = err.message;
+        vorm.pin.focus();
+      });
+    });
+    vorm.kasutajanimi.focus();
+  }
+
+  // -------------------------------------------------------------------------
+  // VAADE: ESIMESE ADMINI LOOMINE
+  // -------------------------------------------------------------------------
+
+  function vaadeSeadistus() {
+    sisu.innerHTML =
+      '<section class="kaart kitsas">' +
+      '  <h1>Esimene admin</h1>' +
+      '  <p class="vaike">Seadistuskoodi näed, kui käivitad Apps Scriptis funktsiooni <b>seadista</b> (vt juhend).</p>' +
+      '  <form id="seadVorm">' +
+      '    <label>Seadistuskood<input name="seadistuskood" autocapitalize="characters" required></label>' +
+      '    <label>Kasutajanimi<input name="kasutajanimi" autocapitalize="none" required placeholder="nt henri"></label>' +
+      '    <label>Täisnimi<input name="nimi" required placeholder="nt Henri Kännik"></label>' +
+      '    <label>PIN (4–6 numbrit)<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" required></label>' +
+      '    <label>PIN uuesti<input name="pin2" type="password" inputmode="numeric" pattern="[0-9]{4,6}" required></label>' +
+      '    <button class="nupp nupp-suur nupp-pohi" type="submit">Loo admin ja logi sisse</button>' +
+      '    <p class="vormi-viga" id="seadViga"></p>' +
+      '  </form>' +
+      '  <p class="vaike"><a href="#/login">Tagasi</a></p>' +
+      '</section>';
+
+    var vorm = $('#seadVorm');
+    vorm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (vorm.pin.value !== vorm.pin2.value) { $('#seadViga').textContent = 'PIN-id ei kattu.'; return; }
+      hoivatud(vorm, true);
+      API.kutsu('esimeneAdmin', {
+        seadistuskood: vorm.seadistuskood.value,
+        kasutajanimi: vorm.kasutajanimi.value,
+        nimi: vorm.nimi.value,
+        pin: vorm.pin.value,
+        seade: API.seadmeKirjeldus()
+      }).then(function (s) {
+        API.salvestaSeanss(s);
+        teade('Admin loodud. Tere tulemast!');
+        location.hash = '#/avaleht';
+      }).catch(function (err) {
+        hoivatud(vorm, false);
+        $('#seadViga').textContent = err.message;
+      });
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // VAADE: AVALEHT (menüü)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Menüü kirjed. "etapp" näitab, millises etapis vaade valmib; kuni selleni
+   * on nupp hall. admin: true = näha ainult adminile.
+   */
+  var MENYY = [
+    { pealkiri: 'SISSE', kirjeldus: 'Kauba vastuvõtt', href: '#/sisse', etapp: 3 },
+    { pealkiri: 'VÄLJA', kirjeldus: 'Kauba väljastamine', href: '#/valja', etapp: 3 },
+    { pealkiri: 'TÖÖRIIST', kirjeldus: 'Välja / tagasi', href: '#/toorist', etapp: 3 },
+    { pealkiri: 'LADU', kirjeldus: 'Saldod ja otsing', href: '#/ladu', etapp: 6 },
+    { pealkiri: 'VÄLJAS OLEVAD', kirjeldus: 'Tööriistad väljas', href: '#/valjas', etapp: 6 },
+    { pealkiri: 'AJALUGU', kirjeldus: 'Kõik liikumised', href: '#/ajalugu', etapp: 6 },
+    { pealkiri: 'TOOTED', kirjeldus: 'Lisa ja muuda', href: '#/tooted', etapp: 2, admin: true },
+    { pealkiri: 'RIIULID', kirjeldus: 'Asukohad', href: '#/riiulid', etapp: 2, admin: true },
+    { pealkiri: 'SILDID', kirjeldus: 'Sildiprint', href: '#/sildid', etapp: 5, admin: true },
+    { pealkiri: 'KASUTAJAD', kirjeldus: 'Kasutajate haldus', href: '#/kasutajad', etapp: 1, admin: true },
+    { pealkiri: 'KONFLIKTID', kirjeldus: 'Vajavad ülevaatust', href: '#/konfliktid', etapp: 4, admin: true },
+    { pealkiri: 'SEADED', kirjeldus: 'API aadress', href: '#/seaded', etapp: 1 }
+  ];
+  var VALMIS_ETAPP = 1; // tõsta pärast iga etapi valmimist
+
+  function vaadeAvaleht() {
+    var admin = onAdmin();
+    var nupud = MENYY.filter(function (m) { return !m.admin || admin; }).map(function (m) {
+      var valmis = m.etapp <= VALMIS_ETAPP;
+      return valmis
+        ? '<a class="paan" href="' + m.href + '"><b>' + esc(m.pealkiri) + '</b><span>' + esc(m.kirjeldus) + '</span></a>'
+        : '<span class="paan paan-tulekul"><b>' + esc(m.pealkiri) + '</b><span>Tuleb etapis ' + m.etapp + '</span></span>';
+    }).join('');
+    sisu.innerHTML = '<section><div class="paanid">' + nupud + '</div></section>';
+  }
+
+  // -------------------------------------------------------------------------
+  // VAADE: KASUTAJAD (ainult admin)
+  // -------------------------------------------------------------------------
+
+  function vaadeKasutajad() {
+    sisu.innerHTML =
+      '<section class="kaart">' +
+      '  <div class="pealkirjarida"><h1>Kasutajad</h1>' +
+      '    <button id="lisaKasutaja" class="nupp nupp-pohi" type="button">+ Lisa kasutaja</button></div>' +
+      '  <div id="kasutajateTabel"><p>Laadin…</p></div>' +
+      '</section>';
+    $('#lisaKasutaja').addEventListener('click', avaLisaKasutaja);
+    laeKasutajad();
+  }
+
+  function laeKasutajad() {
+    API.kutsu('kasutajad.nimekiri').then(function (list) {
+      var minuId = API.seanss().kasutaja.id;
+      var read = list.map(function (k) {
+        var olek = !k.aktiivne ? '<span class="silt silt-viga">Lukustatud</span>'
+          : k.ajutiseltLukus ? '<span class="silt silt-hoiatus">Ajutiselt lukus (PIN)</span>'
+          : '<span class="silt silt-ok">Aktiivne</span>';
+        var nupud =
+          '<button class="nupp nupp-vaike" data-tegevus="muuda" data-id="' + esc(k.id) + '">Muuda</button>' +
+          '<button class="nupp nupp-vaike" data-tegevus="pin" data-id="' + esc(k.id) + '">Lähtesta PIN</button>' +
+          (k.id === minuId ? '' : k.aktiivne
+            ? '<button class="nupp nupp-vaike nupp-oht" data-tegevus="lukusta" data-id="' + esc(k.id) + '">Lukusta</button>'
+            : '<button class="nupp nupp-vaike" data-tegevus="aktiveeri" data-id="' + esc(k.id) + '">Aktiveeri</button>');
+        return '<tr>' +
+          '<td data-silt="Kasutajanimi">' + esc(k.kasutajanimi) + '</td>' +
+          '<td data-silt="Nimi">' + esc(k.nimi) + '</td>' +
+          '<td data-silt="Roll">' + esc(k.roll) + '</td>' +
+          '<td data-silt="Olek">' + olek + '</td>' +
+          '<td data-silt="Seansse">' + k.seansse + '</td>' +
+          '<td data-silt="Loodud">' + esc(aeg(k.loodud)) + '</td>' +
+          '<td class="tegevused">' + nupud + '</td></tr>';
+      }).join('');
+      $('#kasutajateTabel').innerHTML =
+        '<table class="tabel"><thead><tr><th>Kasutajanimi</th><th>Nimi</th><th>Roll</th><th>Olek</th>' +
+        '<th>Seansse</th><th>Loodud</th><th></th></tr></thead><tbody>' + read + '</tbody></table>';
+
+      Array.prototype.forEach.call(document.querySelectorAll('#kasutajateTabel [data-tegevus]'), function (b) {
+        b.addEventListener('click', function () {
+          var k = list.filter(function (x) { return x.id === b.dataset.id; })[0];
+          ({ muuda: avaMuudaKasutaja, pin: avaLahtestaPin, lukusta: lukustaKasutaja, aktiveeri: aktiveeriKasutaja })[b.dataset.tegevus](k);
+        });
+      });
+    }).catch(function (err) {
+      $('#kasutajateTabel').innerHTML = '<p class="vormi-viga">' + esc(err.message) + '</p>';
+    });
+  }
+
+  function rolliValik(valitud) {
+    return '<select name="roll">' +
+      '<option value="LAOTÖÖTAJA"' + (valitud === 'LAOTÖÖTAJA' ? ' selected' : '') + '>Laotöötaja</option>' +
+      '<option value="ADMIN"' + (valitud === 'ADMIN' ? ' selected' : '') + '>Admin</option></select>';
+  }
+
+  var MODAALI_NUPUD =
+    '<div class="nupurida"><button type="button" class="nupp" data-sulge>Loobu</button>' +
+    '<button type="submit" class="nupp nupp-pohi">Salvesta</button></div>';
+
+  function avaLisaKasutaja() {
+    modaal('Lisa kasutaja',
+      '<form>' +
+      '<label>Kasutajanimi<input name="kasutajanimi" autocapitalize="none" required></label>' +
+      '<label>Täisnimi<input name="nimi" required></label>' +
+      '<label>Roll' + rolliValik('LAOTÖÖTAJA') + '</label>' +
+      '<label>PIN (4–6 numbrit)<input name="pin" inputmode="numeric" pattern="[0-9]{4,6}" required></label>' +
+      MODAALI_NUPUD + '</form>',
+      function (v) {
+        return API.kutsu('kasutajad.lisa', {
+          kasutajanimi: v.kasutajanimi.value, nimi: v.nimi.value, roll: v.roll.value, pin: v.pin.value
+        }).then(function () { teade('Kasutaja lisatud.'); laeKasutajad(); });
+      });
+  }
+
+  function avaMuudaKasutaja(k) {
+    modaal('Muuda: ' + k.kasutajanimi,
+      '<form>' +
+      '<label>Täisnimi<input name="nimi" required value="' + esc(k.nimi) + '"></label>' +
+      '<label>Roll' + rolliValik(k.roll) + '</label>' +
+      MODAALI_NUPUD + '</form>',
+      function (v) {
+        return API.kutsu('kasutajad.muuda', { id: k.id, nimi: v.nimi.value, roll: v.roll.value })
+          .then(function () { teade('Salvestatud.'); laeKasutajad(); });
+      });
+  }
+
+  function avaLahtestaPin(k) {
+    modaal('Uus PIN: ' + k.kasutajanimi,
+      '<form>' +
+      '<p class="vaike">Kasutaja ajutine PIN-lukk eemaldatakse.</p>' +
+      '<label>Uus PIN (4–6 numbrit)<input name="pin" inputmode="numeric" pattern="[0-9]{4,6}" required></label>' +
+      MODAALI_NUPUD + '</form>',
+      function (v) {
+        return API.kutsu('kasutajad.lahtestaPin', { id: k.id, pin: v.pin.value })
+          .then(function () { teade('PIN muudetud.'); laeKasutajad(); });
+      });
+  }
+
+  function lukustaKasutaja(k) {
+    if (!confirm('Lukustada kasutaja ' + k.kasutajanimi + '?\nKõik tema seadmed logitakse kohe välja.')) return;
+    API.kutsu('kasutajad.lukusta', { id: k.id })
+      .then(function () { teade('Kasutaja lukustatud.'); laeKasutajad(); })
+      .catch(function (err) { teade(err.message, 'viga'); });
+  }
+
+  function aktiveeriKasutaja(k) {
+    API.kutsu('kasutajad.aktiveeri', { id: k.id })
+      .then(function () { teade('Kasutaja aktiveeritud.'); laeKasutajad(); })
+      .catch(function (err) { teade(err.message, 'viga'); });
+  }
+
+  // -------------------------------------------------------------------------
+  // VAADE: SEADED
+  // -------------------------------------------------------------------------
+
+  function vaadeSeaded() {
+    var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';
+    sisu.innerHTML =
+      '<section class="kaart kitsas">' +
+      '  <h1>Seaded</h1>' +
+      '  <form id="seadedVorm">' +
+      '    <label>Apps Scripti API aadress (lõpeb /exec)' +
+      '      <input name="url" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="' + esc(API.apiUrl()) + '"></label>' +
+      '    <p class="vaike">' + (configUrl ? 'Vaikimisi aadress on määratud failis config.js.' : 'Failis config.js aadressi pole – see kehtib ainult selles seadmes.') + '</p>' +
+      '    <div class="nupurida">' +
+      '      <button type="button" id="testiNupp" class="nupp">Testi ühendust</button>' +
+      '      <button type="submit" class="nupp nupp-pohi">Salvesta</button></div>' +
+      '    <p id="seadedTulemus" class="vaike"></p>' +
+      '  </form>' +
+      '  <p class="vaike"><a href="#/avaleht">Tagasi</a></p>' +
+      '</section>';
+    var vorm = $('#seadedVorm');
+    vorm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      // Kui sisestatu on sama mis config.js-is, pole seadmesse eraldi vaja salvestada.
+      API.maaraApiUrl(vorm.url.value.trim() === configUrl ? '' : vorm.url.value);
+      teade('Salvestatud.');
+    });
+    $('#testiNupp').addEventListener('click', function () {
+      var vana = API.apiUrl();
+      API.maaraApiUrl(vorm.url.value);
+      $('#seadedTulemus').textContent = 'Kontrollin…';
+      API.kutsu('olek').then(function (o) {
+        $('#seadedTulemus').textContent = 'Ühendus töötab. Serveri versioon ' + o.versioon +
+          (o.nouabSeadistust ? '. Esimene admin on veel loomata.' : '.');
+      }).catch(function (err) {
+        $('#seadedTulemus').textContent = 'Ei õnnestunud: ' + err.message;
+      }).then(function () { API.maaraApiUrl(vana === configUrl ? '' : vana); });
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // NAVIGEERIMINE
+  // -------------------------------------------------------------------------
+
+  /** Aadress → vaade. avalik: lubatud ilma sisselogimiseta; admin: ainult adminile. */
+  var VAATED = {
+    'login': { fn: vaadeLogin, avalik: true },
+    'seadistus': { fn: vaadeSeadistus, avalik: true },
+    'seaded': { fn: vaadeSeaded, avalik: true },
+    'avaleht': { fn: vaadeAvaleht },
+    'kasutajad': { fn: vaadeKasutajad, admin: true }
+  };
+
+  function marsruut() {
+    var nimi = (location.hash.replace(/^#\/?/, '') || 'avaleht').split('?')[0];
+    var vaade = VAATED[nimi];
+    var s = API.seanss();
+    if (!vaade) { location.hash = '#/avaleht'; return; }
+    if (!vaade.avalik && !s) { location.hash = '#/login'; return; }
+    if (vaade.admin && !onAdmin()) { location.hash = '#/avaleht'; return; }
+    uuendaYlariba();
+    vaade.fn();
+  }
+
+  window.addEventListener('hashchange', marsruut);
+  marsruut();
+
+  // Kontrolli taustal, kas salvestatud seanss kehtib endiselt (nt kasutaja lukustati).
+  if (API.seanss() && navigator.onLine) {
+    API.kutsu('mina').then(function (k) {
+      var s = API.seanss();
+      if (!s) return;
+      var rollMuutus = s.kasutaja.roll !== k.roll;
+      s.kasutaja = k;
+      API.salvestaSeanss(s);
+      if (rollMuutus) marsruut(); else uuendaYlariba(); // roll muutus → joonista vaade uuesti
+    }).catch(function () { /* võrguvea korral jätkame salvestatud andmetega */ });
+  }
+})();
