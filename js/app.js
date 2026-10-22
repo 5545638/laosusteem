@@ -182,8 +182,8 @@
       '  <p class="vaike">Seadistuskoodi näed, kui käivitad Apps Scriptis funktsiooni <b>seadista</b> (vt juhend).</p>' +
       '  <form id="seadVorm">' +
       '    <label>Seadistuskood<input name="seadistuskood" autocapitalize="characters" required></label>' +
-      '    <label>Kasutajanimi<input name="kasutajanimi" autocapitalize="none" required placeholder="nt henri"></label>' +
-      '    <label>Täisnimi<input name="nimi" required placeholder="nt Henri Kännik"></label>' +
+      '    <label>Kasutajanimi<input name="kasutajanimi" autocapitalize="none" required placeholder="nt mari"></label>' +
+      '    <label>Täisnimi<input name="nimi" required placeholder="nt Mari Maasikas"></label>' +
       '    <label>PIN (4–6 numbrit)<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" required></label>' +
       '    <label>PIN uuesti<input name="pin2" type="password" inputmode="numeric" pattern="[0-9]{4,6}" required></label>' +
       '    <button class="nupp nupp-suur nupp-pohi" type="submit">Loo admin ja logi sisse</button>' +
@@ -236,7 +236,7 @@
     { pealkiri: 'KONFLIKTID', kirjeldus: 'Vajavad ülevaatust', href: '#/konfliktid', etapp: 4, admin: true },
     { pealkiri: 'SEADED', kirjeldus: 'API aadress', href: '#/seaded', etapp: 1 }
   ];
-  var VALMIS_ETAPP = 1; // tõsta pärast iga etapi valmimist
+  var VALMIS_ETAPP = 2; // tõsta pärast iga etapi valmimist
 
   function vaadeAvaleht() {
     var admin = onAdmin();
@@ -329,12 +329,20 @@
   function avaMuudaKasutaja(k) {
     modaal('Muuda: ' + k.kasutajanimi,
       '<form>' +
+      '<label>Kasutajanimi (sisselogimiseks)<input name="kasutajanimi" autocapitalize="none" required value="' + esc(k.kasutajanimi) + '"></label>' +
       '<label>Täisnimi<input name="nimi" required value="' + esc(k.nimi) + '"></label>' +
       '<label>Roll' + rolliValik(k.roll) + '</label>' +
       MODAALI_NUPUD + '</form>',
       function (v) {
-        return API.kutsu('kasutajad.muuda', { id: k.id, nimi: v.nimi.value, roll: v.roll.value })
-          .then(function () { teade('Salvestatud.'); laeKasutajad(); });
+        return API.kutsu('kasutajad.muuda', { id: k.id, kasutajanimi: v.kasutajanimi.value, nimi: v.nimi.value, roll: v.roll.value })
+          .then(function () {
+            teade('Salvestatud.');
+            // Kui muutsid iseenda andmeid, uuenda ka seadmesse salvestatud nime
+            if (k.id === API.seanss().kasutaja.id) API.kutsu('mina').then(function (m) {
+              var s = API.seanss(); s.kasutaja = m; API.salvestaSeanss(s); uuendaYlariba();
+            });
+            laeKasutajad();
+          });
       });
   }
 
@@ -417,18 +425,32 @@
   };
 
   function marsruut() {
-    var nimi = (location.hash.replace(/^#\/?/, '') || 'avaleht').split('?')[0];
+    // Aadress kujul #/vaade või #/vaade/parameeter (nt #/toode/P-123)
+    var osad = (location.hash.replace(/^#\/?/, '') || 'avaleht').split('?')[0].split('/');
+    var nimi = osad[0];
+    var param = osad.slice(1).map(decodeURIComponent).join('/');
     var vaade = VAATED[nimi];
     var s = API.seanss();
     if (!vaade) { location.hash = '#/avaleht'; return; }
     if (!vaade.avalik && !s) { location.hash = '#/login'; return; }
     if (vaade.admin && !onAdmin()) { location.hash = '#/avaleht'; return; }
     uuendaYlariba();
-    vaade.fn();
+    window.scrollTo(0, 0);
+    vaade.fn(param);
   }
 
   window.addEventListener('hashchange', marsruut);
-  marsruut();
+  // Esimene joonistamine alles siis, kui ka teised vaadete failid (nt js/tooted.js) on laetud
+  document.addEventListener('DOMContentLoaded', marsruut);
+
+  // Teistes failides kasutatavad abifunktsioonid ja vaadete tabel
+  window.LAO = {
+    esc: esc, $: $, teade: teade, aeg: aeg, hoivatud: hoivatud, modaal: modaal,
+    onAdmin: onAdmin, MODAALI_NUPUD: MODAALI_NUPUD,
+    vaated: VAATED,
+    /** Joonistab praeguse vaate uuesti */
+    marsruut: marsruut
+  };
 
   // Kontrolli taustal, kas salvestatud seanss kehtib endiselt (nt kasutaja lukustati).
   if (API.seanss() && navigator.onLine) {

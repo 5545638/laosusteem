@@ -88,7 +88,7 @@ Salvesta fail. Seda saab teha ka hiljem otse GitHubis (vt 4.4).
 
 ### 4.2 Repo loomine
 
-1. Logi sisse [github.com](https://github.com) kontole (praegu **henrikannik**).
+1. Logi sisse [github.com](https://github.com) kontole.
 2. Vajuta paremal üleval **+ → New repository**.
 3. **Repository name:** `laosusteem`
 4. Vali **Public**. GitHub Pages on tasuta ainult avalikele repodele. Koodis ei ole paroole ega andmeid, need on ainult sinu Google'i tabelis.
@@ -105,7 +105,7 @@ Salvesta fail. Seda saab teha ka hiljem otse GitHubis (vt 4.4).
 1. Ava repos **Settings → Pages** (vasakus menüüs).
 2. Vali **Source** alt **Deploy from a branch**.
 3. Vali **Branch** alt `main` ja kaust `/ (root)`, siis vajuta **Save**.
-4. Oota 1–2 minutit ja värskenda lehte. Üles ilmub teade „Your site is live at **https://henrikannik.github.io/laosusteem/**”.
+4. Oota 1–2 minutit ja värskenda lehte. Üles ilmub teade „Your site is live at **https://<kasutajanimi>.github.io/laosusteem/**”.
 
 Kui pead `config.js` faili hiljem muutma, ava GitHubis `js/config.js`, vajuta pliiatsit (✎), muuda ja vajuta **Commit changes**. Leht uueneb umbes minutiga.
 
@@ -129,8 +129,8 @@ Aadressi saab muuta ka Seadete lehel, aga see kehtib ainult selles ühes seadmes
 2. Sisselogimisvormi all on link **„Süsteem on seadistamata – loo esimene admin”**. Kliki sellel.
 3. Täida väljad:
    - **Seadistuskood:** sammus 2 üles kirjutatud kood
-   - **Kasutajanimi:** nt `henri` (väiketähed, ilma tühikuteta; sellega logid edaspidi sisse)
-   - **Täisnimi:** nt `Henri Kännik`
+   - **Kasutajanimi:** nt `mari` (väiketähed, ilma tühikuteta; sellega logid edaspidi sisse)
+   - **Täisnimi:** nt `Mari Maasikas`
    - **PIN:** 4–6 numbrit, kaks korda
 4. Vajuta **Loo admin ja logi sisse**.
 

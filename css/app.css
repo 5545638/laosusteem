@@ -134,3 +134,47 @@ a.paan:active { transform: scale(.98); }
 }
 .teade-ok { background: var(--ok); color: #fff; }
 .teade-viga { background: var(--viga); color: #fff; }
+
+/* ---------- Etapp 2: nimekirjad, tootekaart, import ---------- */
+h2 { font-size: 19px; margin: 0 0 12px; }
+section + section, .kaksveergu, .kaksveergu + section { margin-top: 16px; }
+.tooriba { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+.tooriba input[type=search] { flex: 1 1 260px; margin: 0; }
+.tooriba select { flex: 0 1 200px; width: auto; margin: 0; }
+.linnuke { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 0 0 14px; }
+.tooriba .linnuke { margin: 0; }
+.linnuke input { width: 22px; height: 22px; min-height: 0; margin: 0; flex: none; }
+.rida-klikitav { cursor: pointer; }
+.rida-klikitav:hover td { background: #f6f8fb; }
+.rida-madal td { background: var(--hoiatus-taust); }
+.rida-arhiiv td { opacity: .55; }
+.rida-viga td { background: var(--viga-taust); }
+.tekst-hoiatus { color: var(--hoiatus); }
+.tekst-viga { color: var(--viga); font-weight: 600; }
+.tekst-ok { color: var(--ok); }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; }
+.suur-seis { font-size: 20px; margin: 4px 0 0; }
+.kaksveergu { display: grid; gap: 16px; }
+@media (min-width: 900px) { .kaksveergu { grid-template-columns: 1fr 1fr; } .kaksveergu > section { margin-top: 0; } }
+.koodivorm { margin-top: 12px; }
+.nupurida-vasak { justify-content: flex-start; }
+a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
+.valjarida { margin-bottom: 14px; }
+.sildike { display: block; font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+/* Suured lülitinupud (nt Varuosa / Tööriist) */
+.segment { display: flex; gap: 8px; }
+.segment label { flex: 1; margin: 0; }
+.segment input { position: absolute; opacity: 0; pointer-events: none; }
+.segment span { display: block; text-align: center; padding: 12px; border: 2px solid var(--joon); border-radius: 8px; font-weight: 600; cursor: pointer; }
+.segment input:checked + span { border-color: var(--pohi); background: #e8eef7; color: var(--pohi); }
+.segment input:focus-visible + span { outline: 3px solid rgba(31,78,121,.3); }
+.valjad-kolm { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.eelvaade { background: var(--taust); padding: 10px 12px; border-radius: 8px; font-weight: 600; }
+.sammud { padding-left: 20px; }
+.sammud li { margin-bottom: 6px; }
+.tabeli-kerimine { overflow-x: auto; }
+.modaal { max-height: calc(100vh - 32px); }
+[hidden] { display: none !important; }
+@media (max-width: 699px) {
+  .tooriba select { flex: 1 1 100%; }
+}

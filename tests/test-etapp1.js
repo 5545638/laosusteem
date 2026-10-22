@@ -41,20 +41,20 @@ test('GET muu tegevusega keelatud', () => {
 
 console.log('Esimene admin');
 test('vale seadistuskoodiga ei saa', () => {
-  const r = post({ action: 'esimeneAdmin', data: { seadistuskood: 'XXXX', kasutajanimi: 'henri', nimi: 'Henri', pin: '1234' } });
+  const r = post({ action: 'esimeneAdmin', data: { seadistuskood: 'XXXX', kasutajanimi: 'mari', nimi: 'Mari', pin: '1234' } });
   assert.strictEqual(r.code, 'VALE_KOOD');
 });
 test('vale PIN-vorminguga ei saa', () => {
-  const r = post({ action: 'esimeneAdmin', data: { seadistuskood: kood, kasutajanimi: 'henri', nimi: 'Henri', pin: '12' } });
+  const r = post({ action: 'esimeneAdmin', data: { seadistuskood: kood, kasutajanimi: 'mari', nimi: 'Mari', pin: '12' } });
   assert.strictEqual(r.code, 'VALE_SISEND');
 });
 let adminToken;
 test('õige koodiga luuakse admin ja seanss', () => {
-  const r = post({ action: 'esimeneAdmin', data: { seadistuskood: kood.toLowerCase(), kasutajanimi: ' Henri ', nimi: 'Henri K', pin: '1234' } });
+  const r = post({ action: 'esimeneAdmin', data: { seadistuskood: kood.toLowerCase(), kasutajanimi: ' Mari ', nimi: 'Mari M', pin: '1234' } });
   assert(r.ok, r.error);
   adminToken = r.data.token;
   assert.strictEqual(r.data.kasutaja.roll, 'ADMIN');
-  assert.strictEqual(r.data.kasutaja.kasutajanimi, 'henri');
+  assert.strictEqual(r.data.kasutaja.kasutajanimi, 'mari');
   assert(!K.props.has('SEADISTUSKOOD'));
 });
 test('PIN on tabelis räsitud, seansivõti räsitud', () => {
@@ -77,7 +77,7 @@ test('ilma võtmeta andmeid ei anta', () => {
 });
 test('kehtiva võtmega mina töötab', () => {
   const r = post({ action: 'mina', token: adminToken });
-  assert(r.ok && r.data.kasutajanimi === 'henri');
+  assert(r.ok && r.data.kasutajanimi === 'mari');
 });
 test('tundmatu tegevus', () => {
   assert.strictEqual(post({ action: 'kustutaKõik', token: adminToken }).code, 'VALE_PARING');
@@ -122,6 +122,14 @@ test('rolli muutmine jõuab kohe kohale (vahemälu tühjendatakse)', () => {
   assert(post({ action: 'kasutajad.muuda', token: adminToken, data: { id: mati.id, roll: 'ADMIN' } }).ok);
   assert.strictEqual(post({ action: 'mina', token: matiToken }).data.roll, 'ADMIN');
   post({ action: 'kasutajad.muuda', token: adminToken, data: { id: mati.id, roll: 'LAOTÖÖTAJA' } });
+});
+
+test('kasutajanime muutmine (unikaalsus kontrollitud)', () => {
+  assert.strictEqual(post({ action: 'kasutajad.muuda', token: adminToken, data: { id: mati.id, kasutajanimi: 'test' } }).code, 'DUPLIKAAT');
+  assert(post({ action: 'kasutajad.muuda', token: adminToken, data: { id: mati.id, kasutajanimi: 'Mati2' } }).ok);
+  assert(post({ action: 'login', data: { kasutajanimi: 'mati2', pin: '55555' } }).ok);
+  assert(post({ action: 'kasutajad.muuda', token: adminToken, data: { id: mati.id, kasutajanimi: 'mati' } }).ok);
+  assert.strictEqual(post({ action: 'mina', token: matiToken }).data.kasutajanimi, 'mati');
 });
 
 console.log('Vale PIN ja ajutine lukk');
