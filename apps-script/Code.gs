@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 
 var SEADED = {
-  VERSIOON: '1.1.0-etapp2',
+  VERSIOON: '1.2.0-etapp3',
   SEANSI_KEHTIVUS_PAEVI: 30,      // Mitu päeva telefon sisselogimist meeles peab
   MAX_VALE_PIN: 5,                // Mitu järjestikust vale PIN-i katset on lubatud
   PIN_LUKK_MINUTIT: 15,           // Kui kauaks kasutaja pärast liigseid katseid lukustatakse
@@ -42,7 +42,8 @@ var SEADED = {
   RIIULI_VORMING_ILMA_KORRUSETA: 'R-{riiul}',
   KORRUSE_NUMBRI_KOHTI: 2,
   MAX_HULGI_RIIULEID: 1000,       // Mitu riiulit korraga võib hulgilisamisega luua
-  MAX_IMPORDI_RIDU: 500           // Mitu rida ühes impordipäringus (esipaneel jagab suure faili osadeks)
+  MAX_IMPORDI_RIDU: 500,          // Mitu rida ühes impordipäringus (esipaneel jagab suure faili osadeks)
+  MAX_LIIKUMISI_PARINGUS: 200     // Mitu liikumist korraga (etapi 4 järjekord saadab pakkidena)
 };
 
 /** Toote tüübid */
@@ -168,7 +169,10 @@ var TEGEVUSED = {
   'riiulid.lisa':         { fn: tRiiulidLisa_, roll: ROLL.ADMIN, kirjutab: true },
   'riiulid.hulgi':        { fn: tRiiulidHulgi_, roll: ROLL.ADMIN, kirjutab: true },
   'riiulid.muuda':        { fn: tRiiulidMuuda_, roll: ROLL.ADMIN, kirjutab: true },
-  'riiulid.arhiveeri':    { fn: tRiiulidArhiveeri_, roll: ROLL.ADMIN, kirjutab: true }
+  'riiulid.arhiveeri':    { fn: tRiiulidArhiveeri_, roll: ROLL.ADMIN, kirjutab: true },
+
+  // Etapp 3: liikumised (skännimine)
+  'liikumised.lisa':      { fn: tLiikumisedLisa_, kirjutab: true }
 };
 
 /**
@@ -720,7 +724,8 @@ function tAndmed_() {
   loeLeht_('Koodid').forEach(function (k) {
     (koodid[k.toote_id] = koodid[k.toote_id] || []).push({ kood: k.kood, tyyp: k['koodi_tüüp'] });
   });
-  var seis = arvutaSeis_();
+  var liikumised = loeLeht_('Liikumised');
+  var seis = arvutaSeisListist_(liikumised);
   var tooted = loeLeht_('Tooted').map(function (t) {
     var s = seis[t.id] || {};
     return {
@@ -743,7 +748,24 @@ function tAndmed_() {
   var riiulid = loeLeht_('Riiulid').map(function (r) {
     return { id: r.id, kood: r.kood, nimetus: r.nimetus, tsoon: r.tsoon, arhiveeritud: r.arhiveeritud };
   });
-  return { tooted: tooted, riiulid: riiulid, serveriAeg: new Date().toISOString() };
+  return {
+    tooted: tooted,
+    riiulid: riiulid,
+    kelleleSoovitused: kelleleSoovitused_(liikumised),
+    serveriAeg: new Date().toISOString()
+  };
+}
+
+/** Viimati kasutatud „kellele/kuhu” väärtused (uuemad eespool), väljaandmise vormi soovitusteks. */
+function kelleleSoovitused_(liikumised) {
+  var nahtud = {}, tulemus = [];
+  for (var i = liikumised.length - 1; i >= 0 && tulemus.length < 100; i--) {
+    var l = liikumised[i];
+    if (l['tüüp'] !== 'VÄLJA_ANTUD' || !l.kellele_kuhu) continue;
+    var v = String(l.kellele_kuhu).trim();
+    if (!nahtud[v.toLowerCase()]) { nahtud[v.toLowerCase()] = true; tulemus.push(v); }
+  }
+  return tulemus;
 }
 
 /**
@@ -751,11 +773,17 @@ function tAndmed_() {
  * Varuosa: saldo = SISSE − VÄLJA ± KORRIGEERIMINE (KORRIGEERIMISE kogus on vahe, võib olla negatiivne).
  * Tööriist: VÄLJA_ANTUD → "VÄLJA ANTUD", TAGASTATUD → "LAOS",
  *           OLEKU_MUUTUS → uus olek on veerus kellele_kuhu (LAOS / REMONDIS / KADUNUD).
- * Tühistatud liikumised (TÜHISTUS) jäetakse arvestusest välja – täpsem loogika etapis 3.
+ * Tühistatud liikumised jäetakse arvestusest välja (TÜHISTUS-liikumise kellele_kuhu = tühistatava id).
+ * Konfliktiks märgitud liikumised LÄHEVAD arvesse (need juhtusid päriselt) – admin saab need tühistada.
  * Tagastab { toote_id: { saldo, olek, kellele, alates } }.
  */
 function arvutaSeis_() {
-  var liikumised = loeLeht_('Liikumised');
+  return arvutaSeisListist_(loeLeht_('Liikumised'));
+}
+
+/** Nagu arvutaSeis_, aga etteantud liikumiste nimekirjast (et lehte ei peaks mitu korda lugema). */
+function arvutaSeisListist_(koikLiikumised) {
+  var liikumised = koikLiikumised.slice(); // ära muuda algse massiivi järjekorda
   var tyhistatud = {};
   liikumised.forEach(function (l) {
     // TÜHISTUS-liikumise "kellele_kuhu" veerus on tühistatava liikumise id
@@ -773,7 +801,8 @@ function arvutaSeis_() {
       case 'KORRIGEERIMINE': s.saldo += kogus; break;
       case 'VÄLJA_ANTUD': s.olek = 'VÄLJA ANTUD'; s.kellele = l.kellele_kuhu; s.alates = l['skännimise_aeg']; break;
       case 'TAGASTATUD': s.olek = 'LAOS'; s.kellele = ''; s.alates = ''; break;
-      case 'OLEKU_MUUTUS': s.olek = l.kellele_kuhu || 'LAOS'; s.kellele = ''; s.alates = l['skännimise_aeg']; break;
+      case 'OLEKU_MUUTUS':
+        s.olek = l.kellele_kuhu || 'LAOS'; s.kellele = ''; s.alates = s.olek === 'LAOS' ? '' : l['skännimise_aeg']; break;
     }
     s.saldo = Math.round(s.saldo * 1000) / 1000; // väldi ujukomavigu (0.1 + 0.2)
   });
@@ -1230,6 +1259,244 @@ function taida_(n, kohti) {
   var s = String(n);
   while (s.length < kohti) s = '0' + s;
   return s;
+}
+
+// ---------------------------------------------------------------------------
+// TEGEVUS: LIIKUMISED (skännimine telefonis või arvutis)
+// ---------------------------------------------------------------------------
+// Iga liikumine tuleb esipaneelilt oma unikaalse id-ga (UUID, loodud telefonis).
+// Kui sama id-ga liikumine on juba salvestatud, seda teist korda ei lisata –
+// nii ei teki topeltkirjeid, kui telefon saadab sama liikumise uuesti.
+//
+// Liikumise tüübid:
+//   SISSE, VÄLJA          – varuosa kogus (positiivne arv)
+//   KORRIGEERIMINE        – inventuur (ainult admin): tegelikKogus → server arvutab vahe
+//   VÄLJA_ANTUD           – tööriist välja; kellele_kuhu kohustuslik
+//   TAGASTATUD            – tööriist tagasi lattu
+//   OLEKU_MUUTUS          – tööriist REMONDIS / KADUNUD / LAOS (ainult admin)
+//   ÜMBERPAIGUTUS         – toode uuele riiulile; kellele_kuhu = riiuli id
+//   TÜHISTUS              – tühistab liikumise "viide" (oma viimase; admin mis tahes)
+//
+// Konflikt: liikumine salvestatakse, aga märgitakse adminile ülevaatamiseks, kui
+//   - varuosa saldo läheks negatiivseks
+//   - välja antakse tööriist, mis on juba välja antud (või remondis/kadunud)
+//   - tagastatakse tööriist, mis on juba laos
+//   - toode on arhiveeritud
+
+var LIIKUMISE_TYYBID = ['SISSE', 'VÄLJA', 'KORRIGEERIMINE', 'VÄLJA_ANTUD', 'TAGASTATUD', 'OLEKU_MUUTUS', 'ÜMBERPAIGUTUS', 'TÜHISTUS'];
+var AINULT_ADMIN_TYYBID = ['KORRIGEERIMINE', 'OLEKU_MUUTUS'];
+var TOORIISTA_OLEKUD = ['LAOS', 'REMONDIS', 'KADUNUD'];
+
+/**
+ * data.liikumised = [{ id, toote_id, tyyp, kogus, kellele_kuhu, markus, skannimise_aeg, viide, tegelikKogus }]
+ * Tagastab { tulemused: [{ id, ok, konflikt, pohjus, viga, duplikaat }], tooted: [uuendatud seisud] }
+ */
+function tLiikumisedLisa_(data, kasutaja) {
+  var sisend = data.liikumised || [];
+  if (!sisend.length) return { tulemused: [], tooted: [] };
+  if (sisend.length > SEADED.MAX_LIIKUMISI_PARINGUS) {
+    throw new ApiViga_('Korraga kuni ' + SEADED.MAX_LIIKUMISI_PARINGUS + ' liikumist.', 'VALE_SISEND');
+  }
+
+  var ctx = {
+    kasutaja: kasutaja,
+    koik: loeLeht_('Liikumised'),
+    ids: {},
+    tooted: {},
+    riiulid: {},
+    uued: [],
+    riiuliMuutused: {},   // toote_id → uus riiul_id
+    puudutatud: {}        // toote_id → true
+  };
+  ctx.koik.forEach(function (l) { ctx.ids[l.id] = l; });
+  loeLehtRidadega_('Tooted').forEach(function (r) { ctx.tooted[r.obj.id] = r; });
+  loeLeht_('Riiulid').forEach(function (r) { ctx.riiulid[r.id] = r; });
+  ctx.seis = arvutaSeisListist_(ctx.koik);
+
+  var tulemused = sisend.map(function (l) {
+    try {
+      return tootleLiikumine_(ctx, l || {});
+    } catch (err) {
+      if (!(err instanceof ApiViga_)) throw err;
+      return { id: l && l.id, ok: false, viga: err.message };
+    }
+  });
+
+  lisaRead_('Liikumised', ctx.uued);
+  Object.keys(ctx.riiuliMuutused).forEach(function (tid) {
+    uuendaRida_('Tooted', ctx.tooted[tid].rida, { riiul_id: ctx.riiuliMuutused[tid] });
+  });
+
+  var tooted = Object.keys(ctx.puudutatud).map(function (tid) {
+    var s = ctx.seis[tid] || { saldo: 0, olek: 'LAOS', kellele: '', alates: '' };
+    var t = ctx.tooted[tid].obj;
+    return {
+      id: tid,
+      saldo: t['tüüp'] === TYYP.VARUOSA ? s.saldo : null,
+      olek: t['tüüp'] === TYYP.TOORIIST ? s.olek : null,
+      kellele: s.kellele || '',
+      alates: s.alates ? isoAeg_(s.alates) : '',
+      riiul_id: ctx.riiuliMuutused[tid] !== undefined ? ctx.riiuliMuutused[tid] : t.riiul_id
+    };
+  });
+  return { tulemused: tulemused, tooted: tooted };
+}
+
+/** Kontrollib ja salvestab (kontekstis) ühe liikumise. */
+function tootleLiikumine_(ctx, l) {
+  var id = String(l.id || '');
+  if (!/^[A-Za-z0-9-]{8,60}$/.test(id)) throw new ApiViga_('Liikumisel puudub korrektne id.', 'VALE_SISEND');
+
+  // Juba salvestatud (nt telefon saatis uuesti) → ei lisa teist korda
+  if (ctx.ids[id]) {
+    var vana = ctx.ids[id];
+    return { id: id, ok: true, duplikaat: true, konflikt: !!vana.konflikt, pohjus: vana.konflikti_põhjus || '' };
+  }
+
+  var tyyp = String(l.tyyp || '');
+  if (LIIKUMISE_TYYBID.indexOf(tyyp) < 0) throw new ApiViga_('Tundmatu liikumise tüüp: ' + tyyp, 'VALE_SISEND');
+  if (AINULT_ADMIN_TYYBID.indexOf(tyyp) >= 0 && ctx.kasutaja.roll !== ROLL.ADMIN) {
+    throw new ApiViga_('Selle toimingu saab teha ainult admin.', 'POLE_OIGUST');
+  }
+
+  // Aeg = skännimise hetk telefonis. Vigase või tulevikus oleva aja korral serveri aeg.
+  var nuud = new Date();
+  var aeg = l.skannimise_aeg ? new Date(l.skannimise_aeg) : nuud;
+  if (isNaN(aeg.getTime()) || aeg.getTime() > nuud.getTime() + 10 * 60000) aeg = nuud;
+
+  var kirje = {
+    id: id, toote_id: '', 'tüüp': tyyp, kogus: 0, kellele_kuhu: '',
+    'märkus': String(l.markus || '').trim().slice(0, 500),
+    kasutaja_id: ctx.kasutaja.id,
+    'skännimise_aeg': aeg, 'serverisse_jõudmise_aeg': nuud,
+    konflikt: false, 'konflikti_põhjus': '', lahendatud: false
+  };
+  var konfliktid = [];
+
+  if (tyyp === 'TÜHISTUS') {
+    tootleTyhistus_(ctx, l, kirje);
+  } else {
+    var tRida = ctx.tooted[l.toote_id];
+    if (!tRida) throw new ApiViga_('Toodet ei leitud.', 'EI_LEITUD');
+    var toode = tRida.obj;
+    kirje.toote_id = toode.id;
+    var tooriist = toode['tüüp'] === TYYP.TOORIIST;
+    var s = ctx.seis[toode.id] = ctx.seis[toode.id] || { saldo: 0, olek: 'LAOS', kellele: '', alates: '' };
+    if (toode.arhiveeritud) konfliktid.push('Toode on arhiveeritud');
+
+    if (['SISSE', 'VÄLJA', 'KORRIGEERIMINE'].indexOf(tyyp) >= 0 && tooriist) {
+      throw new ApiViga_('See on tööriist – kasuta tööriista väljaandmist/tagastamist.', 'VALE_SISEND');
+    }
+    if (['VÄLJA_ANTUD', 'TAGASTATUD', 'OLEKU_MUUTUS'].indexOf(tyyp) >= 0 && !tooriist) {
+      throw new ApiViga_('See on varuosa, mitte tööriist.', 'VALE_SISEND');
+    }
+
+    switch (tyyp) {
+      case 'SISSE':
+        kirje.kogus = positiivneKogus_(l.kogus);
+        s.saldo += kirje.kogus;
+        break;
+      case 'VÄLJA':
+        kirje.kogus = positiivneKogus_(l.kogus);
+        if (s.saldo - kirje.kogus < 0) konfliktid.push('Saldo läheks negatiivseks (' + ymarda_(s.saldo - kirje.kogus) + ')');
+        s.saldo -= kirje.kogus;
+        break;
+      case 'KORRIGEERIMINE':
+        // Inventuur: tegelik kogus → liikumiseks salvestatakse vahe
+        if (l.tegelikKogus !== undefined && l.tegelikKogus !== null && l.tegelikKogus !== '') {
+          var tegelik = arv_(l.tegelikKogus, 'Tegelik kogus');
+          if (tegelik < 0) throw new ApiViga_('Tegelik kogus ei saa olla negatiivne.', 'VALE_SISEND');
+          kirje.kogus = ymarda_(tegelik - s.saldo);
+          kirje['märkus'] = ('Inventuur: tegelik ' + tegelik + ', oli ' + s.saldo + '. ' + kirje['märkus']).trim();
+        } else {
+          kirje.kogus = arv_(l.kogus, 'Kogus');
+        }
+        s.saldo += kirje.kogus;
+        break;
+      case 'VÄLJA_ANTUD':
+        kirje.kogus = 1;
+        kirje.kellele_kuhu = kohustuslik_(l.kellele_kuhu, 'Kellele/kuhu').slice(0, 200);
+        if (s.olek === 'VÄLJA ANTUD') konfliktid.push('Tööriist oli juba välja antud: ' + s.kellele);
+        else if (s.olek !== 'LAOS') konfliktid.push('Tööriist oli olekus ' + s.olek);
+        s.olek = 'VÄLJA ANTUD'; s.kellele = kirje.kellele_kuhu; s.alates = aeg;
+        break;
+      case 'TAGASTATUD':
+        kirje.kogus = 1;
+        if (s.olek === 'LAOS') konfliktid.push('Tööriist oli juba laos');
+        s.olek = 'LAOS'; s.kellele = ''; s.alates = '';
+        break;
+      case 'OLEKU_MUUTUS':
+        var uus = String(l.kellele_kuhu || '').toUpperCase();
+        if (TOORIISTA_OLEKUD.indexOf(uus) < 0) throw new ApiViga_('Olek peab olema LAOS, REMONDIS või KADUNUD.', 'VALE_SISEND');
+        kirje.kellele_kuhu = uus;
+        s.olek = uus; s.kellele = ''; s.alates = uus === 'LAOS' ? '' : aeg;
+        break;
+      case 'ÜMBERPAIGUTUS':
+        var riiul = ctx.riiulid[l.kellele_kuhu];
+        if (!riiul) throw new ApiViga_('Riiulit ei leitud.', 'EI_LEITUD');
+        if (riiul.arhiveeritud) throw new ApiViga_('Riiul ' + riiul.kood + ' on arhiveeritud.', 'VALE_SISEND');
+        var vanaRiiul = ctx.riiulid[ctx.riiuliMuutused[toode.id] || toode.riiul_id];
+        kirje.kellele_kuhu = riiul.id;
+        if (!kirje['märkus']) kirje['märkus'] = (vanaRiiul ? vanaRiiul.kood : '(riiulita)') + ' → ' + riiul.kood;
+        ctx.riiuliMuutused[toode.id] = riiul.id;
+        break;
+    }
+    s.saldo = ymarda_(s.saldo);
+    ctx.puudutatud[toode.id] = true;
+  }
+
+  if (konfliktid.length) {
+    kirje.konflikt = true;
+    kirje['konflikti_põhjus'] = konfliktid.join('; ');
+  }
+  ctx.ids[id] = kirje;
+  ctx.koik.push(kirje);
+  ctx.uued.push(kirje);
+  return { id: id, ok: true, konflikt: kirje.konflikt, pohjus: kirje['konflikti_põhjus'] };
+}
+
+/**
+ * Tühistamine: lisab TÜHISTUS-liikumise (ajalugu ei kustutata).
+ * Laotöötaja saab tühistada ainult oma viimase liikumise, admin mis tahes liikumise.
+ */
+function tootleTyhistus_(ctx, l, kirje) {
+  var viide = ctx.ids[l.viide];
+  if (!viide) throw new ApiViga_('Tühistatavat liikumist ei leitud.', 'EI_LEITUD');
+  if (viide['tüüp'] === 'TÜHISTUS') throw new ApiViga_('Tühistust ei saa tühistada.', 'VALE_SISEND');
+  if (viide['tüüp'] === 'ÜMBERPAIGUTUS') throw new ApiViga_('Ümberpaigutust ei saa tühistada – paiguta toode uuesti õigele riiulile.', 'VALE_SISEND');
+  var tyhistatud = {};
+  ctx.koik.forEach(function (x) { if (x['tüüp'] === 'TÜHISTUS') tyhistatud[x.kellele_kuhu] = true; });
+  if (tyhistatud[viide.id]) throw new ApiViga_('See liikumine on juba tühistatud.', 'VALE_SISEND');
+
+  if (ctx.kasutaja.roll !== ROLL.ADMIN) {
+    if (viide.kasutaja_id !== ctx.kasutaja.id) throw new ApiViga_('Saad tühistada ainult oma liikumisi.', 'POLE_OIGUST');
+    var viimane = null;
+    for (var i = ctx.koik.length - 1; i >= 0; i--) {
+      var x = ctx.koik[i];
+      if (x.kasutaja_id === ctx.kasutaja.id && x['tüüp'] !== 'TÜHISTUS' && !tyhistatud[x.id]) { viimane = x; break; }
+    }
+    if (!viimane || viimane.id !== viide.id) throw new ApiViga_('Saad tühistada ainult oma viimase liikumise.', 'POLE_OIGUST');
+  }
+
+  kirje.toote_id = viide.toote_id;
+  kirje.kellele_kuhu = viide.id;
+  kirje.kogus = viide.kogus;
+  if (!kirje['märkus']) kirje['märkus'] = 'Tühistatud: ' + viide['tüüp'];
+  // Seisu arvutame tühistuse järel uuesti kõigist liikumistest
+  ctx.koik.push(kirje);
+  ctx.seis = arvutaSeisListist_(ctx.koik);
+  ctx.koik.pop();
+  if (ctx.tooted[viide.toote_id]) ctx.puudutatud[viide.toote_id] = true;
+}
+
+function positiivneKogus_(v) {
+  var n = arv_(v === undefined || v === '' ? 1 : v, 'Kogus');
+  if (!(n > 0)) throw new ApiViga_('Kogus peab olema suurem kui 0.', 'VALE_SISEND');
+  return n;
+}
+
+function ymarda_(n) {
+  return Math.round(n * 1000) / 1000;
 }
 
 // ---------------------------------------------------------------------------

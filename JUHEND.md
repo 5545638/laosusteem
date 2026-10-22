@@ -136,6 +136,16 @@ Aadressi saab muuta ka Seadete lehel, aga see kehtib ainult selles ühes seadmes
 
 Seadistuskood kehtib ühe korra. Kui esimene admin on loodud, saab uusi kasutajaid lisada ainult admin, vaates **KASUTAJAD**.
 
+## 6b. Kaamera luba telefonis
+
+Kui avad esimest korda SISSE, VÄLJA või TÖÖRIIST vaate, küsib brauser luba kaamerat kasutada. Vasta **Luba / Allow**.
+
+- **Kui vajutasid kogemata „Keela”:**
+  - **Android Chrome:** puuduta aadressiriba vasakus servas olevat ikooni → **Õigused** → **Kaamera** → **Luba**.
+  - **iPhone Safari:** ava **Seaded → Safari → Kaamera** ja vali **Küsi** või **Luba**.
+- Kaamera lülitatakse sisse ja välja nupuga 📷 skännimisvälja kõrval. Valik jääb seadmesse meelde: telefonis on kaamera vaikimisi sees, arvutis väljas.
+- Arvutis töötab USB-vöötkoodiskänner ilma seadistamata. Ava SISSE või VÄLJA, vaata, et kursor oleks skännimisväljas, ja skänni. Skänner vajutab ise Enterit.
+
 ## 7. Telefoni avakuvale lisamine
 
 *Valmib etapis 6 (PWA). Seni saab rakenduse avada brauseris tavalise lingina.*

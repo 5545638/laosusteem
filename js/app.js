@@ -225,7 +225,8 @@
   var MENYY = [
     { pealkiri: 'SISSE', kirjeldus: 'Kauba vastuvõtt', href: '#/sisse', etapp: 3 },
     { pealkiri: 'VÄLJA', kirjeldus: 'Kauba väljastamine', href: '#/valja', etapp: 3 },
-    { pealkiri: 'TÖÖRIIST', kirjeldus: 'Välja / tagasi', href: '#/toorist', etapp: 3 },
+    { pealkiri: 'TÖÖRIIST', kirjeldus: 'Välja / tagasi', href: '#/tooriist', etapp: 3 },
+    { pealkiri: 'ÜMBER­PAIGUTUS', kirjeldus: 'Toode uuele riiulile', href: '#/paiguta', etapp: 3 },
     { pealkiri: 'LADU', kirjeldus: 'Saldod ja otsing', href: '#/ladu', etapp: 6 },
     { pealkiri: 'VÄLJAS OLEVAD', kirjeldus: 'Tööriistad väljas', href: '#/valjas', etapp: 6 },
     { pealkiri: 'AJALUGU', kirjeldus: 'Kõik liikumised', href: '#/ajalugu', etapp: 6 },
@@ -236,7 +237,7 @@
     { pealkiri: 'KONFLIKTID', kirjeldus: 'Vajavad ülevaatust', href: '#/konfliktid', etapp: 4, admin: true },
     { pealkiri: 'SEADED', kirjeldus: 'API aadress', href: '#/seaded', etapp: 1 }
   ];
-  var VALMIS_ETAPP = 2; // tõsta pärast iga etapi valmimist
+  var VALMIS_ETAPP = 3; // tõsta pärast iga etapi valmimist
 
   function vaadeAvaleht() {
     var admin = onAdmin();
@@ -434,6 +435,9 @@
     if (!vaade) { location.hash = '#/avaleht'; return; }
     if (!vaade.avalik && !s) { location.hash = '#/login'; return; }
     if (vaade.admin && !onAdmin()) { location.hash = '#/avaleht'; return; }
+    // Eelmise vaate koristus (nt kaamera väljalülitamine)
+    if (typeof LAO.kuiLahkud === 'function') { try { LAO.kuiLahkud(); } catch (e) { /* ignoreeri */ } }
+    LAO.kuiLahkud = null;
     uuendaYlariba();
     window.scrollTo(0, 0);
     vaade.fn(param);

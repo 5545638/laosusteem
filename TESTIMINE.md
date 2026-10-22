@@ -75,3 +75,52 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 
 - 27 uut automaattesti (`node tests/test-etapp2.js`) ja 30 etapi 1 testi. Need katavad EAN-13, EAN-8 ja UPC kontrollnumbriga tuvastamist, sisekoodide loendureid, eksemplare, duplikaatkoode (ka väiketähtedega ja riiulikoodidega), algsaldot ja õigusi (laotöötaja võib kiirlisada, aga ei saa muuta ega algsaldot panna), tüübi muutmise keeldu liikumistega tootel, hulgilisamist, saldo arvutust liikumistest ning importi vigaste ridade, korduskoodide ja 500 rea pakiga.
 - Brauseritest arvuti ja telefoni suurusega aknas: kogu ülaltoodud voog, sh USB-skänneri Enter. CSV-import Windows-1257 kodeeringus failiga (vanem Excel) ja jutumärkidega väljadega. Konsoolis vigu ei olnud.
+
+---
+
+## Etapp 3: telefoniga skännimine
+
+### Enne testimist
+
+1. Ühenda GitHubis pull request (**Merge pull request → Confirm merge**).
+2. Kleebi uus `apps-script/Code.gs` Apps Scripti ja tee **Deploy → Manage deployments → ✎ → Version: New version → Deploy**.
+3. **Seaded → Testi ühendust** peab näitama versiooni **1.2.0-etapp3**.
+4. Kui avalehel pole paani ÜMBERPAIGUTUS, värskenda lehte (telefonis sulge vaheleht ja ava uuesti, arvutis Cmd+Shift+R).
+5. Testimiseks on vaja mõnda toodet koos vöötkoodiga (nt tootja EAN karbil) ja mõnda tööriista. Sobivad ka etapis 2 lisatud tooted. Kui sildiprinterit veel pole, ava tootekaart arvutis ja skänni telefoniga koodi otse ekraanilt. Sisekoodi (nt T-00001) saab sisestada ka käsitsi.
+
+### Testid telefonis
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 1 | Logi telefonis sisse laotöötajana → **SISSE** | Brauser küsib kaamera luba. Pärast lubamist on näha kaamerapilt |
+| 2 | Suuna kaamera toote vöötkoodile | Piiks/vibratsioon, toote nimi, kood, riiul ja praegune saldo |
+| 3 | Vajuta **+** kaks korda, kirjuta märkus „Arve 123”, vajuta **KINNITA SISSE** | Roheline teade „✓ SISSE 3 tk – … Saldo nüüd X”. Tabeli lehel `Liikumised` on uus rida sinu kasutaja-id, märkuse ja skännimise ajaga |
+| 4 | Vajuta rohelises teates **Tühista** | Teade „Tühistatud”. Saldo on tagasi endine. Lehel `Liikumised` on lisarida tüübiga TÜHISTUS (ajalugu jääb alles) |
+| 5 | **VÄLJA** → skänni sama toode → pane kogus suuremaks kui saldo | Punane hoiatus „Saldo läheks negatiivseks …” ja nupp „KINNITA IKKAGI”. Pärast kinnitamist on teade kollane: „Märgitud adminile ülevaatamiseks” |
+| 6 | Skänni riiuli silt (või sisesta `R-A01`) | Näidatakse riiuli tooteid koos saldoga. Toote puudutamisel avaneb koguse vorm |
+| 7 | **VÄLJA** vaates skänni tööriist | „See on tööriist” ja nupp „Ava TÖÖRIIST” |
+| 8 | **TÖÖRIIST** → skänni laos olev tööriist → kirjuta „Kellele/kuhu” → **ANNA VÄLJA** | „✓ VÄLJA ANTUD: … → …”. Järgmisel korral pakutakse sama nime valikuna |
+| 9 | Skänni sama tööriist uuesti | Näidatakse, kellel see on ja mitu päeva. Üks nupp: **TAGASTA LATTU** |
+| 10 | Vajuta **TAGASTA LATTU** | „✓ TAGASTATUD … on laos.” |
+| 11 | Anna sama tööriist välja kahest telefonist korraga (või teine kasutaja annab juba väljas oleva välja) | Teine väljaandmine salvestatakse, aga märgitakse konfliktiks (kollane teade) |
+| 12 | **SISSE** → skänni kood, mida süsteemis pole | „Tundmatu kood” ja nupp **+ Lisa uus toode**. Vormis on kood eeltäidetud. Riiuli saab valida nimekirjast või nupuga **📷 Skänni riiuli silt** |
+| 13 | Salvesta uus toode | Avaneb kohe sama toote koguse vorm. Kinnita SISSE |
+| 14 | **ÜMBERPAIGUTUS** → skänni toode → skänni teise riiuli silt | „✓ …: R-A01 → R-A02”. Arvutis on TOOTED vaates riiul muutunud |
+| 15 | Lülita kaamera nupuga 📷 välja ja sulge rakendus. Ava uuesti | Kaamera jääb välja lülitatuks, kuni lülitad selle ise sisse |
+| 16 | Proovi töökinnastega | Kõik nupud peaksid olema piisavalt suured |
+
+### Testid arvutis
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 17 | Ava **SISSE** ja skänni USB-skänneriga (või kirjuta kood ja vajuta Enter) | Toode avaneb ja fookus on nupul KINNITA, nii et teine Enter kinnitab koguse 1. Pärast seda on kursor jälle skännimisväljas |
+| 18 | Adminina **TOOTED → toode → Inventuur**: sisesta tegelik kogus | Saldo muutub selleks koguseks. Lehel `Liikumised` on KORRIGEERIMINE vahega ja märkusega „Inventuur: tegelik X, oli Y” |
+| 19 | Adminina **TÖÖRIIST** → skänni tööriist → **Märgi remonti** | Olek REMONDIS. Tagastamine viib selle uuesti LAOS-olekusse |
+
+**Mis tuleb etapis 4:** praegu peab liikumise salvestamiseks olema internet. Ilma ühenduseta tuleb teade „Serveriga ei saa ühendust” ja liikumine jääb salvestamata. Etapis 4 salvestatakse liikumine kohe telefoni ja saadetakse serverisse, kui ühendus taastub. Siis tuleb ka KONFLIKTIDE vaade.
+
+### Mida ma ise testisin
+
+- 20 uut automaattesti (`node tests/test-etapp3.js`), mis katavad SISSE/VÄLJA, topeltsaatmise kaitset (sama id), konflikte (negatiivne saldo, topeltväljaandmine, tagastus laos olevale, arhiveeritud toode), õigusi (inventuur ja olekumuutus ainult adminil), ümberpaigutust, tühistamist (ainult oma viimane, admin mis tahes, kordustühistus keelatud) ja tulevikuaja kaitset. Lisaks läbivad endiselt 57 varasemat testi.
+- Brauseritest: kogu ülaltoodud voog telefoni (puutetundlik) ja arvuti suuruses aknas.
+- **Kaamera:** testisin simuleeritud kaamerapildiga. Lugeja tundis ära nii EAN-13 vöötkoodi kui ka QR-koodi ning kaamera lülitus vaatest lahkudes välja. Päris telefonis ma testida ei saanud, seega on testid 1–2 ja 15 olulised.

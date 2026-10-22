@@ -168,6 +168,15 @@
       if (e.key === 'Enter') { e.preventDefault(); vorm.nimetus.focus(); }
     });
     uuendaValju();
+    // Riiuli valimine sildi skännimisega (kaamera või USB-skänner)
+    dialog.querySelector('.skanni-riiul').addEventListener('click', function () {
+      LAO.skanniUksKood('Skänni riiuli silt').then(function (kood) {
+        if (!kood) return;
+        var leitud = LAO.leiaKoodiga(kood);
+        if (leitud && leitud.riiul) { vorm.riiul_id.value = leitud.riiul.id; teade('Riiul ' + leitud.riiul.kood); }
+        else teade('See pole riiuli kood: ' + kood, 'viga');
+      });
+    });
     (eel.kood ? vorm.nimetus : vorm.kood).focus();
     return dialog;
   }
@@ -191,6 +200,7 @@
         return '<option value="' + esc(k) + '">';
       }).join('') + '</datalist>' +
       '<label>Riiul<select name="riiul_id">' + LAO.riiuliValikud(eel.riiul_id || '') + '</select></label>' +
+      '<button type="button" class="nupp nupp-vaike skanni-riiul">📷 Skänni riiuli silt</button>' +
       '<label class="ainult-varuosa">Miinimumkogus <span class="vaike">(alla selle tõstetakse esile)</span>' +
       '  <input name="miinimumkogus" inputmode="decimal" value="' + esc(eel.miinimumkogus || '') + '"></label>' +
       (admin ? '<label class="ainult-varuosa">Algsaldo <span class="vaike">(praegu laos olev kogus)</span><input name="algsaldo" inputmode="decimal"></label>' : '') +
@@ -263,6 +273,17 @@
       '</section>' +
       '</div>' +
 
+      (varuosa
+        ? '<section class="kaart">' +
+          '  <h2>Inventuur</h2>' +
+          '  <p class="vaike">Sisesta laos tegelikult olev kogus. Süsteem salvestab vahe KORRIGEERIMISENA.</p>' +
+          '  <form id="inventuurVorm" class="koodivorm" autocomplete="off">' +
+          '    <label>Tegelik kogus (' + esc(t.yhik) + ')<input name="tegelik" inputmode="decimal" required></label>' +
+          '    <label>Märkus<input name="markus" placeholder="valikuline"></label>' +
+          '    <div class="nupurida"><button type="submit" class="nupp nupp-pohi">Salvesta inventuur</button></div>' +
+          '  </form>' +
+          '</section>'
+        : '') +
       '<section class="kaart">' +
       '  <div class="nupurida nupurida-vasak">' +
       '    <button class="nupp" disabled title="Valmib etapis 5">Prindi silt</button>' +
@@ -305,6 +326,23 @@
           .then(function () { teade('Kood eemaldatud.'); return varskenda(t.id); })
           .catch(function (err) { teade(err.message, 'viga'); });
       });
+    });
+
+    // Inventuur (KORRIGEERIMINE): server arvutab vahe praeguse saldoga
+    var iv = $('#inventuurVorm');
+    if (iv) iv.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var tegelik = Number(iv.tegelik.value.replace(',', '.'));
+      if (!isFinite(tegelik) || tegelik < 0) { teade('Sisesta kogus (0 või rohkem).', 'viga'); return; }
+      LAO.hoivatud(iv, true);
+      LAO.salvestaLiikumised([{
+        id: LAO.uusId(), toote_id: t.id, tyyp: 'KORRIGEERIMINE', tegelikKogus: tegelik,
+        markus: iv.markus.value, skannimise_aeg: new Date().toISOString()
+      }]).then(function (tul) {
+        if (!tul[0].ok) throw new Error(tul[0].viga);
+        teade('Inventuur salvestatud. Saldo: ' + LAO.arvTekst(tegelik) + ' ' + t.yhik);
+        return varskenda(t.id);
+      }).catch(function (err) { LAO.hoivatud(iv, false); teade(err.message, 'viga'); });
     });
 
     // Arhiveerimine

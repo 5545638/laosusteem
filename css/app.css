@@ -178,3 +178,69 @@ a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
 @media (max-width: 699px) {
   .tooriba select { flex: 1 1 100%; }
 }
+
+/* ---------- Etapp 3: skännimisvaated (telefon, töökindad: suured nupud) ---------- */
+:root { --sisse: #1e7b34; --valja: #c2410c; --tooriist: #6d28d9; --paiguta: #0e7490; }
+.skanni-vaade { max-width: 560px; margin: 0 auto; }
+.reziimi-riba { display: flex; align-items: center; gap: 12px; color: #fff; padding: 10px 14px; border-radius: var(--raadius); font-size: 22px; letter-spacing: .03em; margin-bottom: 12px; }
+.reziimi-riba .tagasi { color: #fff; text-decoration: none; font-size: 26px; line-height: 1; padding: 4px 8px; }
+.r-sisse .reziimi-riba { background: var(--sisse); }
+.r-valja .reziimi-riba { background: var(--valja); }
+.r-tooriist .reziimi-riba { background: var(--tooriist); }
+.r-paiguta .reziimi-riba { background: var(--paiguta); }
+
+.skanner { background: var(--kaart); border-radius: var(--raadius); padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.kaamera-raam { border-radius: 8px; overflow: hidden; background: #000; margin-bottom: 10px; }
+.kaamera-raam video { width: 100% !important; display: block; }
+.kasitsi { display: flex; gap: 8px; }
+.kasitsi input { margin: 0; flex: 1; min-width: 0; }
+.kasitsi .nupp { min-height: 50px; padding: 0 16px; }
+.kaamera-nupp { font-size: 22px; }
+.kaamera-nupp.aktiivne { background: #e8eef7; border-color: var(--pohi); }
+.kaamera-teade { margin: 8px 0 0; }
+.uks-skanner .kaamera-raam { max-height: 60vh; }
+
+.juhis { text-align: center; color: var(--hall); font-size: 18px; padding: 18px 8px; }
+#toiming { margin-top: 12px; }
+#toiming > form, #toiming > .kaart-teade, #toiming > .valiknimekiri { margin-top: 12px; }
+
+.toote-kaart { background: var(--kaart); border-radius: var(--raadius); padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.toote-nimi { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.toote-info { color: var(--hall); margin-top: 4px; }
+.toote-seis { font-size: 20px; margin-top: 8px; }
+.toote-kaart .kaart-teade { margin-top: 10px; }
+
+.kaart-teade { border-radius: var(--raadius); padding: 12px 14px; }
+.kaart-teade p { margin: 6px 0; }
+.kaart-teade.hoiatus { background: var(--hoiatus-taust); color: #5c3d00; }
+.kaart-teade.viga { background: var(--viga-taust); color: var(--viga); font-weight: 600; }
+.kaart-teade.info { background: #e6f4f8; color: #0c4a5a; }
+.kaart-teade select { margin-top: 8px; }
+
+/* Koguse valik: suured − / + nupud */
+.kogus { display: grid; grid-template-columns: 80px 1fr 80px; gap: 10px; align-items: stretch; }
+.kogus input { margin: 0; text-align: center; font-size: 34px; font-weight: 700; min-height: 80px; }
+.kogus-nupp { font-size: 40px; font-weight: 700; border: 2px solid var(--joon); border-radius: 12px; background: #fff; cursor: pointer; color: var(--tekst); touch-action: manipulation; }
+.kogus-nupp:active { background: #e8eef7; }
+.kogus-yhik { text-align: center; color: var(--hall); margin: 4px 0 10px; }
+#koguseVorm > input, #tooriistaVorm > input { margin-bottom: 4px; }
+
+.suured-nupud { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.suured-nupud .nupp-suur { margin: 0; min-height: 70px; font-size: 20px; }
+.nupp-sisse { background: var(--sisse); border-color: var(--sisse); color: #fff; }
+.nupp-valja { background: var(--valja); border-color: var(--valja); color: #fff; }
+.admin-olekud { margin-top: 12px; align-items: center; }
+
+.riiuli-pais { font-size: 20px; margin-bottom: 6px; }
+.valiknimekiri { display: flex; flex-direction: column; gap: 8px; }
+.valik { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; font: inherit; font-size: 18px; padding: 14px 16px; min-height: 60px; background: var(--kaart); border: 1px solid var(--joon); border-radius: var(--raadius); cursor: pointer; color: var(--tekst); }
+.valik:active { background: #e8eef7; }
+
+.tulemus { display: flex; align-items: center; gap: 10px; border-radius: var(--raadius); padding: 12px 14px; margin-top: 12px; font-size: 17px; }
+.tulemus-tekst { flex: 1; }
+.tulemus-ok { background: var(--ok-taust); color: var(--ok); border: 2px solid var(--ok); }
+.tulemus-hoiatus { background: var(--hoiatus-taust); color: #5c3d00; border: 2px solid var(--hoiatus); }
+.tulemus-info { background: var(--taust); color: var(--hall); }
+.tulemus .nupp { flex: none; }
+.skanni-riiul { margin: -6px 0 14px; }
+.skanner.pausil .kaamera-raam { max-height: 70px; opacity: .6; }
