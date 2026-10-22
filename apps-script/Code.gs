@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 
 var SEADED = {
-  VERSIOON: '1.0.0-etapp1',
+  VERSIOON: '1.1.0-etapp2',
   SEANSI_KEHTIVUS_PAEVI: 30,      // Mitu päeva telefon sisselogimist meeles peab
   MAX_VALE_PIN: 5,                // Mitu järjestikust vale PIN-i katset on lubatud
   PIN_LUKK_MINUTIT: 15,           // Kui kauaks kasutaja pärast liigseid katseid lukustatakse
@@ -33,8 +33,24 @@ var SEADED = {
   PIN_MAX_PIKKUS: 6,
   RASI_KORDUSI: 200,              // PIN-räsi arvutamise korduste arv (suurem = aeglasem murda)
   VAHEMALU_SEKUNDIT: 600,         // Kui kauaks seansi kontrolli tulemus vahemällu jääb
-  LUKU_OOTEAEG_MS: 20000          // Kui kaua kirjutamisluku järel oodatakse
+  LUKU_OOTEAEG_MS: 20000,         // Kui kaua kirjutamisluku järel oodatakse
+
+  // Sisekoodid (vt jaotis KOODID). Number täidetakse nullidega: V-00001
+  SISEKOODI_NUMBRI_KOHTI: 5,
+  // Riiulikoodi vorming hulgilisamisel. {riiul} = nt A01, {korrus} = nt 03
+  RIIULI_VORMING: 'R-{riiul}-{korrus}',
+  RIIULI_VORMING_ILMA_KORRUSETA: 'R-{riiul}',
+  KORRUSE_NUMBRI_KOHTI: 2,
+  MAX_HULGI_RIIULEID: 1000,       // Mitu riiulit korraga võib hulgilisamisega luua
+  MAX_IMPORDI_RIDU: 500           // Mitu rida ühes impordipäringus (esipaneel jagab suure faili osadeks)
 };
+
+/** Toote tüübid */
+var TYYP = { VARUOSA: 'VARUOSA', TOORIIST: 'TÖÖRIIST' };
+/** Lubatud ühikud */
+var YHIKUD = ['tk', 'm', 'l', 'kg', 'pakk'];
+/** Koodi tüübid (Koodid-lehe veerg koodi_tüüp) */
+var KOODI_TYYBID = ['EAN13', 'EAN8', 'UPC', 'CODE128', 'CODE39', 'QR', 'SISEKOOD'];
 
 /** Rollid */
 var ROLL = { ADMIN: 'ADMIN', LAOTOOTAJA: 'LAOTÖÖTAJA' };
@@ -139,7 +155,20 @@ var TEGEVUSED = {
   'kasutajad.muuda':      { fn: tKasutajadMuuda_, roll: ROLL.ADMIN, kirjutab: true },
   'kasutajad.lahtestaPin':{ fn: tKasutajadLahtestaPin_, roll: ROLL.ADMIN, kirjutab: true },
   'kasutajad.lukusta':    { fn: tKasutajadLukusta_, roll: ROLL.ADMIN, kirjutab: true },
-  'kasutajad.aktiveeri':  { fn: tKasutajadAktiveeri_, roll: ROLL.ADMIN, kirjutab: true }
+  'kasutajad.aktiveeri':  { fn: tKasutajadAktiveeri_, roll: ROLL.ADMIN, kirjutab: true },
+
+  // Etapp 2: tooted, koodid, riiulid, import
+  'andmed':               { fn: tAndmed_ },
+  'tooted.lisa':          { fn: tTootedLisa_, kirjutab: true },   // ka laotöötaja (kiirlisamine)
+  'tooted.muuda':         { fn: tTootedMuuda_, roll: ROLL.ADMIN, kirjutab: true },
+  'tooted.arhiveeri':     { fn: tTootedArhiveeri_, roll: ROLL.ADMIN, kirjutab: true },
+  'tooted.import':        { fn: tTootedImport_, roll: ROLL.ADMIN, kirjutab: true },
+  'koodid.lisa':          { fn: tKoodidLisa_, roll: ROLL.ADMIN, kirjutab: true },
+  'koodid.eemalda':       { fn: tKoodidEemalda_, roll: ROLL.ADMIN, kirjutab: true },
+  'riiulid.lisa':         { fn: tRiiulidLisa_, roll: ROLL.ADMIN, kirjutab: true },
+  'riiulid.hulgi':        { fn: tRiiulidHulgi_, roll: ROLL.ADMIN, kirjutab: true },
+  'riiulid.muuda':        { fn: tRiiulidMuuda_, roll: ROLL.ADMIN, kirjutab: true },
+  'riiulid.arhiveeri':    { fn: tRiiulidArhiveeri_, roll: ROLL.ADMIN, kirjutab: true }
 };
 
 /**
@@ -318,6 +347,13 @@ function tKasutajadMuuda_(data, admin) {
     if (!nimi) throw new ApiViga_('Nimi on kohustuslik.', 'VALE_SISEND');
     muutus.nimi = nimi;
   }
+  if (data.kasutajanimi !== undefined) {
+    var kn = normKasutajanimi_(data.kasutajanimi);
+    if (kn !== normKasutajanimi_(rida.obj.kasutajanimi)) {
+      kontrolliKasutajanimi_(kn);
+      muutus.kasutajanimi = kn;
+    }
+  }
   if (data.roll !== undefined) {
     kontrolliRoll_(data.roll);
     if (rida.obj.roll === ROLL.ADMIN && data.roll !== ROLL.ADMIN) kontrolliPoleViimaneAdmin_(rida.obj.id);
@@ -364,16 +400,11 @@ function tKasutajadAktiveeri_(data) {
 /** Loob uue kasutaja (kontrollib sisendit ja kasutajanime unikaalsust). */
 function looKasutaja_(kasutajanimi, nimi, roll, pin) {
   var kn = normKasutajanimi_(kasutajanimi);
-  if (!/^[a-z0-9._-]{2,30}$/.test(kn)) {
-    throw new ApiViga_('Kasutajanimi peab olema 2–30 märki: tähed a–z, numbrid, punkt, sidekriips või alakriips.', 'VALE_SISEND');
-  }
   nimi = String(nimi || '').trim();
+  kontrolliKasutajanimi_(kn);
   if (!nimi) throw new ApiViga_('Nimi on kohustuslik.', 'VALE_SISEND');
   kontrolliRoll_(roll);
   kontrolliPinVorming_(pin);
-  if (leiaRida_('Kasutajad', function (k) { return normKasutajanimi_(k.kasutajanimi) === kn; })) {
-    throw new ApiViga_('Selline kasutajanimi on juba olemas.', 'DUPLIKAAT');
-  }
   var k = {
     id: 'K-' + Utilities.getUuid().slice(0, 8).toUpperCase(),
     kasutajanimi: kn,
@@ -387,6 +418,16 @@ function looKasutaja_(kasutajanimi, nimi, roll, pin) {
   };
   lisaRida_('Kasutajad', k);
   return k;
+}
+
+/** Kasutajanime vorming ja unikaalsus. */
+function kontrolliKasutajanimi_(kn) {
+  if (!/^[a-z0-9._-]{2,30}$/.test(kn)) {
+    throw new ApiViga_('Kasutajanimi peab olema 2–30 märki: tähed a–z, numbrid, punkt, sidekriips või alakriips.', 'VALE_SISEND');
+  }
+  if (leiaRida_('Kasutajad', function (k) { return normKasutajanimi_(k.kasutajanimi) === kn; })) {
+    throw new ApiViga_('Selline kasutajanimi on juba olemas.', 'DUPLIKAAT');
+  }
 }
 
 function leiaKasutajaRida_(id) {
@@ -594,6 +635,24 @@ function lisaRida_(nimi, obj) {
   sh.appendRow(rida);
 }
 
+/** Lisab lehe lõppu korraga mitu rida (palju kiirem kui ükshaaval). */
+function lisaRead_(nimi, objektid) {
+  if (!objektid.length) return;
+  var sh = leht_(nimi);
+  var kaart = paiseKaart_(sh);
+  var tyybid = veeruTyybid_(nimi);
+  var veerge = sh.getLastColumn();
+  var read = objektid.map(function (obj) {
+    var rida = [];
+    for (var i = 0; i < veerge; i++) rida.push('');
+    for (var veerg in kaart) {
+      if (veerg in obj) rida[kaart[veerg]] = teisendaKirjutatav_(obj[veerg], tyybid[veerg]);
+    }
+    return rida;
+  });
+  sh.getRange(sh.getLastRow() + 1, 1, read.length, veerge).setValues(read);
+}
+
 /** Muudab olemasoleva rea etteantud veerge. */
 function uuendaRida_(nimi, reaNr, muutus) {
   var sh = leht_(nimi);
@@ -645,6 +704,532 @@ function teisendaKirjutatav_(v, tyyp) {
 
 function isoAeg_(d) {
   return d instanceof Date ? d.toISOString() : (d || '');
+}
+
+// ---------------------------------------------------------------------------
+// TEGEVUS: ANDMED (toodete, riiulite, saldode ja olekute nimekiri)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tagastab kõik tooted (koos koodide, saldo ja olekuga) ning riiulid.
+ * Esipaneel hoiab seda vahemälus, et skännimisel oleks nimetus ja saldo
+ * kohe näha. Arhiveeritud tooted ja riiulid on samuti kaasas (märgisega).
+ */
+function tAndmed_() {
+  var koodid = {};
+  loeLeht_('Koodid').forEach(function (k) {
+    (koodid[k.toote_id] = koodid[k.toote_id] || []).push({ kood: k.kood, tyyp: k['koodi_tüüp'] });
+  });
+  var seis = arvutaSeis_();
+  var tooted = loeLeht_('Tooted').map(function (t) {
+    var s = seis[t.id] || {};
+    return {
+      id: t.id,
+      nimetus: t.nimetus,
+      tyyp: t['tüüp'],
+      yhik: t['ühik'],
+      kategooria: t.kategooria,
+      riiul_id: t.riiul_id,
+      miinimumkogus: t.miinimumkogus === '' ? null : t.miinimumkogus,
+      arhiveeritud: t.arhiveeritud,
+      loodud: isoAeg_(t.loodud),
+      koodid: koodid[t.id] || [],
+      saldo: t['tüüp'] === TYYP.VARUOSA ? (s.saldo || 0) : null,
+      olek: t['tüüp'] === TYYP.TOORIIST ? (s.olek || 'LAOS') : null,
+      kellele: s.kellele || '',
+      alates: s.alates ? isoAeg_(s.alates) : ''
+    };
+  });
+  var riiulid = loeLeht_('Riiulid').map(function (r) {
+    return { id: r.id, kood: r.kood, nimetus: r.nimetus, tsoon: r.tsoon, arhiveeritud: r.arhiveeritud };
+  });
+  return { tooted: tooted, riiulid: riiulid, serveriAeg: new Date().toISOString() };
+}
+
+/**
+ * Arvutab iga toote seisu liikumistest skännimise aja järjekorras.
+ * Varuosa: saldo = SISSE − VÄLJA ± KORRIGEERIMINE (KORRIGEERIMISE kogus on vahe, võib olla negatiivne).
+ * Tööriist: VÄLJA_ANTUD → "VÄLJA ANTUD", TAGASTATUD → "LAOS",
+ *           OLEKU_MUUTUS → uus olek on veerus kellele_kuhu (LAOS / REMONDIS / KADUNUD).
+ * Tühistatud liikumised (TÜHISTUS) jäetakse arvestusest välja – täpsem loogika etapis 3.
+ * Tagastab { toote_id: { saldo, olek, kellele, alates } }.
+ */
+function arvutaSeis_() {
+  var liikumised = loeLeht_('Liikumised');
+  var tyhistatud = {};
+  liikumised.forEach(function (l) {
+    // TÜHISTUS-liikumise "kellele_kuhu" veerus on tühistatava liikumise id
+    if (l['tüüp'] === 'TÜHISTUS') tyhistatud[l.kellele_kuhu] = true;
+  });
+  liikumised.sort(function (a, b) { return (a['skännimise_aeg'] || 0) - (b['skännimise_aeg'] || 0); });
+  var seis = {};
+  liikumised.forEach(function (l) {
+    if (tyhistatud[l.id] || l['tüüp'] === 'TÜHISTUS') return;
+    var s = seis[l.toote_id] = seis[l.toote_id] || { saldo: 0, olek: 'LAOS', kellele: '', alates: '' };
+    var kogus = Number(l.kogus) || 0;
+    switch (l['tüüp']) {
+      case 'SISSE': s.saldo += kogus; break;
+      case 'VÄLJA': s.saldo -= kogus; break;
+      case 'KORRIGEERIMINE': s.saldo += kogus; break;
+      case 'VÄLJA_ANTUD': s.olek = 'VÄLJA ANTUD'; s.kellele = l.kellele_kuhu; s.alates = l['skännimise_aeg']; break;
+      case 'TAGASTATUD': s.olek = 'LAOS'; s.kellele = ''; s.alates = ''; break;
+      case 'OLEKU_MUUTUS': s.olek = l.kellele_kuhu || 'LAOS'; s.kellele = ''; s.alates = l['skännimise_aeg']; break;
+    }
+    s.saldo = Math.round(s.saldo * 1000) / 1000; // väldi ujukomavigu (0.1 + 0.2)
+  });
+  return seis;
+}
+
+// ---------------------------------------------------------------------------
+// TEGEVUSED: TOOTED
+// ---------------------------------------------------------------------------
+
+/**
+ * Uue toote lisamine (admin või laotöötaja kiirlisamisel).
+ * data: { nimetus, tyyp, yhik, kategooria, riiul_id, miinimumkogus,
+ *         kood, koodiTyyp, lisaSisekood, eksemplare, algsaldo, id }
+ *  - kood tühi → genereeritakse sisekood (V-00001 / T-00001)
+ *  - kood olemas ja lisaSisekood → lisatakse ka sisekood
+ *  - tööriista eksemplare > 1 → luuakse mitu toodet, igaühel oma T-kood
+ *  - algsaldo (ainult admin, varuosa) → lisatakse KORRIGEERIMINE-liikumine
+ * Tagastab loodud toodete massiivi.
+ */
+function tTootedLisa_(data, kasutaja) {
+  var ctx = looKontekst_();
+  var tulemus = lisaToode_(ctx, data, kasutaja);
+  ctx.salvesta();
+  return tulemus;
+}
+
+/** Muudab toote andmeid. Tüüpi saab muuta ainult siis, kui tootel pole liikumisi. */
+function tTootedMuuda_(data) {
+  var rida = leiaTooteRida_(data.id);
+  var muutus = {};
+  if (data.nimetus !== undefined) muutus.nimetus = kohustuslik_(data.nimetus, 'Nimetus');
+  if (data.tyyp !== undefined && data.tyyp !== rida.obj['tüüp']) {
+    kontrolliTyyp_(data.tyyp);
+    var onLiikumisi = loeLeht_('Liikumised').some(function (l) { return l.toote_id === data.id; });
+    if (onLiikumisi) throw new ApiViga_('Tootel on juba liikumisi – tüüpi ei saa muuta.', 'VALE_SISEND');
+    muutus['tüüp'] = data.tyyp;
+  }
+  if (data.yhik !== undefined) muutus['ühik'] = kontrolliYhik_(data.yhik);
+  if (data.kategooria !== undefined) muutus.kategooria = String(data.kategooria || '').trim();
+  if (data.riiul_id !== undefined) muutus.riiul_id = kontrolliRiiulId_(data.riiul_id);
+  if (data.miinimumkogus !== undefined) muutus.miinimumkogus = kontrolliMiinimum_(data.miinimumkogus);
+  uuendaRida_('Tooted', rida.rida, muutus);
+  return true;
+}
+
+/** Arhiveerib toote (või taastab arhiivist). Kustutamist pole – ajalugu jääb alles. */
+function tTootedArhiveeri_(data) {
+  var rida = leiaTooteRida_(data.id);
+  uuendaRida_('Tooted', rida.rida, { arhiveeritud: data.arhiveeritud !== false });
+  return true;
+}
+
+/**
+ * CSV-import. data.read = [{ nimetus, kood, tyyp, yhik, kategooria, riiul, algsaldo }]
+ * data.looRiiulid = true → puuduvad riiulid luuakse automaatselt.
+ * Iga rida kontrollitakse eraldi; vigased read jäetakse vahele ja nende viga
+ * tagastatakse. Tagastab { lisatud, vigu, tulemused: [{ rida, ok, viga, koodid }] }.
+ */
+function tTootedImport_(data, kasutaja) {
+  var read = data.read || [];
+  if (read.length > SEADED.MAX_IMPORDI_RIDU) {
+    throw new ApiViga_('Korraga saab importida kuni ' + SEADED.MAX_IMPORDI_RIDU + ' rida.', 'VALE_SISEND');
+  }
+  var ctx = looKontekst_();
+  var tulemused = [];
+  read.forEach(function (r, i) {
+    var reaNr = r.reaNr || i + 1;
+    try {
+      var tyyp = tuvastaTyypTekstist_(r.tyyp);
+      var riiulId = '';
+      if (String(r.riiul || '').trim()) riiulId = leiaVoiLooRiiul_(ctx, r.riiul, data.looRiiulid);
+      var loodud = lisaToode_(ctx, {
+        nimetus: r.nimetus,
+        tyyp: tyyp,
+        yhik: r.yhik || 'tk',
+        kategooria: r.kategooria,
+        riiul_id: riiulId,
+        kood: r.kood,
+        algsaldo: tyyp === TYYP.VARUOSA ? r.algsaldo : '',
+        algsaldoMarkus: 'Algsaldo (import)'
+      }, kasutaja);
+      tulemused.push({ rida: reaNr, ok: true, koodid: loodud[0].koodid.map(function (k) { return k.kood; }) });
+    } catch (err) {
+      if (!(err instanceof ApiViga_)) throw err;
+      tulemused.push({ rida: reaNr, ok: false, viga: err.message });
+    }
+  });
+  ctx.salvesta();
+  var lisatud = tulemused.filter(function (t) { return t.ok; }).length;
+  return { lisatud: lisatud, vigu: tulemused.length - lisatud, tulemused: tulemused };
+}
+
+// ---------------------------------------------------------------------------
+// TEGEVUSED: KOODID
+// ---------------------------------------------------------------------------
+
+/**
+ * Lisab tootele koodi. Kui kood on tühi, genereeritakse sisekood
+ * (nt kui tootja kood on halvasti loetav ja soovid oma sildi).
+ */
+function tKoodidLisa_(data) {
+  var ctx = looKontekst_();
+  var toode = ctx.tooted[data.toote_id];
+  if (!toode) throw new ApiViga_('Toodet ei leitud.', 'EI_LEITUD');
+  var uus = lisaKood_(ctx, toode.id, toode['tüüp'], data.kood, data.koodiTyyp);
+  ctx.salvesta();
+  return uus;
+}
+
+/** Eemaldab koodi. Toote viimast koodi eemaldada ei saa. */
+function tKoodidEemalda_(data) {
+  var n = normKood_(data.kood);
+  var rida = leiaRida_('Koodid', function (k) { return normKood_(k.kood) === n; });
+  if (!rida) throw new ApiViga_('Koodi ei leitud.', 'EI_LEITUD');
+  var sama = loeLeht_('Koodid').filter(function (k) { return k.toote_id === rida.obj.toote_id; }).length;
+  if (sama <= 1) throw new ApiViga_('See on toote ainus kood – seda ei saa eemaldada.', 'VALE_SISEND');
+  leht_('Koodid').deleteRow(rida.rida);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// TEGEVUSED: RIIULID
+// ---------------------------------------------------------------------------
+
+/** Ühe riiuli lisamine. Kood on kohustuslik; "R-" lisatakse ette, kui see puudub. */
+function tRiiulidLisa_(data) {
+  var ctx = looKontekst_();
+  var r = lisaRiiul_(ctx, data.kood, data.nimetus, data.tsoon);
+  ctx.salvesta();
+  return r;
+}
+
+/**
+ * Riiulite hulgilisamine. Näide: eesliide "A", alates 1, kuni 10, kohti 2,
+ * korrusAlates 1, korrusKuni 5 → R-A01-01 … R-A10-05 (50 riiulit).
+ * Korrused võib tühjaks jätta → R-A01 … R-A10.
+ * Juba olemasolevad koodid jäetakse vahele.
+ */
+function tRiiulidHulgi_(data) {
+  var eesliide = String(data.eesliide || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{0,5}$/.test(eesliide)) throw new ApiViga_('Eesliide võib olla kuni 5 tähte/numbrit (nt A).', 'VALE_SISEND');
+  var alates = taisarv_(data.alates, 'Riiuli algusnumber');
+  var kuni = taisarv_(data.kuni, 'Riiuli lõpunumber');
+  var kohti = data.kohti ? taisarv_(data.kohti, 'Numbri pikkus') : 2;
+  var onKorrused = data.korrusAlates !== '' && data.korrusAlates !== undefined && data.korrusAlates !== null;
+  var kA = onKorrused ? taisarv_(data.korrusAlates, 'Korruse algus') : 0;
+  var kK = onKorrused ? taisarv_(data.korrusKuni, 'Korruse lõpp') : 0;
+  if (kuni < alates || kK < kA) throw new ApiViga_('Lõpp peab olema suurem kui algus.', 'VALE_SISEND');
+  var kokku = (kuni - alates + 1) * (onKorrused ? kK - kA + 1 : 1);
+  if (kokku > SEADED.MAX_HULGI_RIIULEID) {
+    throw new ApiViga_('Korraga saab luua kuni ' + SEADED.MAX_HULGI_RIIULEID + ' riiulit (praegu ' + kokku + ').', 'VALE_SISEND');
+  }
+
+  var ctx = looKontekst_();
+  var loodud = [], vahele = [];
+  for (var n = alates; n <= kuni; n++) {
+    var riiul = eesliide + taida_(n, kohti);
+    for (var k = kA; k <= (onKorrused ? kK : kA); k++) {
+      var korrus = taida_(k, SEADED.KORRUSE_NUMBRI_KOHTI);
+      var kood = (onKorrused ? SEADED.RIIULI_VORMING : SEADED.RIIULI_VORMING_ILMA_KORRUSETA)
+        .replace('{riiul}', riiul).replace('{korrus}', korrus);
+      if (ctx.koodiOmanik(kood)) { vahele.push(kood); continue; }
+      var nimetus = 'Riiul ' + riiul + (onKorrused ? ', korrus ' + korrus : '');
+      loodud.push(lisaRiiul_(ctx, kood, nimetus, data.tsoon).kood);
+    }
+  }
+  ctx.salvesta();
+  return { loodud: loodud, vahele: vahele };
+}
+
+function tRiiulidMuuda_(data) {
+  var rida = leiaRida_('Riiulid', function (r) { return r.id === data.id; });
+  if (!rida) throw new ApiViga_('Riiulit ei leitud.', 'EI_LEITUD');
+  var muutus = {};
+  if (data.kood !== undefined) {
+    var kood = normRiiuliKood_(data.kood);
+    if (normKood_(kood) !== normKood_(rida.obj.kood)) {
+      var ctx = looKontekst_();
+      if (ctx.koodiOmanik(kood)) throw new ApiViga_('Kood ' + kood + ' on juba kasutusel.', 'DUPLIKAAT');
+      muutus.kood = kood;
+    }
+  }
+  if (data.nimetus !== undefined) muutus.nimetus = String(data.nimetus || '').trim();
+  if (data.tsoon !== undefined) muutus.tsoon = String(data.tsoon || '').trim();
+  uuendaRida_('Riiulid', rida.rida, muutus);
+  return true;
+}
+
+function tRiiulidArhiveeri_(data) {
+  var rida = leiaRida_('Riiulid', function (r) { return r.id === data.id; });
+  if (!rida) throw new ApiViga_('Riiulit ei leitud.', 'EI_LEITUD');
+  uuendaRida_('Riiulid', rida.rida, { arhiveeritud: data.arhiveeritud !== false });
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// TOODETE, KOODIDE JA RIIULITE ABIFUNKTSIOONID
+// ---------------------------------------------------------------------------
+
+/**
+ * "Kontekst" loeb tooted, koodid, riiulid ja loendurid ühe korra mällu,
+ * kogub uued read kokku ja kirjutab need lõpus (salvesta) korraga tabelisse.
+ * Nii on ka suur import kiire (Apps Scriptis on iga tabelipöördumine aeglane).
+ */
+function looKontekst_() {
+  var ctx = {
+    tooted: {}, koodid: {}, riiulid: {}, riiulidKoodiJargi: {},
+    uuedTooted: [], uuedKoodid: [], uuedRiiulid: [], uuedLiikumised: [],
+    loendurid: {}, loenduriRead: {}
+  };
+  loeLeht_('Tooted').forEach(function (t) { ctx.tooted[t.id] = t; });
+  loeLeht_('Koodid').forEach(function (k) { ctx.koodid[normKood_(k.kood)] = k.toote_id; });
+  loeLeht_('Riiulid').forEach(function (r) { ctx.riiulid[r.id] = r; ctx.riiulidKoodiJargi[normKood_(r.kood)] = r.id; });
+  loeLehtRidadega_('Loendurid').forEach(function (l) {
+    ctx.loendurid[l.obj['tüüp']] = Number(l.obj['järgmine']) || 1;
+    ctx.loenduriRead[l.obj['tüüp']] = l.rida;
+  });
+
+  /** Kellele kood kuulub: { toode: id } / { riiul: id } / null */
+  ctx.koodiOmanik = function (kood) {
+    var n = normKood_(kood);
+    if (ctx.koodid[n]) return { toode: ctx.koodid[n] };
+    if (ctx.riiulidKoodiJargi[n]) return { riiul: ctx.riiulidKoodiJargi[n] };
+    return null;
+  };
+
+  /** Järgmine vaba number loendurist (nt VARUOSA → 1, 2, 3 …) */
+  ctx.jargmine = function (tyyp) {
+    var n = ctx.loendurid[tyyp] || 1;
+    ctx.loendurid[tyyp] = n + 1;
+    ctx.loenduridMuutunud = true;
+    return n;
+  };
+
+  /** Kirjutab kõik kogutud muudatused tabelisse. */
+  ctx.salvesta = function () {
+    lisaRead_('Riiulid', ctx.uuedRiiulid);
+    lisaRead_('Tooted', ctx.uuedTooted);
+    lisaRead_('Koodid', ctx.uuedKoodid);
+    lisaRead_('Liikumised', ctx.uuedLiikumised);
+    if (ctx.loenduridMuutunud) {
+      Object.keys(ctx.loendurid).forEach(function (t) {
+        if (ctx.loenduriRead[t]) uuendaRida_('Loendurid', ctx.loenduriRead[t], { 'järgmine': ctx.loendurid[t] });
+        else lisaRida_('Loendurid', { 'tüüp': t, 'järgmine': ctx.loendurid[t] });
+      });
+    }
+    ctx.uuedRiiulid = []; ctx.uuedTooted = []; ctx.uuedKoodid = []; ctx.uuedLiikumised = [];
+  };
+  return ctx;
+}
+
+/** Toote lisamise sisu (kasutavad tooted.lisa ja import). Tagastab loodud toodete massiivi. */
+function lisaToode_(ctx, data, kasutaja) {
+  var nimetus = kohustuslik_(data.nimetus, 'Nimetus');
+  var tyyp = data.tyyp || TYYP.VARUOSA;
+  kontrolliTyyp_(tyyp);
+  var yhik = tyyp === TYYP.TOORIIST ? 'tk' : kontrolliYhik_(data.yhik || 'tk');
+  var riiulId = data.riiul_id ? String(data.riiul_id) : '';
+  if (riiulId && !ctx.riiulid[riiulId]) throw new ApiViga_('Valitud riiulit ei leitud.', 'VALE_SISEND');
+  var miinimum = tyyp === TYYP.VARUOSA ? kontrolliMiinimum_(data.miinimumkogus) : '';
+  var eksemplare = tyyp === TYYP.TOORIIST && data.eksemplare ? taisarv_(data.eksemplare, 'Eksemplaride arv') : 1;
+  if (eksemplare < 1 || eksemplare > 100) throw new ApiViga_('Eksemplaride arv peab olema 1–100.', 'VALE_SISEND');
+  var kood = String(data.kood || '').trim();
+  if (kood && eksemplare > 1) {
+    throw new ApiViga_('Mitme eksemplari korral saab iga eksemplar oma T-koodi. Tootja koodi saab lisada ühe eksemplari kaardil.', 'VALE_SISEND');
+  }
+  if (kood && ctx.koodiOmanik(kood)) throw new ApiViga_('Kood ' + kood + ' on juba kasutusel.', 'DUPLIKAAT');
+
+  var algsaldo = '';
+  if (data.algsaldo !== undefined && data.algsaldo !== null && String(data.algsaldo).trim() !== '') {
+    if (kasutaja && kasutaja.roll !== ROLL.ADMIN) throw new ApiViga_('Algsaldot saab määrata ainult admin.', 'POLE_OIGUST');
+    algsaldo = arv_(data.algsaldo, 'Algsaldo');
+  }
+
+  var loodud = [];
+  for (var i = 1; i <= eksemplare; i++) {
+    var id = (i === 1 && data.id && /^[A-Za-z0-9-]{8,40}$/.test(data.id) && !ctx.tooted[data.id])
+      ? data.id : 'P-' + Utilities.getUuid().replace(/-/g, '').slice(0, 10).toUpperCase();
+    var toode = {
+      id: id,
+      nimetus: eksemplare > 1 ? nimetus + ' #' + i : nimetus,
+      'tüüp': tyyp,
+      'ühik': yhik,
+      kategooria: String(data.kategooria || '').trim(),
+      riiul_id: riiulId,
+      miinimumkogus: miinimum,
+      arhiveeritud: false,
+      loodud: new Date()
+    };
+    ctx.tooted[id] = toode;
+    ctx.uuedTooted.push(toode);
+
+    var koodid = [];
+    if (kood) koodid.push(lisaKood_(ctx, id, tyyp, kood, data.koodiTyyp));
+    if (!kood || data.lisaSisekood) koodid.push(lisaKood_(ctx, id, tyyp, '', 'SISEKOOD'));
+
+    if (algsaldo !== '' && algsaldo !== 0) {
+      var nuud = new Date();
+      ctx.uuedLiikumised.push({
+        id: Utilities.getUuid(), toote_id: id, 'tüüp': 'KORRIGEERIMINE', kogus: algsaldo,
+        kellele_kuhu: '', 'märkus': data.algsaldoMarkus || 'Algsaldo', kasutaja_id: kasutaja ? kasutaja.id : '',
+        'skännimise_aeg': nuud, 'serverisse_jõudmise_aeg': nuud, konflikt: false, konflikti_põhjus: '', lahendatud: false
+      });
+    }
+    loodud.push({ id: id, nimetus: toode.nimetus, tyyp: tyyp, koodid: koodid });
+  }
+  return loodud;
+}
+
+/**
+ * Lisab koodi tootele (kontekstis). Tühi kood → genereeritakse sisekood
+ * vastavalt toote tüübile (V-00001 varuosale, T-00001 tööriistale).
+ */
+function lisaKood_(ctx, tooteId, tooteTyyp, kood, koodiTyyp) {
+  kood = String(kood || '').trim();
+  if (!kood) {
+    var loendur = tooteTyyp === TYYP.TOORIIST ? 'TÖÖRIIST' : 'VARUOSA';
+    var eesliide = tooteTyyp === TYYP.TOORIIST ? 'T-' : 'V-';
+    do { kood = eesliide + taida_(ctx.jargmine(loendur), SEADED.SISEKOODI_NUMBRI_KOHTI); } while (ctx.koodiOmanik(kood));
+    koodiTyyp = 'SISEKOOD';
+  } else {
+    if (/\s/.test(kood)) throw new ApiViga_('Kood ei tohi sisaldada tühikuid.', 'VALE_SISEND');
+    if (ctx.koodiOmanik(kood)) throw new ApiViga_('Kood ' + kood + ' on juba kasutusel.', 'DUPLIKAAT');
+    if (!koodiTyyp) koodiTyyp = tuvastaKoodiTyyp_(kood);
+    if (KOODI_TYYBID.indexOf(koodiTyyp) < 0) throw new ApiViga_('Tundmatu koodi tüüp: ' + koodiTyyp, 'VALE_SISEND');
+  }
+  ctx.koodid[normKood_(kood)] = tooteId;
+  ctx.uuedKoodid.push({ kood: kood, toote_id: tooteId, 'koodi_tüüp': koodiTyyp });
+  return { kood: kood, tyyp: koodiTyyp };
+}
+
+/** Lisab riiuli (kontekstis). */
+function lisaRiiul_(ctx, kood, nimetus, tsoon) {
+  kood = normRiiuliKood_(kood);
+  if (ctx.koodiOmanik(kood)) throw new ApiViga_('Kood ' + kood + ' on juba kasutusel.', 'DUPLIKAAT');
+  var r = {
+    id: 'R' + Utilities.getUuid().replace(/-/g, '').slice(0, 10).toUpperCase(),
+    kood: kood,
+    nimetus: String(nimetus || '').trim(),
+    tsoon: String(tsoon || '').trim(),
+    arhiveeritud: false
+  };
+  ctx.riiulid[r.id] = r;
+  ctx.riiulidKoodiJargi[normKood_(kood)] = r.id;
+  ctx.uuedRiiulid.push(r);
+  return r;
+}
+
+/** Impordi jaoks: leiab riiuli koodi järgi (R- eesliitega või ilma) või loob uue. */
+function leiaVoiLooRiiul_(ctx, tekst, looPuuduv) {
+  var kood = normRiiuliKood_(tekst);
+  var id = ctx.riiulidKoodiJargi[normKood_(kood)];
+  if (id) return id;
+  if (!looPuuduv) throw new ApiViga_('Riiulit ' + kood + ' ei leitud.', 'VALE_SISEND');
+  return lisaRiiul_(ctx, kood, '', '').id;
+}
+
+/** Riiulikood suurtähtedega ja "R-" eesliitega (A01-03 → R-A01-03). */
+function normRiiuliKood_(kood) {
+  var k = String(kood || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!k) throw new ApiViga_('Riiuli kood on kohustuslik.', 'VALE_SISEND');
+  if (!/^[A-Z0-9-]+$/.test(k)) throw new ApiViga_('Riiuli koodis tohib olla ainult tähti A–Z, numbreid ja sidekriipse.', 'VALE_SISEND');
+  return k.indexOf('R-') === 0 ? k : 'R-' + k;
+}
+
+/** Koodide võrdlemiseks: tühikud eemaldatud, suurtähed. */
+function normKood_(kood) {
+  return String(kood || '').trim().toUpperCase();
+}
+
+/**
+ * Tuvastab koodi tüübi: kontrollnumbriga EAN-13 / EAN-8 / UPC-A,
+ * meie sisekoodid (V-, T-, R-), muu → CODE128.
+ */
+function tuvastaKoodiTyyp_(kood) {
+  var k = String(kood).trim();
+  if (/^[VTR]-[A-Z0-9-]+$/i.test(k)) return 'SISEKOOD';
+  if (/^\d{13}$/.test(k) && eanKontrollOk_(k)) return 'EAN13';
+  if (/^\d{12}$/.test(k) && eanKontrollOk_(k)) return 'UPC';
+  if (/^\d{8}$/.test(k) && eanKontrollOk_(k)) return 'EAN8';
+  return 'CODE128';
+}
+
+/** EAN/UPC kontrollnumbri kontroll (viimane number). */
+function eanKontrollOk_(numbrid) {
+  var summa = 0;
+  var andmed = numbrid.slice(0, -1);
+  for (var i = 0; i < andmed.length; i++) {
+    var kaal = (andmed.length - i) % 2 === 1 ? 3 : 1; // paremalt esimene kaaluga 3
+    summa += Number(andmed[i]) * kaal;
+  }
+  return (10 - (summa % 10)) % 10 === Number(numbrid.slice(-1));
+}
+
+/** "varuosa" / "V" / "tööriist" / "T" / "TOORIIST" → TYYP väärtus (impordi jaoks). */
+function tuvastaTyypTekstist_(tekst) {
+  var t = String(tekst || '').trim().toUpperCase();
+  if (!t || t === 'V' || t === 'VARUOSA') return TYYP.VARUOSA;
+  if (t === 'T' || t === 'TÖÖRIIST' || t === 'TOORIIST' || t === 'TÖÖRIISTAD') return TYYP.TOORIIST;
+  throw new ApiViga_('Tundmatu tüüp "' + tekst + '" (lubatud: varuosa, tööriist).', 'VALE_SISEND');
+}
+
+function leiaTooteRida_(id) {
+  var rida = leiaRida_('Tooted', function (t) { return t.id === id; });
+  if (!rida) throw new ApiViga_('Toodet ei leitud.', 'EI_LEITUD');
+  return rida;
+}
+
+function kontrolliTyyp_(t) {
+  if (t !== TYYP.VARUOSA && t !== TYYP.TOORIIST) throw new ApiViga_('Tüüp peab olema VARUOSA või TÖÖRIIST.', 'VALE_SISEND');
+}
+
+function kontrolliYhik_(y) {
+  var v = String(y || '').trim().toLowerCase();
+  if (YHIKUD.indexOf(v) < 0) throw new ApiViga_('Ühik peab olema üks järgmistest: ' + YHIKUD.join(', ') + '.', 'VALE_SISEND');
+  return v;
+}
+
+function kontrolliRiiulId_(id) {
+  if (!id) return '';
+  if (!leiaRida_('Riiulid', function (r) { return r.id === id; })) throw new ApiViga_('Riiulit ei leitud.', 'VALE_SISEND');
+  return id;
+}
+
+function kontrolliMiinimum_(v) {
+  if (v === undefined || v === null || String(v).trim() === '') return '';
+  var n = arv_(v, 'Miinimumkogus');
+  if (n < 0) throw new ApiViga_('Miinimumkogus ei saa olla negatiivne.', 'VALE_SISEND');
+  return n;
+}
+
+function kohustuslik_(v, nimi) {
+  var s = String(v === undefined || v === null ? '' : v).trim();
+  if (!s) throw new ApiViga_(nimi + ' on kohustuslik.', 'VALE_SISEND');
+  return s;
+}
+
+/** Arv tekstist (lubab ka koma: "2,5"). */
+function arv_(v, nimi) {
+  var n = Number(String(v).trim().replace(',', '.'));
+  if (!isFinite(n)) throw new ApiViga_(nimi + ' peab olema arv.', 'VALE_SISEND');
+  return n;
+}
+
+function taisarv_(v, nimi) {
+  var n = arv_(v, nimi);
+  if (Math.floor(n) !== n || n < 0) throw new ApiViga_(nimi + ' peab olema positiivne täisarv.', 'VALE_SISEND');
+  return n;
+}
+
+/** Täidab numbri eest nullidega: taida_(7, 3) → "007" */
+function taida_(n, kohti) {
+  var s = String(n);
+  while (s.length < kohti) s = '0' + s;
+  return s;
 }
 
 // ---------------------------------------------------------------------------
