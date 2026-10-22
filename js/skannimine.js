@@ -354,8 +354,8 @@
   // -------------------------------------------------------------------------
 
   /**
-   * Saadab liikumise serverisse. kirjeldus(uusSeis) → tulemuse tekst.
-   * eiTyhista: ümberpaigutust ei saa tühistada.
+   * Salvestab liikumise (kohe seadmesse, serverisse taustal – vt js/jarjekord.js).
+   * kirjeldus(uusSeis) → tulemuse tekst. eiTyhista: ümberpaigutust ei saa tühistada.
    */
   function salvesta(vorm, liikumine, t, kirjeldus, eiTyhista) {
     if (vorm) LAO.hoivatud(vorm, true);
@@ -366,7 +366,7 @@
       if (!r.ok) throw new Error(r.viga || 'Salvestamine ebaõnnestus.');
       if (liikumine.kellele_kuhu && liikumine.tyyp === 'VÄLJA_ANTUD') jataKellegeMeelde(liikumine.kellele_kuhu);
       var uus = LAO.toode(t.id) || t;
-      naitaTulemust(kirjeldus(uus), r, eiTyhista ? null : liikumine);
+      naitaTulemust(kirjeldus(uus), r, liikumine, eiTyhista);
       valmis();
     }).catch(function (err) {
       LAO.piiks('viga');
@@ -377,27 +377,47 @@
     });
   }
 
-  /** Roheline (või konflikti korral kollane) teade viimase toimingu kohta + Tühista-nupp. */
-  function naitaTulemust(tekst, r, liikumine) {
-    LAO.piiks(r.konflikt ? 'hoiatus' : 'ok');
+  var naidatav = null; // viimase tulemuse liikumise id (et serveri vastus saaks teksti uuendada)
+
+  /** Roheline teade viimase toimingu kohta + saatmise olek + Tühista-nupp. */
+  function naitaTulemust(tekst, r, liikumine, eiTyhista) {
+    LAO.piiks('ok');
+    naidatav = liikumine.id;
     $('#tulemus').innerHTML =
-      '<div class="tulemus ' + (r.konflikt ? 'tulemus-hoiatus' : 'tulemus-ok') + '">' +
+      '<div class="tulemus tulemus-ok">' +
       '<div class="tulemus-tekst">✓ ' + esc(tekst) +
-      (r.konflikt ? '<br><b>Märgitud adminile ülevaatamiseks:</b> ' + esc(r.pohjus) : '') + '</div>' +
-      (liikumine ? '<button class="nupp nupp-vaike" id="tyhista">Tühista</button>' : '') +
+      '<div class="vaike saatmise-olek">' + (navigator.onLine ? 'Salvestatud, saadan serverisse…' : 'Salvestatud seadmesse – saadetakse, kui internet tagasi tuleb.') + '</div></div>' +
+      (eiTyhista ? '' : '<button class="nupp nupp-vaike" id="tyhista">Tühista</button>') +
       '</div>';
-    if (!liikumine) return;
+    if (eiTyhista) return;
     $('#tyhista').addEventListener('click', function () {
       var b = $('#tyhista');
       b.disabled = true;
-      LAO.salvestaLiikumised([{ id: LAO.uusId(), tyyp: 'TÜHISTUS', viide: liikumine.id, skannimise_aeg: new Date().toISOString() }])
-        .then(function (tul) {
-          if (!tul[0].ok) throw new Error(tul[0].viga);
-          LAO.piiks('ok');
-          $('#tulemus').innerHTML = '<div class="tulemus tulemus-info"><div class="tulemus-tekst">Tühistatud: ' + esc(tekst) + '</div></div>';
-        }).catch(function (err) { b.disabled = false; teade(err.message, 'viga'); });
+      LAO.jarjekord.tyhista(liikumine.id).then(function (tul) {
+        if (!tul.ok) throw new Error(tul.viga);
+        LAO.piiks('ok');
+        naidatav = null;
+        $('#tulemus').innerHTML = '<div class="tulemus tulemus-info"><div class="tulemus-tekst">Tühistatud: ' + esc(tekst) + '</div></div>';
+      }).catch(function (err) { b.disabled = false; teade(err.message, 'viga'); });
     });
   }
+
+  // Serveri vastus jõudis: uuenda viimase tulemuse olekurida (või näita konflikti)
+  document.addEventListener('lao:saadetud', function (e) {
+    var r = (e.detail || []).filter(function (x) { return x.id === naidatav; })[0];
+    var kast = document.querySelector('#tulemus .tulemus');
+    if (!r || !kast) return;
+    var olek = kast.querySelector('.saatmise-olek');
+    if (!r.ok) {
+      kast.className = 'tulemus tulemus-hoiatus';
+      olek.innerHTML = '<b>Server ei võtnud vastu:</b> ' + esc(r.viga);
+    } else if (r.konflikt) {
+      kast.className = 'tulemus tulemus-hoiatus';
+      olek.innerHTML = '<b>Märgitud adminile ülevaatamiseks:</b> ' + esc(r.pohjus);
+    } else {
+      olek.textContent = '✓ Serveris';
+    }
+  });
 
   LAO.vaated['sisse'] = { fn: looVaade('sisse') };
   LAO.vaated['valja'] = { fn: looVaade('valja') };

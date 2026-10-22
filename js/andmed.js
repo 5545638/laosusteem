@@ -3,15 +3,18 @@
  *
  * Server saadab tegevusega "andmed" kõik tooted (koos koodide, saldo ja
  * olekuga) ning riiulid. Hoiame neid mälus ja seadme mälus (localStorage),
- * et vaated avaneksid kohe. Etapis 4 kolib see IndexedDB-sse ja töötab ka
- * ilma internetita.
+ * et vaated avaneksid kohe ja skännimine töötaks ka ilma internetita.
+ *
+ * Saatmata liikumised (js/jarjekord.js) arvestatakse seadmes kohe saldo ja
+ * oleku sisse: iga toote juures on t._server = serveri viimati teatatud seis
+ * ning nähtav seis = _server + järjekorras ootel liikumised (rakendaOotel).
  */
 (function () {
   'use strict';
 
   var VOTI = 'lao.andmed';
 
-  var andmed = { tooted: [], riiulid: [], kelleleSoovitused: [], laetud: null };
+  var andmed = { tooted: [], riiulid: [], kelleleSoovitused: [], minuKonfliktid: [], konfliktideArv: null, laetud: null };
   try {
     var vana = JSON.parse(localStorage.getItem(VOTI) || 'null');
     if (vana && vana.tooted) andmed = vana;
@@ -21,12 +24,102 @@
   function laeAndmed() {
     return API.kutsu('andmed').then(function (d) {
       andmed.tooted = d.tooted;
+      andmed.tooted.forEach(function (t) { t._server = seis(t); });
       andmed.riiulid = d.riiulid;
       andmed.kelleleSoovitused = d.kelleleSoovitused || [];
+      andmed.minuKonfliktid = d.minuKonfliktid || [];
+      andmed.konfliktideArv = d.konfliktideArv;
       andmed.laetud = d.serveriAeg;
-      try { localStorage.setItem(VOTI, JSON.stringify(andmed)); } catch (e) { /* liiga suur – pole hullu */ }
+      rakendaOotel();
+      if (LAO.uuendaOlekuriba) LAO.uuendaOlekuriba();
       return andmed;
     });
+  }
+
+  function salvesta() {
+    try { localStorage.setItem(VOTI, JSON.stringify(andmed)); } catch (e) { /* liiga suur – pole hullu */ }
+  }
+
+  /** Toote seisu väljad eraldi objektina. */
+  function seis(t) {
+    return { saldo: t.saldo, olek: t.olek, kellele: t.kellele, alates: t.alates, riiul_id: t.riiul_id };
+  }
+
+  // -------------------------------------------------------------------------
+  // SAATMATA LIIKUMISTE ARVESTAMINE SEADMES
+  // -------------------------------------------------------------------------
+
+  /**
+   * Arvutab nähtava seisu uuesti: serveri seis + järjekorras ootel liikumised.
+   * Lisab nimekirja ka ilma internetita lisatud (veel saatmata) tooted.
+   * Kutsutakse andmete laadimisel ja iga järjekorra muutuse järel.
+   */
+  function rakendaOotel() {
+    var ootel = LAO.jarjekord ? LAO.jarjekord.kirjed().filter(function (k) { return k.olek !== 'viga'; }) : [];
+    var ootelTooted = {};
+    ootel.forEach(function (k) { if (k.liik === 'toode') ootelTooted[k.andmed.id] = k.andmed; });
+    // Saadetud või kustutatud ajutised tooted välja, puuduvad ootel tooted sisse
+    andmed.tooted = andmed.tooted.filter(function (t) { return !t.ootel || ootelTooted[t.id]; });
+    Object.keys(ootelTooted).forEach(function (id) { if (!toode(id)) andmed.tooted.push(ajutineToode(ootelTooted[id])); });
+
+    andmed.tooted.forEach(function (t) {
+      if (!t._server) t._server = seis(t);
+      for (var v in t._server) t[v] = t._server[v];
+    });
+    ootel.forEach(function (k) { if (k.liik === 'liikumine') rakenda(k.andmed); });
+    salvesta();
+  }
+
+  /** Ilma internetita lisatud toode (kuni serverisse jõudmiseni). */
+  function ajutineToode(d) {
+    var varuosa = (d.tyyp || 'VARUOSA') === 'VARUOSA';
+    var t = {
+      id: d.id, nimetus: d.nimetus, tyyp: d.tyyp || 'VARUOSA', yhik: varuosa ? (d.yhik || 'tk') : 'tk',
+      kategooria: d.kategooria || '', riiul_id: d.riiul_id || '',
+      miinimumkogus: varuosa && d.miinimumkogus !== '' && d.miinimumkogus !== undefined ? Number(String(d.miinimumkogus).replace(',', '.')) : null,
+      arhiveeritud: false, loodud: new Date().toISOString(),
+      koodid: d.kood ? [{ kood: d.kood, tyyp: '' }] : [],
+      ootel: true
+    };
+    t._server = {
+      saldo: varuosa ? (Number(String(d.algsaldo || 0).replace(',', '.')) || 0) : null,
+      olek: varuosa ? null : 'LAOS', kellele: '', alates: '', riiul_id: t.riiul_id
+    };
+    return t;
+  }
+
+  /** Ühe ootel liikumise mõju seadme nimekirjale (sama loogika nagu serveris). */
+  function rakenda(l) {
+    var t = toode(l.toote_id);
+    var kogus = Number(String(l.kogus === undefined ? 1 : l.kogus).replace(',', '.')) || 0;
+    if (l.tyyp === 'TÜHISTUS') {
+      // Tühistatava liikumise mõju pööratakse ümber, kui see on seadmes teada
+      var v = LAO.jarjekord && LAO.jarjekord.saadetud(l.viide);
+      t = v && toode(v.toote_id);
+      if (!t) return;
+      var vk = Number(String(v.kogus === undefined ? 1 : v.kogus).replace(',', '.')) || 0;
+      if (v.tyyp === 'SISSE') t.saldo -= vk;
+      else if (v.tyyp === 'VÄLJA') t.saldo += vk;
+      else if (v.tyyp === 'KORRIGEERIMINE' && v.tegelikKogus === undefined) t.saldo -= vk;
+      else if (v.tyyp === 'VÄLJA_ANTUD') { t.olek = 'LAOS'; t.kellele = ''; t.alates = ''; }
+      else if (v.tyyp === 'TAGASTATUD') { t.olek = 'VÄLJA ANTUD'; }
+      if (t.saldo !== null) t.saldo = Math.round(t.saldo * 1000) / 1000;
+      return;
+    }
+    if (!t) return;
+    switch (l.tyyp) {
+      case 'SISSE': t.saldo += kogus; break;
+      case 'VÄLJA': t.saldo -= kogus; break;
+      case 'KORRIGEERIMINE':
+        if (l.tegelikKogus !== undefined && l.tegelikKogus !== '') t.saldo = Number(String(l.tegelikKogus).replace(',', '.'));
+        else t.saldo += kogus;
+        break;
+      case 'VÄLJA_ANTUD': t.olek = 'VÄLJA ANTUD'; t.kellele = l.kellele_kuhu; t.alates = l.skannimise_aeg; break;
+      case 'TAGASTATUD': t.olek = 'LAOS'; t.kellele = ''; t.alates = ''; break;
+      case 'OLEKU_MUUTUS': t.olek = String(l.kellele_kuhu).toUpperCase(); t.kellele = ''; t.alates = t.olek === 'LAOS' ? '' : l.skannimise_aeg; break;
+      case 'ÜMBERPAIGUTUS': t.riiul_id = l.kellele_kuhu; break;
+    }
+    if (t.saldo !== null && t.saldo !== undefined) t.saldo = Math.round(t.saldo * 1000) / 1000;
   }
 
   /** Riiul id järgi (või null). */
@@ -111,7 +204,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // LIIKUMISTE SALVESTAMINE
+  // LIIKUMISTE SALVESTAMINE (vt ka js/jarjekord.js)
   // -------------------------------------------------------------------------
 
   /** Unikaalne id liikumisele (luuakse telefonis, et korduv saatmine ei tekitaks topeltkirjet). */
@@ -123,30 +216,18 @@
     });
   }
 
-  /**
-   * Saadab liikumised serverisse ja uuendab seadmes olevaid saldosid/olekuid.
-   * Tagastab Promise'i serveri tulemustega [{ id, ok, konflikt, pohjus, viga }].
-   * Etapis 4 asendub see järjekorraga, mis töötab ka ilma internetita.
-   */
-  function salvestaLiikumised(liikumised) {
-    return API.kutsu('liikumised.lisa', { liikumised: liikumised }).then(function (vastus) {
-      uuendaSeisud(vastus.tooted);
-      return vastus.tulemused;
-    });
-  }
-
-  /** Paneb serveri saadetud uued seisud seadme nimekirja. */
+  /** Paneb serveri saadetud uued seisud seadme nimekirja (ootel liikumised arvestatakse peale). */
   function uuendaSeisud(seisud) {
     (seisud || []).forEach(function (s) {
       var t = toode(s.id);
-      if (!t) return;
-      t.saldo = s.saldo; t.olek = s.olek; t.kellele = s.kellele; t.alates = s.alates; t.riiul_id = s.riiul_id;
+      if (t) t._server = { saldo: s.saldo, olek: s.olek, kellele: s.kellele, alates: s.alates, riiul_id: s.riiul_id };
     });
-    try { localStorage.setItem(VOTI, JSON.stringify(andmed)); } catch (e) { /* ignoreeri */ }
+    rakendaOotel();
   }
 
   LAO.uusId = uusId;
-  LAO.salvestaLiikumised = salvestaLiikumised;
+  LAO.uuendaSeisud = uuendaSeisud;
+  LAO.rakendaOotel = rakendaOotel;
   LAO.andmed = andmed;
   LAO.laeAndmed = laeAndmed;
   LAO.riiul = riiul;

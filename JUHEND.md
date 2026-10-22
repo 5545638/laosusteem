@@ -146,6 +146,19 @@ Kui avad esimest korda SISSE, VÄLJA või TÖÖRIIST vaate, küsib brauser luba 
 - Kaamera lülitatakse sisse ja välja nupuga 📷 skännimisvälja kõrval. Valik jääb seadmesse meelde: telefonis on kaamera vaikimisi sees, arvutis väljas.
 - Arvutis töötab USB-vöötkoodiskänner ilma seadistamata. Ava SISSE või VÄLJA, vaata, et kursor oleks skännimisväljas, ja skänni. Skänner vajutab ise Enterit.
 
+## 6c. Töö ilma internetita
+
+- Iga liikumine salvestatakse kohe telefoni ja kinnitus tuleb kohe. Serverisse saadetakse see taustal.
+- Ülaosas olev riba näitab olekut:
+  - **✓ Sünkroonitud:** kõik on serveris.
+  - **⏳ Ootel: N liikumist:** saatmine käib või ootab ühendust.
+  - **⚠ Võrguühendus puudub:** internetti pole.
+- Ribale vajutades näed ootel liikumiste nimekirja ja nuppu **Saada kohe**.
+- Kui internet tagasi tuleb, saadetakse liikumised automaatselt. Sama juhtub rakenduse uuesti avamisel ja iga 30 sekundi järel.
+- Kui server mõnda liikumist vastu ei võta (nt toode on vahepeal kustutatud), näidatakse see nimekirjas punaselt koos põhjusega. Selle saab sealt kustutada.
+- **Väljalogimine ei kustuta saatmata liikumisi.** Rakendus hoiatab enne väljalogimist. Liikumised saadetakse hiljem ikkagi selle kasutaja nimel, kes need tegi, ka siis, kui vahepeal logib sisse keegi teine.
+- Kuni etapini 6 peab rakendus olema avatud enne, kui internet kaob. Ilma internetita lehte värskendada ei saa.
+
 ## 7. Telefoni avakuvale lisamine
 
 *Valmib etapis 6 (PWA). Seni saab rakenduse avada brauseris tavalise lingina.*
@@ -161,7 +174,7 @@ Kui avad esimest korda SISSE, VÄLJA või TÖÖRIIST vaate, küsib brauser luba 
 - PIN-e ei salvestata tabelisse avatekstina. Veerus `pin_räsi` on soolatud ja korduvalt arvutatud SHA-256 räsi. Lisaks kasutatakse salajast „pipart”, mis asub skripti atribuutides (Apps Script → Projekti seaded → Skripti atribuudid), mitte tabelis.
 - Seansivõti jääb ainult telefoni. Lehel `Seansid` on ainult selle räsi, nii et tabelist võtit kätte ei saa.
 - 5 järjestikust vale PIN-i lukustab kasutaja 15 minutiks. Admin saab luku kohe eemaldada nupuga **Lähtesta PIN** või **Aktiveeri**.
-- **Lukusta** (nt kadunud telefoni korral) kustutab kasutaja kõik seansid kohe. Järgmine päring sellest telefonist suunatakse sisselogimisele.
+- **Lukusta** (nt kadunud telefoni korral) muudab kasutaja kõik seansid kohe kehtetuks. Järgmine päring sellest telefonist suunatakse sisselogimisele. Kui telefonis oli veel saatmata liikumisi, võetakse need vastu ainult **KONFLIKTIDE** alla. Saldot ei muuda need enne, kui admin need kinnitab.
 - Süsteemi jääb alati vähemalt üks aktiivne admin. Viimast adminit ei saa lukustada ega tavakasutajaks muuta.
 - Seadeid (lukustuse aeg, seansi kehtivus jms) saab muuta faili `Code.gs` alguses plokis `SEADED`.
 

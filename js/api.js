@@ -59,12 +59,16 @@
    * Saadab päringu serverisse. Tagastab Promise'i serveri "data" väärtusega.
    * Kui seanss on kehtetu, kustutatakse see seadmest ja kutsutakse
    * API.kuiSeanssKehtetu (app.js suunab siis sisselogimisele).
+   * valikud.token: saada teise (nt varem välja loginud kasutaja) võtmega – siis
+   * seadme praegust seanssi ei puudutata (kasutab sünkroonimisjärjekord).
    */
-  function kutsu(action, data) {
+  function kutsu(action, data, valikud) {
     var url = apiUrl();
     if (!url) return Promise.reject(ApiViga('API aadress on seadistamata (vaata SEADED).', 'SEADISTAMATA'));
     var s = seanss();
-    var keha = JSON.stringify({ action: action, token: s ? s.token : null, data: data || {} });
+    var oma = !(valikud && valikud.token) || (s && valikud.token === s.token);
+    var token = valikud && valikud.token ? valikud.token : (s ? s.token : null);
+    var keha = JSON.stringify({ action: action, token: token, data: data || {} });
 
     return fetch(url, { method: 'POST', body: keha, redirect: 'follow' })
       .catch(function () {
@@ -78,7 +82,9 @@
       })
       .then(function (json) {
         if (json.ok) return json.data;
-        if (json.code === 'SEANSS_KEHTETU') {
+        if (json.code === 'SEANSS_KEHTETU' && oma) {
+          // Järjekord jätab võtme meelde, kui sellel kasutajal on saatmata liikumisi
+          if (s && typeof API.kuiSeanssKaob === 'function') API.kuiSeanssKaob(s);
           salvestaSeanss(null);
           if (typeof API.kuiSeanssKehtetu === 'function') API.kuiSeanssKehtetu(json.error);
         }
@@ -93,7 +99,8 @@
     seanss: seanss,
     salvestaSeanss: salvestaSeanss,
     seadmeKirjeldus: seadmeKirjeldus,
-    kuiSeanssKehtetu: null
+    kuiSeanssKehtetu: null,
+    kuiSeanssKaob: null
   };
   window.API = API;
 })();

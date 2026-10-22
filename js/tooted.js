@@ -134,10 +134,10 @@
     var d = modaalHtml(eel, admin);
     var dialog = LAO.modaal('Lisa toode', d, function (v) {
       var tyyp = v.tyyp.value;
-      return API.kutsu('tooted.lisa', {
+      var data = {
         kood: v.kood.value.trim(),
         lisaSisekood: v.lisaSisekood.checked,
-        nimetus: v.nimetus.value,
+        nimetus: v.nimetus.value.trim(),
         tyyp: tyyp,
         yhik: v.yhik.value,
         kategooria: v.kategooria.value,
@@ -145,7 +145,17 @@
         miinimumkogus: tyyp === 'VARUOSA' ? v.miinimumkogus.value : '',
         algsaldo: admin && tyyp === 'VARUOSA' ? v.algsaldo.value : '',
         eksemplare: tyyp === 'TÖÖRIIST' && !v.kood.value.trim() ? v.eksemplare.value : 1
-      }).then(function (loodud) {
+      };
+      var paring = navigator.onLine ? API.kutsu('tooted.lisa', data).catch(function (err) {
+        if (err.kood !== 'VORK') throw err;
+        return lisaVorguta(data); // ühendus katkes – salvesta seadmesse
+      }) : lisaVorguta(data);
+      return paring.then(function (loodud) {
+        if (loodud[0].ootel) {
+          teade('Toode salvestati seadmesse. Kood/sisekood tuleb serverist, kui internet tagasi tuleb.');
+          if (kuiValmis) kuiValmis(loodud);
+          return;
+        }
         var koodid = loodud.map(function (t) { return t.koodid.map(function (k) { return k.kood; }).join(', '); });
         teade(loodud.length > 1 ? 'Lisatud ' + loodud.length + ' eksemplari: ' + koodid.join('; ') : 'Lisatud: ' + koodid[0]);
         return LAO.laeAndmed().catch(function () {}).then(function () { if (kuiValmis) kuiValmis(loodud); });
@@ -179,6 +189,15 @@
     });
     (eel.kood ? vorm.nimetus : vorm.kood).focus();
     return dialog;
+  }
+
+  /** Ilma internetita lisamine: toode läheb järjekorda (js/jarjekord.js) ja saadetakse hiljem. */
+  function lisaVorguta(data) {
+    if (!data.nimetus) return Promise.reject(new Error('Nimetus on kohustuslik.'));
+    if (Number(data.eksemplare) > 1) return Promise.reject(new Error('Ilma internetita saab lisada ühe eksemplari korraga.'));
+    if (data.kood && LAO.leiaKoodiga(data.kood)) return Promise.reject(new Error('Kood ' + data.kood + ' on juba kasutusel.'));
+    delete data.eksemplare;
+    return LAO.jarjekord.lisaToode(data);
   }
 
   function modaalHtml(eel, admin) {
@@ -341,7 +360,7 @@
       }]).then(function (tul) {
         if (!tul[0].ok) throw new Error(tul[0].viga);
         teade('Inventuur salvestatud. Saldo: ' + LAO.arvTekst(tegelik) + ' ' + t.yhik);
-        return varskenda(t.id);
+        vaadeToode(t.id); // saldo on seadmes kohe uuendatud; server saab liikumise taustal
       }).catch(function (err) { LAO.hoivatud(iv, false); teade(err.message, 'viga'); });
     });
 
