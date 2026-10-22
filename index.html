@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f4e79">
   <title>Laosüsteem</title>
-  <link rel="stylesheet" href="css/app.css?v=3">
+  <link rel="stylesheet" href="css/app.css?v=4">
 </head>
 <body>
   <!-- Ülariba: rakenduse nimi, sisseloginud kasutaja ja väljalogimine -->
@@ -15,25 +15,27 @@
     <button id="valjaNupp" class="nupp nupp-vaike" type="button">Logi välja</button>
   </header>
 
-  <!-- Olekuriba: võrgu ja sünkroonimise olek (sünkroonimisjärjekord tuleb etapis 4) -->
+  <!-- Olekuriba: võrgu ja sünkroonimise olek; vajutades avaneb ootel liikumiste nimekiri (js/jarjekord.js) -->
   <div id="olekuriba" class="olekuriba" hidden></div>
 
-  <!-- NB! ?v=3 failinimede järel sunnib brauserit uut versiooni laadima – tõsta numbrit igal uuendusel. -->
+  <!-- NB! ?v=4 failinimede järel sunnib brauserit uut versiooni laadima – tõsta numbrit igal uuendusel. -->
   <!-- Siia joonistatakse aktiivne vaade (vt js/app.js) -->
   <main id="sisu" class="sisu"></main>
 
   <!-- Lühiteated (nt "Salvestatud") -->
   <div id="teade" class="teade" role="status" aria-live="polite" hidden></div>
 
-  <script src="js/config.js?v=3"></script>
-  <script src="js/api.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
-  <script src="js/andmed.js?v=3"></script>
-  <script src="js/tooted.js?v=3"></script>
-  <script src="js/riiulid.js?v=3"></script>
-  <script src="js/import.js?v=3"></script>
+  <script src="js/config.js?v=4"></script>
+  <script src="js/api.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
+  <script src="js/andmed.js?v=4"></script>
+  <script src="js/jarjekord.js?v=4"></script>
+  <script src="js/tooted.js?v=4"></script>
+  <script src="js/riiulid.js?v=4"></script>
+  <script src="js/import.js?v=4"></script>
   <script src="js/vendor/html5-qrcode.min.js?v=2.3.8"></script>
-  <script src="js/skanner.js?v=3"></script>
-  <script src="js/skannimine.js?v=3"></script>
+  <script src="js/skanner.js?v=4"></script>
+  <script src="js/skannimine.js?v=4"></script>
+  <script src="js/konfliktid.js?v=4"></script>
 </body>
 </html>

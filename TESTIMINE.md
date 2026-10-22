@@ -117,10 +117,53 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 | 18 | Adminina **TOOTED → toode → Inventuur**: sisesta tegelik kogus | Saldo muutub selleks koguseks. Lehel `Liikumised` on KORRIGEERIMINE vahega ja märkusega „Inventuur: tegelik X, oli Y” |
 | 19 | Adminina **TÖÖRIIST** → skänni tööriist → **Märgi remonti** | Olek REMONDIS. Tagastamine viib selle uuesti LAOS-olekusse |
 
-**Mis tuleb etapis 4:** praegu peab liikumise salvestamiseks olema internet. Ilma ühenduseta tuleb teade „Serveriga ei saa ühendust” ja liikumine jääb salvestamata. Etapis 4 salvestatakse liikumine kohe telefoni ja saadetakse serverisse, kui ühendus taastub. Siis tuleb ka KONFLIKTIDE vaade.
-
 ### Mida ma ise testisin
 
 - 20 uut automaattesti (`node tests/test-etapp3.js`), mis katavad SISSE/VÄLJA, topeltsaatmise kaitset (sama id), konflikte (negatiivne saldo, topeltväljaandmine, tagastus laos olevale, arhiveeritud toode), õigusi (inventuur ja olekumuutus ainult adminil), ümberpaigutust, tühistamist (ainult oma viimane, admin mis tahes, kordustühistus keelatud) ja tulevikuaja kaitset. Lisaks läbivad endiselt 57 varasemat testi.
 - Brauseritest: kogu ülaltoodud voog telefoni (puutetundlik) ja arvuti suuruses aknas.
 - **Kaamera:** testisin simuleeritud kaamerapildiga. Lugeja tundis ära nii EAN-13 vöötkoodi kui ka QR-koodi ning kaamera lülitus vaatest lahkudes välja. Päris telefonis ma testida ei saanud, seega on testid 1–2 ja 15 olulised.
+
+## Etapp 4: töö ilma internetita, sünkroonimine ja konfliktid
+
+### Enne testimist
+
+1. Ühenda GitHubis pull request (**Merge pull request → Confirm merge**).
+2. Kleebi uus `apps-script/Code.gs` Apps Scripti ja tee **Deploy → Manage deployments → ✎ → Version: New version → Deploy**. Funktsiooni `seadista` uuesti käivitama ei pea, sest tabeli veerud ei muutunud.
+3. **Seaded → Testi ühendust** peab näitama versiooni **1.3.0-etapp4**.
+4. Värskenda rakendust: telefonis sulge vaheleht ja ava uuesti, arvutis vajuta Cmd+Shift+R. Kui kõik on korras, on ülaosas roheline riba **✓ Sünkroonitud** ja admini avalehel on paan **KONFLIKTID**.
+5. Testimiseks on vaja kahte kasutajat, nt admin ja üks laotöötaja, ning soovitavalt kahte telefoni.
+
+> **NB! Rakendus peab olema avatud enne, kui internet kaob.** Seni (kuni etapini 6) ei saa rakendust ilma internetita esimest korda avada ega lehte värskendada. Ava rakendus, lülita siis telefonis **lennukirežiim** sisse ja tööta edasi. Etapis 6 hakkab rakendus avanema ka ilma internetita.
+
+### Testid telefonis
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 1 | Internetiga: **SISSE** → skänni toode → **KINNITA** | Roheline teade tuleb kohe. Selle all on kõigepealt „Salvestatud, saadan serverisse…” ja sekundi pärast „✓ Serveris”. Ülal on **✓ Sünkroonitud** |
+| 2 | Lülita sisse **lennukirežiim**. Tee **VÄLJA** 2 tk | Kinnitus tuleb kohe ja saldo väheneb kohe. Teates on „Salvestatud seadmesse – saadetakse, kui internet tagasi tuleb”. Ülariba: **⚠ Võrguühendus puudub · Ootel: 1** |
+| 3 | Ikka ilma internetita: skänni tundmatu kood → **+ Lisa uus toode** → salvesta → **KINNITA SISSE** | Toode lisatakse ja koguse vorm avaneb. Ülariba: **Ootel: 3** (uus toode ja 2 liikumist) |
+| 4 | Vajuta ülaribale | Avaneb nimekiri ootel liikumistest: aeg, tüüp, kogus ja toode |
+| 5 | Lülita lennukirežiim välja | Mõne sekundi jooksul läheb riba roheliseks: **✓ Sünkroonitud**. Tabelis on uus toode ja liikumised. Veerus `skännimise_aeg` on aeg, mil skännisid, mitte saatmise aeg |
+| 6 | Tee ilma internetita liikumine, sulge rakendus täiesti ja oota veidi. Lülita internet sisse ja ava rakendus | Liikumine on alles ja saadetakse automaatselt |
+| 7 | **Kaks telefoni**, mõlemad lennukirežiimis: anna sama tööriist mõlemast välja (eri inimestele). Lülita internet sisse kõigepealt esimeses, siis teises | Teine telefon näitab kollast teadet „…märgiti adminile ülevaatamiseks: Tööriist oli juba välja antud: …”. Ülaribal on „Sinu konflikte: 1” ja avalehel on hoiatus |
+| 8 | **Kaks telefoni** lennukirežiimis: skänni mõlemas sama tundmatu kood, lisa toode (eri nimedega) ja tee SISSE. Lülita internet sisse kordamööda | Tabelis on ainult üks toode. Teise telefoni liikumine seotakse selle tootega ja märgitakse konfliktiks „Toode lisati kahest seadmest…” |
+| 9 | Lennukirežiimis tee liikumine ja vajuta **Logi välja** | Hoiatus „Seadmes on 1 saatmata liikumist… Neid ei kustutata”. Vasta OK, logi sisse teise kasutajana ja lülita internet sisse. Liikumine saadetakse esimese kasutaja nimel |
+| 10 | Telefonis lennukirežiimis: tee liikumine. Arvutis: **KASUTAJAD → Lukusta** see kasutaja. Telefonis lülita internet sisse | Telefon suunatakse sisselogimisele ja näitab teadet „Kasutaja on lukustatud. Saatmata liikumised edastati adminile”. Saldo **ei muutu** enne, kui admin selle liikumise kinnitab |
+| 11 | Ilma internetita tee liikumine ja vajuta rohelises teates **Tühista** | Liikumine eemaldatakse järjekorrast ja serverisse seda üldse ei saadeta |
+
+### Testid arvutis (admin)
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 12 | Ava avaleht | Paanil **KONFLIKTID** on punane arv, ülaribal „KONFLIKTE: N” |
+| 13 | Ava **KONFLIKTID** | Iga konflikti juures on aeg, kasutaja, toiming, toode koos praeguse saldo/olekuga ja põhjus. Lukustatud kasutaja liikumisel on punane märge „lukustatud” |
+| 14 | Lukustatud kasutaja liikumisel vajuta **Kinnita** | Liikumine läheb alles nüüd saldosse. Rida liigub alla „Viimati lahendatud” alla. Tabelis on veerus `lahendatud` „jah” ja põhjuse lõpus „[KINNITATUD: sinu nimi, aeg]” |
+| 15 | Topeltväljaandmisel vajuta **Paranda** ja muuda „Kellele/kuhu” (või varuosal kogust) | Algne liikumine tühistatakse ja lisatakse parandatud liikumine sama aja ja sama kasutajaga. Märkuses on „(parandas …)” |
+| 16 | Mõnel konfliktil vajuta **Tühista** | Lisatakse TÜHISTUS-liikumine ja saldo/olek taastub. Lukustatud kasutaja liikumine lükatakse lihtsalt tagasi |
+| 17 | Telefonis, mille kasutaja konflikt lahendati, ava avaleht | Hoiatus „sinu liikumist ootab ülevaatust” kaob |
+
+### Mida ma ise testisin
+
+- 14 uut automaattesti (`node tests/test-etapp4.js`). Need katavad ilma internetita lisatud toote uuesti saatmist, sama koodiga toodet kahest seadmest, lukustatud kasutaja liikumisi (salvestuvad konfliktina ega muuda saldot), konfliktide nimekirja ja õigusi ning kinnitamist, parandamist ja tühistamist. Lisaks läbivad endiselt 77 varasemat testi.
+- Brauseritest kahe „telefoniga”, kus võrk lülitati välja ja sisse. Kontrollisin testid 1–5 ja 7–11 ning konfliktide vaadet arvutis (kinnitamine ja parandamine). Kontrollisin ka, et järjekord jääb alles, kui leht laaditakse uuesti ajal, mil server ei vasta.
+- Päris telefoni lennukirežiimiga ma testida ei saanud.

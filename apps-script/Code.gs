@@ -25,8 +25,11 @@
 // ---------------------------------------------------------------------------
 
 var SEADED = {
-  VERSIOON: '1.2.0-etapp3',
+  VERSIOON: '1.3.0-etapp4',
   SEANSI_KEHTIVUS_PAEVI: 30,      // Mitu päeva telefon sisselogimist meeles peab
+  // Aegunud/lukustatud seansi rida hoitakse veel nii mitu päeva alles, et lukustatud
+  // kasutaja telefonist hiljem saabuvad liikumised saaks tema nimel KONFLIKTIDE alla panna.
+  SEANSI_SAILITAMINE_PAEVI: 90,
   MAX_VALE_PIN: 5,                // Mitu järjestikust vale PIN-i katset on lubatud
   PIN_LUKK_MINUTIT: 15,           // Kui kauaks kasutaja pärast liigseid katseid lukustatakse
   PIN_MIN_PIKKUS: 4,
@@ -43,7 +46,8 @@ var SEADED = {
   KORRUSE_NUMBRI_KOHTI: 2,
   MAX_HULGI_RIIULEID: 1000,       // Mitu riiulit korraga võib hulgilisamisega luua
   MAX_IMPORDI_RIDU: 500,          // Mitu rida ühes impordipäringus (esipaneel jagab suure faili osadeks)
-  MAX_LIIKUMISI_PARINGUS: 200     // Mitu liikumist korraga (etapi 4 järjekord saadab pakkidena)
+  MAX_LIIKUMISI_PARINGUS: 200,    // Mitu liikumist korraga (telefoni järjekord saadab pakkidena)
+  MAX_MINU_KONFLIKTE: 20          // Mitu lahendamata konflikti näidatakse kasutajale telefonis
 };
 
 /** Toote tüübid */
@@ -160,7 +164,7 @@ var TEGEVUSED = {
 
   // Etapp 2: tooted, koodid, riiulid, import
   'andmed':               { fn: tAndmed_ },
-  'tooted.lisa':          { fn: tTootedLisa_, kirjutab: true },   // ka laotöötaja (kiirlisamine)
+  'tooted.lisa':          { fn: tTootedLisa_, kirjutab: true, lukustatuleLubatud: true },   // ka laotöötaja (kiirlisamine)
   'tooted.muuda':         { fn: tTootedMuuda_, roll: ROLL.ADMIN, kirjutab: true },
   'tooted.arhiveeri':     { fn: tTootedArhiveeri_, roll: ROLL.ADMIN, kirjutab: true },
   'tooted.import':        { fn: tTootedImport_, roll: ROLL.ADMIN, kirjutab: true },
@@ -172,7 +176,11 @@ var TEGEVUSED = {
   'riiulid.arhiveeri':    { fn: tRiiulidArhiveeri_, roll: ROLL.ADMIN, kirjutab: true },
 
   // Etapp 3: liikumised (skännimine)
-  'liikumised.lisa':      { fn: tLiikumisedLisa_, kirjutab: true }
+  'liikumised.lisa':      { fn: tLiikumisedLisa_, kirjutab: true, lukustatuleLubatud: true },
+
+  // Etapp 4: konfliktid (ainult ADMIN)
+  'konfliktid.nimekiri':  { fn: tKonfliktidNimekiri_, roll: ROLL.ADMIN },
+  'konfliktid.lahenda':   { fn: tKonfliktidLahenda_, roll: ROLL.ADMIN, kirjutab: true }
 };
 
 /**
@@ -187,7 +195,14 @@ function kasitle_(paring) {
 
     var kasutaja = null;
     if (!tegevus.avalik) {
-      kasutaja = kontrolliSeanss_(paring.token);
+      try {
+        kasutaja = kontrolliSeanss_(paring.token);
+      } catch (e) {
+        // Lukustatud kasutaja telefon saadab ilma internetita tehtud liikumisi:
+        // need võetakse vastu ainult konfliktidena (vt lukustatudKasutaja_).
+        kasutaja = e.code === 'SEANSS_KEHTETU' && tegevus.lukustatuleLubatud ? lukustatudKasutaja_(paring.token) : null;
+        if (!kasutaja) throw e;
+      }
       if (tegevus.roll && kasutaja.roll !== tegevus.roll) {
         throw new ApiViga_('Sul pole selleks õigust.', 'POLE_OIGUST');
       }
@@ -378,7 +393,8 @@ function tKasutajadLahtestaPin_(data) {
 
 /**
  * Lukustab kasutaja: ta ei saa enam sisse logida ja KÕIK tema seansid
- * kustutatakse kohe (nt kadunud telefoni puhul).
+ * muutuvad kohe kehtetuks (nt kadunud telefoni puhul). Seansiread jäetakse
+ * aegununa alles, et selle telefoni saatmata liikumised jõuaksid KONFLIKTIDE alla.
  */
 function tKasutajadLukusta_(data, admin) {
   var rida = leiaKasutajaRida_(data.id);
@@ -386,7 +402,10 @@ function tKasutajadLukusta_(data, admin) {
   if (rida.obj.roll === ROLL.ADMIN) kontrolliPoleViimaneAdmin_(rida.obj.id);
   uuendaRida_('Kasutajad', rida.rida, { aktiivne: false });
   tuhjendaKasutajaVahemalu_(rida.obj.id);
-  kustutaRead_('Seansid', function (s) { return s.kasutaja_id === rida.obj.id; });
+  var nuud = new Date();
+  loeLehtRidadega_('Seansid').forEach(function (s) {
+    if (s.obj.kasutaja_id === rida.obj.id && s.obj.kehtib_kuni > nuud) uuendaRida_('Seansid', s.rida, { kehtib_kuni: nuud });
+  });
   return true;
 }
 
@@ -568,9 +587,28 @@ function tuhjendaKasutajaVahemalu_(kasutajaId) {
   if (votmed.length) CacheService.getScriptCache().removeAll(votmed);
 }
 
+/** Kustutab seansiread, mis aegusid üle SEANSI_SAILITAMINE_PAEVI päeva tagasi. */
 function kustutaAegunudSeansid_() {
-  var nuud = new Date();
-  kustutaRead_('Seansid', function (s) { return !(s.kehtib_kuni > nuud); });
+  var piir = new Date(Date.now() - SEADED.SEANSI_SAILITAMINE_PAEVI * 86400000);
+  kustutaRead_('Seansid', function (s) { return !(s.kehtib_kuni > piir); });
+}
+
+/**
+ * Kui seansivõti kuulub LUKUSTATUD kasutajale, tagastab kasutaja märgisega
+ * lukustatud: true (muidu null). Nii saab telefon ilma internetita tehtud
+ * liikumised siiski ära saata – need salvestatakse konfliktidena ega lähe
+ * saldosse enne, kui admin need kinnitab.
+ */
+function lukustatudKasutaja_(token) {
+  if (!token) return null;
+  var rasi = rasiHex_(String(token));
+  var ses = leiaRida_('Seansid', function (s) { return s['võti'] === rasi; });
+  if (!ses) return null;
+  var k = leiaRida_('Kasutajad', function (x) { return x.id === ses.obj.kasutaja_id; });
+  if (!k || k.obj.aktiivne) return null;
+  var kasutaja = avalikKasutaja_(k.obj);
+  kasutaja.lukustatud = true;
+  return kasutaja;
 }
 
 // ---------------------------------------------------------------------------
@@ -719,7 +757,7 @@ function isoAeg_(d) {
  * Esipaneel hoiab seda vahemälus, et skännimisel oleks nimetus ja saldo
  * kohe näha. Arhiveeritud tooted ja riiulid on samuti kaasas (märgisega).
  */
-function tAndmed_() {
+function tAndmed_(data, kasutaja) {
   var koodid = {};
   loeLeht_('Koodid').forEach(function (k) {
     (koodid[k.toote_id] = koodid[k.toote_id] || []).push({ kood: k.kood, tyyp: k['koodi_tüüp'] });
@@ -748,10 +786,22 @@ function tAndmed_() {
   var riiulid = loeLeht_('Riiulid').map(function (r) {
     return { id: r.id, kood: r.kood, nimetus: r.nimetus, tsoon: r.tsoon, arhiveeritud: r.arhiveeritud };
   });
+  // Lahendamata konfliktid: adminile arv, kasutajale tema enda omad (telefonis teateks)
+  var nimed = {};
+  tooted.forEach(function (t) { nimed[t.id] = t.nimetus; });
+  var lahtised = lahendamataKonfliktid_(liikumised);
+  var minu = lahtised.filter(function (l) { return l.kasutaja_id === kasutaja.id; })
+    .slice(-SEADED.MAX_MINU_KONFLIKTE).reverse()
+    .map(function (l) {
+      return { id: l.id, tyyp: l['tüüp'], nimetus: nimed[l.toote_id] || '', kogus: l.kogus,
+        pohjus: l['konflikti_põhjus'], aeg: isoAeg_(l['skännimise_aeg']) };
+    });
   return {
     tooted: tooted,
     riiulid: riiulid,
     kelleleSoovitused: kelleleSoovitused_(liikumised),
+    minuKonfliktid: minu,
+    konfliktideArv: kasutaja.roll === ROLL.ADMIN ? lahtised.length : null,
     serveriAeg: new Date().toISOString()
   };
 }
@@ -775,6 +825,7 @@ function kelleleSoovitused_(liikumised) {
  *           OLEKU_MUUTUS → uus olek on veerus kellele_kuhu (LAOS / REMONDIS / KADUNUD).
  * Tühistatud liikumised jäetakse arvestusest välja (TÜHISTUS-liikumise kellele_kuhu = tühistatava id).
  * Konfliktiks märgitud liikumised LÄHEVAD arvesse (need juhtusid päriselt) – admin saab need tühistada.
+ * Erand: lukustatud kasutaja liikumised lähevad arvesse alles siis, kui admin need kinnitab.
  * Tagastab { toote_id: { saldo, olek, kellele, alates } }.
  */
 function arvutaSeis_() {
@@ -783,7 +834,7 @@ function arvutaSeis_() {
 
 /** Nagu arvutaSeis_, aga etteantud liikumiste nimekirjast (et lehte ei peaks mitu korda lugema). */
 function arvutaSeisListist_(koikLiikumised) {
-  var liikumised = koikLiikumised.slice(); // ära muuda algse massiivi järjekorda
+  var liikumised = koikLiikumised.filter(lahebArvesse_); // uus massiiv – algse järjekord ei muutu
   var tyhistatud = {};
   liikumised.forEach(function (l) {
     // TÜHISTUS-liikumise "kellele_kuhu" veerus on tühistatava liikumise id
@@ -822,11 +873,34 @@ function arvutaSeisListist_(koikLiikumised) {
  *  - tööriista eksemplare > 1 → luuakse mitu toodet, igaühel oma T-kood
  *  - algsaldo (ainult admin, varuosa) → lisatakse KORRIGEERIMINE-liikumine
  * Tagastab loodud toodete massiivi.
+ *
+ * Ilma internetita lisatud toode (data.vorguta = true, id loodud telefonis):
+ *  - sama id juba olemas (telefon saatis uuesti) → tagastatakse olemasolev, duplikaat: true
+ *  - kood on vahepeal teisel tootel (kaks telefoni lisasid sama asja) → uut toodet
+ *    ei looda, tagastatakse olemasolev toode märgisega yhendatud: true. Telefon seob
+ *    oma liikumised selle tootega ja need märgitakse adminile konfliktiks.
  */
 function tTootedLisa_(data, kasutaja) {
+  if (kasutaja.lukustatud && !data.vorguta) throw new ApiViga_('Kasutaja on lukustatud. Pöördu admini poole.', 'SEANSS_KEHTETU');
   var ctx = looKontekst_();
+  if (data.id && ctx.tooted[data.id]) return [tooteKokkuvote_(ctx, data.id, { duplikaat: true })];
+  var kood = String(data.kood || '').trim();
+  var omanik = data.vorguta && kood ? ctx.koodiOmanik(kood) : null;
+  if (omanik && omanik.toode) return [tooteKokkuvote_(ctx, omanik.toode, { yhendatud: true })];
   var tulemus = lisaToode_(ctx, data, kasutaja);
   ctx.salvesta();
+  return tulemus;
+}
+
+/** Olemasoleva toote andmed samas kujus nagu lisaToode_ tagastab (+ lisaväljad). */
+function tooteKokkuvote_(ctx, id, lisa) {
+  var t = ctx.tooted[id];
+  var tulemus = {
+    id: id, nimetus: t.nimetus, tyyp: t['tüüp'],
+    koodid: loeLeht_('Koodid').filter(function (k) { return k.toote_id === id; })
+      .map(function (k) { return { kood: k.kood, tyyp: k['koodi_tüüp'] }; })
+  };
+  for (var v in lisa) tulemus[v] = lisa[v];
   return tulemus;
 }
 
@@ -1288,8 +1362,11 @@ var AINULT_ADMIN_TYYBID = ['KORRIGEERIMINE', 'OLEKU_MUUTUS'];
 var TOORIISTA_OLEKUD = ['LAOS', 'REMONDIS', 'KADUNUD'];
 
 /**
- * data.liikumised = [{ id, toote_id, tyyp, kogus, kellele_kuhu, markus, skannimise_aeg, viide, tegelikKogus }]
- * Tagastab { tulemused: [{ id, ok, konflikt, pohjus, viga, duplikaat }], tooted: [uuendatud seisud] }
+ * data.liikumised = [{ id, toote_id, tyyp, kogus, kellele_kuhu, markus, skannimise_aeg, viide,
+ *                      tegelikKogus, lisaKonflikt }]
+ * lisaKonflikt: telefoni lisatud konflikti põhjus (nt toode lisati kahest telefonist).
+ * Tagastab { tulemused: [{ id, ok, konflikt, pohjus, viga, duplikaat }], tooted: [uuendatud seisud],
+ *            kasutajaLukustatud }
  */
 function tLiikumisedLisa_(data, kasutaja) {
   var sisend = data.liikumised || [];
@@ -1297,10 +1374,24 @@ function tLiikumisedLisa_(data, kasutaja) {
   if (sisend.length > SEADED.MAX_LIIKUMISI_PARINGUS) {
     throw new ApiViga_('Korraga kuni ' + SEADED.MAX_LIIKUMISI_PARINGUS + ' liikumist.', 'VALE_SISEND');
   }
+  var ctx = looLiikumisteKontekst_(kasutaja);
+  var tulemused = sisend.map(function (l) {
+    try {
+      return tootleLiikumine_(ctx, l || {});
+    } catch (err) {
+      if (!(err instanceof ApiViga_)) throw err;
+      return { id: l && l.id, ok: false, viga: err.message };
+    }
+  });
+  salvestaLiikumisteKontekst_(ctx);
+  return { tulemused: tulemused, tooted: seisudVastuseks_(ctx), kasutajaLukustatud: !!kasutaja.lukustatud };
+}
 
+/** Loeb liikumised, tooted ja riiulid mällu liikumiste töötlemiseks. */
+function looLiikumisteKontekst_(kasutaja) {
   var ctx = {
     kasutaja: kasutaja,
-    koik: loeLeht_('Liikumised'),
+    koik: loeLehtRidadega_('Liikumised').map(function (r) { r.obj._rida = r.rida; return r.obj; }),
     ids: {},
     tooted: {},
     riiulid: {},
@@ -1312,22 +1403,21 @@ function tLiikumisedLisa_(data, kasutaja) {
   loeLehtRidadega_('Tooted').forEach(function (r) { ctx.tooted[r.obj.id] = r; });
   loeLeht_('Riiulid').forEach(function (r) { ctx.riiulid[r.id] = r; });
   ctx.seis = arvutaSeisListist_(ctx.koik);
+  return ctx;
+}
 
-  var tulemused = sisend.map(function (l) {
-    try {
-      return tootleLiikumine_(ctx, l || {});
-    } catch (err) {
-      if (!(err instanceof ApiViga_)) throw err;
-      return { id: l && l.id, ok: false, viga: err.message };
-    }
-  });
-
+/** Kirjutab kontekstis kogutud uued liikumised ja riiulimuutused tabelisse. */
+function salvestaLiikumisteKontekst_(ctx) {
   lisaRead_('Liikumised', ctx.uued);
   Object.keys(ctx.riiuliMuutused).forEach(function (tid) {
     uuendaRida_('Tooted', ctx.tooted[tid].rida, { riiul_id: ctx.riiuliMuutused[tid] });
   });
+  ctx.uued = [];
+}
 
-  var tooted = Object.keys(ctx.puudutatud).map(function (tid) {
+/** Puudutatud toodete uued seisud vastuseks (telefon uuendab nendega oma nimekirja). */
+function seisudVastuseks_(ctx) {
+  return Object.keys(ctx.puudutatud).map(function (tid) {
     var s = ctx.seis[tid] || { saldo: 0, olek: 'LAOS', kellele: '', alates: '' };
     var t = ctx.tooted[tid].obj;
     return {
@@ -1339,7 +1429,6 @@ function tLiikumisedLisa_(data, kasutaja) {
       riiul_id: ctx.riiuliMuutused[tid] !== undefined ? ctx.riiuliMuutused[tid] : t.riiul_id
     };
   });
-  return { tulemused: tulemused, tooted: tooted };
 }
 
 /** Kontrollib ja salvestab (kontekstis) ühe liikumise. */
@@ -1372,6 +1461,9 @@ function tootleLiikumine_(ctx, l) {
     konflikt: false, 'konflikti_põhjus': '', lahendatud: false
   };
   var konfliktid = [];
+  // Lukustatud kasutaja liikumine: salvestatakse, kuid läheb arvesse alles admini kinnitusel
+  if (ctx.kasutaja.lukustatud) konfliktid.push(LUKUSTATUD_POHJUS);
+  if (l.lisaKonflikt) konfliktid.push(String(l.lisaKonflikt).replace(/[\[\]]/g, '').slice(0, 300));
 
   if (tyyp === 'TÜHISTUS') {
     tootleTyhistus_(ctx, l, kirje);
@@ -1438,7 +1530,7 @@ function tootleLiikumine_(ctx, l) {
         var vanaRiiul = ctx.riiulid[ctx.riiuliMuutused[toode.id] || toode.riiul_id];
         kirje.kellele_kuhu = riiul.id;
         if (!kirje['märkus']) kirje['märkus'] = (vanaRiiul ? vanaRiiul.kood : '(riiulita)') + ' → ' + riiul.kood;
-        ctx.riiuliMuutused[toode.id] = riiul.id;
+        if (!ctx.kasutaja.lukustatud) ctx.riiuliMuutused[toode.id] = riiul.id; // lukustatul alles kinnitamisel
         break;
     }
     s.saldo = ymarda_(s.saldo);
@@ -1452,6 +1544,8 @@ function tootleLiikumine_(ctx, l) {
   ctx.ids[id] = kirje;
   ctx.koik.push(kirje);
   ctx.uued.push(kirje);
+  // Lukustatud kasutaja liikumine seisu ei muuda – arvuta seis uuesti ilma selleta
+  if (ctx.kasutaja.lukustatud) ctx.seis = arvutaSeisListist_(ctx.koik);
   return { id: id, ok: true, konflikt: kirje.konflikt, pohjus: kirje['konflikti_põhjus'] };
 }
 
@@ -1465,7 +1559,7 @@ function tootleTyhistus_(ctx, l, kirje) {
   if (viide['tüüp'] === 'TÜHISTUS') throw new ApiViga_('Tühistust ei saa tühistada.', 'VALE_SISEND');
   if (viide['tüüp'] === 'ÜMBERPAIGUTUS') throw new ApiViga_('Ümberpaigutust ei saa tühistada – paiguta toode uuesti õigele riiulile.', 'VALE_SISEND');
   var tyhistatud = {};
-  ctx.koik.forEach(function (x) { if (x['tüüp'] === 'TÜHISTUS') tyhistatud[x.kellele_kuhu] = true; });
+  ctx.koik.forEach(function (x) { if (x['tüüp'] === 'TÜHISTUS' && lahebArvesse_(x)) tyhistatud[x.kellele_kuhu] = true; });
   if (tyhistatud[viide.id]) throw new ApiViga_('See liikumine on juba tühistatud.', 'VALE_SISEND');
 
   if (ctx.kasutaja.roll !== ROLL.ADMIN) {
@@ -1487,6 +1581,160 @@ function tootleTyhistus_(ctx, l, kirje) {
   ctx.seis = arvutaSeisListist_(ctx.koik);
   ctx.koik.pop();
   if (ctx.tooted[viide.toote_id]) ctx.puudutatud[viide.toote_id] = true;
+}
+
+// ---------------------------------------------------------------------------
+// KONFLIKTID (etapp 4)
+// ---------------------------------------------------------------------------
+// Konflikt = liikumine, mille veerus "konflikt" on jah. Admin vaatab need üle:
+//   KINNITA  – liikumine jääb nii, nagu on (lukustatud kasutaja oma läheb nüüd arvesse)
+//   TÜHISTA  – lisatakse TÜHISTUS-liikumine (lukustatud kasutaja oma lükatakse tagasi)
+//   PARANDA  – algne tühistatakse ja lisatakse parandatud koguse/saaja/tootega uus liikumine
+// Lahendatud konfliktil on lahendatud = jah ja põhjuse lõpus märge, nt
+// "[KINNITATUD: Mari, 22.10.2026 14:05]". Lukustatud kasutaja liikumise põhjus algab
+// tekstiga LUKUSTATUD_POHJUS ja see läheb saldosse ainult märke [KINNITATUD korral.
+
+var LUKUSTATUD_POHJUS = 'Kasutaja oli lukustatud';
+var PARANDATAVAD_TYYBID = ['SISSE', 'VÄLJA', 'KORRIGEERIMINE', 'VÄLJA_ANTUD'];
+
+/** Kas liikumine läheb saldo/oleku arvestusse (lukustatud kasutaja oma ainult kinnitatuna). */
+function lahebArvesse_(l) {
+  var pohjus = String(l['konflikti_põhjus'] || '');
+  if (pohjus.indexOf(LUKUSTATUD_POHJUS) !== 0) return true;
+  return pohjus.indexOf('[KINNITATUD') >= 0;
+}
+
+function onLukustatuLiikumine_(l) {
+  return String(l['konflikti_põhjus'] || '').indexOf(LUKUSTATUD_POHJUS) === 0;
+}
+
+/** Tühistatud liikumiste id-d { id: true } (arvesse minevate TÜHISTUSTE järgi). */
+function tyhistatudIdd_(liikumised) {
+  var t = {};
+  liikumised.forEach(function (l) { if (l['tüüp'] === 'TÜHISTUS' && lahebArvesse_(l)) t[l.kellele_kuhu] = true; });
+  return t;
+}
+
+/** Lahendamata konfliktid (vanemad eespool). Tühistatud liikumised ei vaja enam lahendamist. */
+function lahendamataKonfliktid_(liikumised) {
+  var tyhistatud = tyhistatudIdd_(liikumised);
+  return liikumised.filter(function (l) { return l.konflikt && !l.lahendatud && !tyhistatud[l.id]; });
+}
+
+/** KONFLIKTIDE vaate andmed: lahendamata (uuemad eespool) + viimati lahendatud. */
+function tKonfliktidNimekiri_() {
+  var liikumised = loeLeht_('Liikumised');
+  var tooted = {}, kasutajad = {}, riiulid = {}, ids = {};
+  loeLeht_('Tooted').forEach(function (t) { tooted[t.id] = t; });
+  loeLeht_('Kasutajad').forEach(function (k) { kasutajad[k.id] = k; });
+  loeLeht_('Riiulid').forEach(function (r) { riiulid[r.id] = r; });
+  liikumised.forEach(function (l) { ids[l.id] = l; });
+  var seis = arvutaSeisListist_(liikumised);
+
+  function kirjelda(l) {
+    var t = tooted[l.toote_id] || {};
+    var s = seis[l.toote_id] || { saldo: 0, olek: 'LAOS' };
+    var kuhu = l.kellele_kuhu;
+    if (l['tüüp'] === 'ÜMBERPAIGUTUS') kuhu = riiulid[kuhu] ? riiulid[kuhu].kood : kuhu;
+    if (l['tüüp'] === 'TÜHISTUS') {
+      var v = ids[kuhu];
+      kuhu = v ? 'Tühistab: ' + v['tüüp'] + (v.kogus ? ' ' + v.kogus : '') + ' (' + isoAeg_(v['skännimise_aeg']) + ')' : kuhu;
+    }
+    return {
+      id: l.id, tyyp: l['tüüp'], toote_id: l.toote_id,
+      nimetus: t.nimetus || '(tundmatu toode)', toote_tyyp: t['tüüp'] || '', yhik: t['ühik'] || '',
+      kogus: l.kogus, kellele_kuhu: l.kellele_kuhu, kuhuTekst: kuhu, markus: l['märkus'],
+      kasutaja: kasutajad[l.kasutaja_id] ? kasutajad[l.kasutaja_id].nimi : '',
+      aeg: isoAeg_(l['skännimise_aeg']), serveriAeg: isoAeg_(l['serverisse_jõudmise_aeg']),
+      pohjus: l['konflikti_põhjus'], lukustatud: onLukustatuLiikumine_(l),
+      saldo: t['tüüp'] === TYYP.VARUOSA ? s.saldo : null,
+      olek: t['tüüp'] === TYYP.TOORIIST ? s.olek : null,
+      voibParandada: PARANDATAVAD_TYYBID.indexOf(l['tüüp']) >= 0
+    };
+  }
+  return {
+    lahtised: lahendamataKonfliktid_(liikumised).reverse().map(kirjelda),
+    lahendatud: liikumised.filter(function (l) { return l.konflikt && l.lahendatud; }).slice(-20).reverse().map(kirjelda)
+  };
+}
+
+/**
+ * Konflikti lahendamine.
+ * data: { id | ids: [...], otsus: 'KINNITA' | 'TÜHISTA' | 'PARANDA',
+ *         (PARANDA:) kogus, kellele_kuhu, toote_id, markus }
+ * Kõik muudatused kirjutatakse alles lõpus – vea korral ei muudeta midagi.
+ */
+function tKonfliktidLahenda_(data, admin) {
+  var otsus = String(data.otsus || '').toUpperCase();
+  if (['KINNITA', 'TÜHISTA', 'PARANDA'].indexOf(otsus) < 0) throw new ApiViga_('Tundmatu otsus: ' + otsus, 'VALE_SISEND');
+  var idd = data.ids || [data.id];
+  if (!idd.length || !idd[0]) throw new ApiViga_('Vali konflikt.', 'VALE_SISEND');
+  if (otsus === 'PARANDA' && idd.length > 1) throw new ApiViga_('Parandada saab korraga ühte liikumist.', 'VALE_SISEND');
+
+  var ctx = looLiikumisteKontekst_(admin);
+  var tyhistatud = tyhistatudIdd_(ctx.koik);
+  var aeg = Utilities.formatDate(new Date(), 'Europe/Tallinn', 'dd.MM.yyyy HH:mm');
+  var margitud = [];
+  function margi(l, tekst) {
+    l['konflikti_põhjus'] = String(l['konflikti_põhjus'] || '') + ' [' + tekst + ': ' + admin.nimi + ', ' + aeg + ']';
+    l.lahendatud = true;
+    margitud.push(l);
+  }
+
+  idd.forEach(function (id) {
+    var l = ctx.ids[id];
+    if (!l || !l._rida) throw new ApiViga_('Liikumist ei leitud.', 'EI_LEITUD');
+    if (!l.konflikt || l.lahendatud || tyhistatud[id]) throw new ApiViga_('See konflikt on juba lahendatud.', 'VALE_SISEND');
+    var lukus = onLukustatuLiikumine_(l);
+
+    if (otsus === 'KINNITA') {
+      margi(l, 'KINNITATUD');
+      // Lukustatud kasutaja ümberpaigutus jõustub alles nüüd
+      if (lukus && l['tüüp'] === 'ÜMBERPAIGUTUS' && ctx.riiulid[l.kellele_kuhu] && ctx.tooted[l.toote_id]) {
+        ctx.riiuliMuutused[l.toote_id] = l.kellele_kuhu;
+        ctx.puudutatud[l.toote_id] = true;
+      }
+      return;
+    }
+
+    if (otsus === 'PARANDA' && PARANDATAVAD_TYYBID.indexOf(l['tüüp']) < 0) {
+      throw new ApiViga_('Seda liikumist ei saa parandada – kinnita või tühista see.', 'VALE_SISEND');
+    }
+    // Arvesse läinud liikumine tühistatakse TÜHISTUS-liikumisega (ajalugu jääb alles)
+    if (!lukus) {
+      if (l['tüüp'] === 'ÜMBERPAIGUTUS') throw new ApiViga_('Ümberpaigutust ei saa tühistada – kinnita see ja paiguta toode uuesti.', 'VALE_SISEND');
+      tootleLiikumine_(ctx, { id: Utilities.getUuid(), tyyp: 'TÜHISTUS', viide: l.id,
+        markus: otsus === 'PARANDA' ? 'Parandatud konflikt' : 'Konflikt tühistatud' });
+    }
+    margi(l, otsus === 'PARANDA' ? 'PARANDATUD' : (lukus ? 'TAGASI LÜKATUD' : 'TÜHISTATUD'));
+
+    if (otsus === 'PARANDA') {
+      var uusId = Utilities.getUuid();
+      var r = tootleLiikumine_(ctx, {
+        id: uusId,
+        toote_id: data.toote_id || l.toote_id,
+        tyyp: l['tüüp'],
+        kogus: data.kogus !== undefined && data.kogus !== '' ? data.kogus : l.kogus,
+        kellele_kuhu: data.kellele_kuhu !== undefined && data.kellele_kuhu !== '' ? data.kellele_kuhu : l.kellele_kuhu,
+        markus: data.markus !== undefined ? data.markus : l['märkus'],
+        skannimise_aeg: l['skännimise_aeg']
+      });
+      // Parandatud liikumine jääb algse tegija nimele; admin otsustas, seega konflikt on lahendatud
+      var uus = ctx.ids[uusId];
+      uus.kasutaja_id = l.kasutaja_id;
+      uus['märkus'] = (uus['märkus'] + ' (parandas ' + admin.nimi + ')').trim();
+      if (r.konflikt) {
+        uus.lahendatud = true;
+        uus['konflikti_põhjus'] += ' [KINNITATUD parandusel: ' + admin.nimi + ', ' + aeg + ']';
+      }
+    }
+  });
+
+  salvestaLiikumisteKontekst_(ctx);
+  margitud.forEach(function (l) {
+    uuendaRida_('Liikumised', l._rida, { lahendatud: true, 'konflikti_põhjus': l['konflikti_põhjus'] });
+  });
+  return { lahendatud: margitud.length };
 }
 
 function positiivneKogus_(v) {

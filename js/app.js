@@ -91,26 +91,22 @@
     $('#ylariba').hidden = !s;
     $('#olekuriba').hidden = !s;
     if (s) $('#kasutajaNimi').textContent = s.kasutaja.nimi + (s.kasutaja.roll === 'ADMIN' ? ' (admin)' : '');
-    uuendaOlekuriba();
+    // Olekuriba sisu (sünkroonimise olek) joonistab js/jarjekord.js
+    if (LAO.uuendaOlekuriba) LAO.uuendaOlekuriba();
   }
-
-  /** Etapis 4 lisandub siia "Ootel: N liikumist" ja sünkroonimise olek. */
-  function uuendaOlekuriba() {
-    var el = $('#olekuriba');
-    if (navigator.onLine) {
-      el.textContent = 'Ühendus olemas';
-      el.className = 'olekuriba olek-ok';
-    } else {
-      el.textContent = 'Võrguühendus puudub';
-      el.className = 'olekuriba olek-viga';
-    }
-  }
-  window.addEventListener('online', uuendaOlekuriba);
-  window.addEventListener('offline', uuendaOlekuriba);
 
   $('#valjaNupp').addEventListener('click', function () {
-    if (!confirm('Kas logid välja?')) return;
-    API.kutsu('logout').catch(function () { /* seadmest kustutame igal juhul */ });
+    var s = API.seanss();
+    var ootel = s && LAO.jarjekord ? LAO.jarjekord.ootelArv(s.kasutaja.id) : 0;
+    if (ootel) {
+      // Saatmata liikumisi ei kustutata: seansivõti jääb seadmesse, kuni need on saadetud
+      if (!confirm('Seadmes on ' + ootel + ' saatmata liikumist.\n\nNeid ei kustutata – need saadetakse automaatselt, ' +
+        'kui internet on olemas (ka siis, kui keegi teine vahepeal sisse logib).\n\nKas logid välja?')) return;
+      LAO.jarjekord.maaraVanaVoti(s.kasutaja.id, s.token);
+    } else {
+      if (!confirm('Kas logid välja?')) return;
+      API.kutsu('logout').catch(function () { /* seadmest kustutame igal juhul */ });
+    }
     API.salvestaSeanss(null);
     location.hash = '#/login';
   });
@@ -161,6 +157,8 @@
       }).then(function (s) {
         API.salvestaSeanss(s);
         location.hash = '#/avaleht';
+        if (LAO.jarjekord) LAO.jarjekord.synkroniseeri();
+        if (LAO.laeAndmed) LAO.laeAndmed().catch(function () {});
       }).catch(function (err) {
         hoivatud(vorm, false);
         vorm.pin.value = '';
@@ -237,17 +235,34 @@
     { pealkiri: 'KONFLIKTID', kirjeldus: 'Vajavad ülevaatust', href: '#/konfliktid', etapp: 4, admin: true },
     { pealkiri: 'SEADED', kirjeldus: 'API aadress', href: '#/seaded', etapp: 1 }
   ];
-  var VALMIS_ETAPP = 3; // tõsta pärast iga etapi valmimist
+  var VALMIS_ETAPP = 4; // tõsta pärast iga etapi valmimist
 
-  function vaadeAvaleht() {
+  function vaadeAvaleht(param, varske) {
     var admin = onAdmin();
     var nupud = MENYY.filter(function (m) { return !m.admin || admin; }).map(function (m) {
       var valmis = m.etapp <= VALMIS_ETAPP;
+      // KONFLIKTID-paanil lahendamata konfliktide arv
+      var arv = m.href === '#/konfliktid' && LAO.andmed && LAO.andmed.konfliktideArv
+        ? ' <span class="arvumark">' + LAO.andmed.konfliktideArv + '</span>' : '';
       return valmis
-        ? '<a class="paan" href="' + m.href + '"><b>' + esc(m.pealkiri) + '</b><span>' + esc(m.kirjeldus) + '</span></a>'
+        ? '<a class="paan' + (arv ? ' paan-hoiatus' : '') + '" href="' + m.href + '"><b>' + esc(m.pealkiri) + arv + '</b><span>' + esc(m.kirjeldus) + '</span></a>'
         : '<span class="paan paan-tulekul"><b>' + esc(m.pealkiri) + '</b><span>Tuleb etapis ' + m.etapp + '</span></span>';
     }).join('');
-    sisu.innerHTML = '<section><div class="paanid">' + nupud + '</div></section>';
+    // Kasutaja enda liikumised, mille server märkis konfliktiks
+    var minu = (LAO.andmed && LAO.andmed.minuKonfliktid) || [];
+    var hoiatus = minu.length
+      ? '<div class="kaart-teade hoiatus avalehe-teade">⚠ <b>' + minu.length + ' sinu liikumist ootab admini ülevaatust.</b> ' +
+        'Vajuta ülal olekuribale, et näha üksikasju.</div>'
+      : '';
+    sisu.innerHTML = '<section>' + hoiatus + '<div class="paanid">' + nupud + '</div></section>';
+    // Värskenda andmed (ja konfliktide arvud) taustal; muutuse korral joonista uuesti
+    if (!varske && navigator.onLine && LAO.laeAndmed) {
+      var enne = minu.length + '/' + LAO.andmed.konfliktideArv;
+      LAO.laeAndmed().then(function (d) {
+        var nyyd = (d.minuKonfliktid || []).length + '/' + d.konfliktideArv;
+        if (nyyd !== enne && /avaleht/.test(location.hash)) vaadeAvaleht(null, true);
+      }).catch(function () { /* võrguta jääb seadmes olev */ });
+    }
   }
 
   // -------------------------------------------------------------------------

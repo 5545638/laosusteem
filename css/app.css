@@ -45,7 +45,7 @@ a { color: var(--pohi); }
 .ylariba .kasutaja { margin-left: auto; font-size: 15px; opacity: .9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ylariba .nupp { background: transparent; color: #fff; border-color: rgba(255,255,255,.5); }
 
-.olekuriba { padding: 6px 16px; font-size: 14px; font-weight: 600; }
+.olekuriba { padding: 6px 16px; font-size: 14px; font-weight: 600; cursor: pointer; position: sticky; top: 0; z-index: 5; }
 .olek-ok { background: var(--ok-taust); color: var(--ok); }
 .olek-hoiatus { background: var(--hoiatus-taust); color: var(--hoiatus); }
 .olek-viga { background: var(--viga-taust); color: var(--viga); }
@@ -244,3 +244,13 @@ a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
 .tulemus .nupp { flex: none; }
 .skanni-riiul { margin: -6px 0 14px; }
 .skanner.pausil .kaamera-raam { max-height: 70px; opacity: .6; }
+
+/* ---------- Etapp 4: järjekord ja konfliktid ---------- */
+.ootel-nimekiri { list-style: none; padding: 0; margin: 8px 0; max-height: 50vh; overflow-y: auto; }
+.ootel-rida { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--joon); }
+.ootel-viga { color: var(--viga); }
+.arvumark { display: inline-block; min-width: 24px; padding: 0 6px; border-radius: 12px; background: var(--viga); color: #fff; font-size: 14px; text-align: center; vertical-align: middle; }
+.paan-hoiatus { border-color: var(--viga); }
+.avalehe-teade { margin-bottom: 12px; }
+.tabel.konfliktid td { vertical-align: top; }
+.tabel.konfliktid .tegevused .nupp { margin: 2px; }

@@ -15,12 +15,14 @@ Esipaneel on staatiline veebileht (GitHub Pages), taustasüsteem on Google Apps 
 | `js/config.js` | **API aadress** (muuda paigaldamisel) |
 | `js/api.js` | Suhtlus Apps Scriptiga, seansi hoidmine |
 | `js/app.js` | Põhivaated (sisselogimine, avaleht, kasutajad, seaded) ja navigeerimine |
-| `js/andmed.js` | Toodete ja riiulite nimekiri seadmes, abifunktsioonid |
+| `js/andmed.js` | Toodete ja riiulite nimekiri seadmes (koos saatmata liikumiste mõjuga), abifunktsioonid |
+| `js/jarjekord.js` | Saatmata liikumiste järjekord (IndexedDB), taustal sünkroonimine, olekuriba |
 | `js/tooted.js` | TOOTED: nimekiri, lisamine, tootekaart, koodid |
 | `js/riiulid.js` | RIIULID: haldus ja hulgilisamine |
 | `js/import.js` | CSV-import |
 | `js/skanner.js` | Skänner: kaamera, USB-skänner, käsitsi sisestus, heli ja vibratsioon |
 | `js/skannimine.js` | SISSE, VÄLJA, TÖÖRIIST, ÜMBERPAIGUTUS (telefoni vaated) |
+| `js/konfliktid.js` | KONFLIKTID: ülevaatamist vajavate liikumiste kinnitamine, parandamine ja tühistamine (admin) |
 | `js/vendor/html5-qrcode.min.js` | Vöötkoodi/QR-lugeja teek (html5-qrcode 2.3.8, Apache 2.0) |
 | `apps-script/Code.gs` | Taustasüsteem, mis kleebitakse Apps Scripti |
 | `tests/` | Arendaja testid (Apps Scripti simulatsioon Node.js-is). Neid Apps Scripti ei kleebita. |
@@ -31,6 +33,7 @@ Esipaneel on staatiline veebileht (GitHub Pages), taustasüsteem on Google Apps 
 node tests/test-etapp1.js     # serveripoolsed testid (etapp 1)
 node tests/test-etapp2.js     # serveripoolsed testid (etapp 2)
 node tests/test-etapp3.js     # serveripoolsed testid (etapp 3)
+node tests/test-etapp4.js     # serveripoolsed testid (etapp 4)
 node tests/dev-server.js      # kohalik server http://localhost:8080, API on aadressil /api
 ```
 
@@ -39,6 +42,6 @@ node tests/dev-server.js      # kohalik server http://localhost:8080, API on aad
 1. ✅ Google Sheetsi struktuur, Apps Script API, sisselogimine ja kasutajad, paigaldusjuhend
 2. ✅ Tooted, koodid, riiulid, CSV-import
 3. ✅ Telefoni skännimine
-4. Võrguühenduseta järjekord, sünkroonimine, konfliktid
+4. ✅ Võrguühenduseta järjekord, sünkroonimine, konfliktid
 5. Sildiprint ja sildipõhjad
 6. Ülevaated, eksport, PWA
