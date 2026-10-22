@@ -5,7 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f4e79">
   <title>Laosüsteem</title>
-  <link rel="stylesheet" href="css/app.css?v=4">
+  <!-- PWA: avakuvale lisamine ja töö ilma internetita (vt sw.js) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="ikoonid/favicon-32.png">
+  <link rel="apple-touch-icon" href="ikoonid/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Ladu">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="css/app.css?v=5">
 </head>
 <body>
   <!-- Ülariba: rakenduse nimi, sisseloginud kasutaja ja väljalogimine -->
@@ -18,24 +26,29 @@
   <!-- Olekuriba: võrgu ja sünkroonimise olek; vajutades avaneb ootel liikumiste nimekiri (js/jarjekord.js) -->
   <div id="olekuriba" class="olekuriba" hidden></div>
 
-  <!-- NB! ?v=4 failinimede järel sunnib brauserit uut versiooni laadima – tõsta numbrit igal uuendusel. -->
+  <!-- NB! ?v=5 failinimede järel sunnib brauserit uut versiooni laadima – tõsta numbrit igal uuendusel
+       (ka failis sw.js: VERSIOON ja FAILID). -->
   <!-- Siia joonistatakse aktiivne vaade (vt js/app.js) -->
   <main id="sisu" class="sisu"></main>
 
   <!-- Lühiteated (nt "Salvestatud") -->
   <div id="teade" class="teade" role="status" aria-live="polite" hidden></div>
 
-  <script src="js/config.js?v=4"></script>
-  <script src="js/api.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
-  <script src="js/andmed.js?v=4"></script>
-  <script src="js/jarjekord.js?v=4"></script>
-  <script src="js/tooted.js?v=4"></script>
-  <script src="js/riiulid.js?v=4"></script>
-  <script src="js/import.js?v=4"></script>
+  <script src="js/config.js?v=5"></script>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
+  <script src="js/andmed.js?v=5"></script>
+  <script src="js/jarjekord.js?v=5"></script>
+  <script src="js/tooted.js?v=5"></script>
+  <script src="js/riiulid.js?v=5"></script>
+  <script src="js/import.js?v=5"></script>
   <script src="js/vendor/html5-qrcode.min.js?v=2.3.8"></script>
-  <script src="js/skanner.js?v=4"></script>
-  <script src="js/skannimine.js?v=4"></script>
-  <script src="js/konfliktid.js?v=4"></script>
+  <script src="js/skanner.js?v=5"></script>
+  <script src="js/skannimine.js?v=5"></script>
+  <script src="js/vendor/jsbarcode.all.min.js?v=3.11.6"></script>
+  <script src="js/vendor/qrcode.js?v=1.4.4"></script>
+  <script src="js/sildid.js?v=5"></script>
+  <script src="js/ulevaated.js?v=5"></script>
+  <script src="js/konfliktid.js?v=5"></script>
 </body>
 </html>

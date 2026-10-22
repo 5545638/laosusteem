@@ -157,15 +157,60 @@ Kui avad esimest korda SISSE, VÄLJA või TÖÖRIIST vaate, küsib brauser luba 
 - Kui internet tagasi tuleb, saadetakse liikumised automaatselt. Sama juhtub rakenduse uuesti avamisel ja iga 30 sekundi järel.
 - Kui server mõnda liikumist vastu ei võta (nt toode on vahepeal kustutatud), näidatakse see nimekirjas punaselt koos põhjusega. Selle saab sealt kustutada.
 - **Väljalogimine ei kustuta saatmata liikumisi.** Rakendus hoiatab enne väljalogimist. Liikumised saadetakse hiljem ikkagi selle kasutaja nimel, kes need tegi, ka siis, kui vahepeal logib sisse keegi teine.
-- Kuni etapini 6 peab rakendus olema avatud enne, kui internet kaob. Ilma internetita lehte värskendada ei saa.
+- Rakendus avaneb ka ilma internetita, kui see on selles seadmes vähemalt korra internetiga avatud. Näha on viimati laaditud tooted ja saldod.
 
 ## 7. Telefoni avakuvale lisamine
 
-*Valmib etapis 6 (PWA). Seni saab rakenduse avada brauseris tavalise lingina.*
+Avakuvalt avaneb rakendus nagu tavaline äpp: täisekraanil, ilma brauseri aadressiribata, ja ka ilma internetita.
+
+**Android (Chrome):**
+
+1. Ava rakenduse aadress Chrome'is ja logi sisse.
+2. Vajuta paremal üleval **⋮** → **Lisa avakuvale** (või **Installi rakendus**).
+3. Kinnita **Lisa**. Avakuvale tekib sinise kastiga ikoon „Ladu”.
+
+**iPhone (Safari):**
+
+1. Ava rakenduse aadress **Safaris** (teistes brauserites see iPhone'is ei tööta).
+2. Vajuta allservas jagamisnuppu **⎙** (ruut noolega).
+3. Vali **Lisa avakuvale** (Add to Home Screen) → **Lisa**.
+
+Kaamera luba küsitakse avakuvalt avatud rakenduses uuesti üks kord.
+
+**Uuendused:** kui GitHubis on uus versioon, laadib rakendus selle taustal alla ja näitab teadet „Rakendus uuendati. Värskenda lehte…”. Siis sulge rakendus ja ava uuesti.
 
 ## 8. Sildiprinteri seadistamine brauseris
 
-*Valmib etapis 5 (sildiprint).*
+Sildid prinditakse otse brauserist (**SILDID** või tootekaardil **🖨 Prindi silt**). Eraldi programmi pole vaja, piisab printeri tavalisest draiverist. Sildi suurus on sildipõhjas, ja rakendus annab brauserile täpselt sildi suuruse lehe.
+
+**Vaikimisi sildipõhjad:**
+
+| Põhi | Suurus | Milleks |
+|---|---|---|
+| Tootesilt | 62 × 29 mm rull | Varuosad ja tööriistad: QR, nimetus, vöötkood, kood, riiul |
+| Riiulisilt | 62 × 100 mm rull | Riiulid: suur riiulikood, QR, vöötkood, tsoon |
+| Väike tööriistasilt | 29 × 29 mm lint | Väikesed tööriistad: QR ja kood |
+| A4 kleebiseleht 3×8 | 70 × 37 mm kleebised | Tavalise printeriga kleebiselehele |
+
+Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / salvesta oma põhjana**, muuda mõõdud ja salvesta. Oma põhjad on kõigil arvutitel kasutada.
+
+**Sildiprinter (nt Brother QL, Zebra, Dymo):**
+
+1. Paigalda printeri draiver tootja kodulehelt ja määra draiveri seadetes paberiks sinu rull (nt 62 mm pidev rull).
+2. Rakenduses vali põhi ja vajuta **Testprint**.
+3. Brauseri printimisaknas:
+   - **Printer:** sildiprinter
+   - **Paberi suurus:** sama mis sildil (nt 62 × 29 mm). Chrome valib selle tavaliselt ise.
+   - **Veerised:** **Puuduvad** (None)
+   - **Skaala:** **100%** / **Vaikimisi**, mitte „Sobita lehele”
+   - **Päised ja jalused:** välja
+   - **Taustagraafika:** sisse
+4. Mõõda testsilt joonlauaga. Kui sisu on nihkes või lõikub, kontrolli veel kord veeriseid ja skaalat.
+5. Chrome jätab printeri valiku tavaliselt meelde, aga kontrolli esimestel kordadel ka veeriseid ja skaalat.
+
+**A4 kleebiseleht tavalise printeriga:** vali põhi „A4 kleebiseleht 3×8”, paber **A4**, veerised **Puuduvad**, skaala **100%**. Osaliselt kasutatud lehel määra **Alusta kleebisest nr** (loetakse vasakult paremale, ülevalt alla). Esimest korda prindi tavalisele paberile ja aseta see vastu valguse kleebiselehe peale, et näha, kas kõik kohad klapivad. Vajadusel muuda oma põhjas **Lehe ülaveeris** ja **Lehe vasakveeris**.
+
+**Vöötkoodi loetavus:** kui rakendus hoiatab, et vöötkood on liiga tihe (pikk kood väikesel sildil), kasuta suuremat silti või lühemat (sise)koodi. QR-kood loeb alati.
 
 ---
 

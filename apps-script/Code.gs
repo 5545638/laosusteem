@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 
 var SEADED = {
-  VERSIOON: '1.3.0-etapp4',
+  VERSIOON: '1.5.0-etapp6',
   SEANSI_KEHTIVUS_PAEVI: 30,      // Mitu päeva telefon sisselogimist meeles peab
   // Aegunud/lukustatud seansi rida hoitakse veel nii mitu päeva alles, et lukustatud
   // kasutaja telefonist hiljem saabuvad liikumised saaks tema nimel KONFLIKTIDE alla panna.
@@ -47,7 +47,8 @@ var SEADED = {
   MAX_HULGI_RIIULEID: 1000,       // Mitu riiulit korraga võib hulgilisamisega luua
   MAX_IMPORDI_RIDU: 500,          // Mitu rida ühes impordipäringus (esipaneel jagab suure faili osadeks)
   MAX_LIIKUMISI_PARINGUS: 200,    // Mitu liikumist korraga (telefoni järjekord saadab pakkidena)
-  MAX_MINU_KONFLIKTE: 20          // Mitu lahendamata konflikti näidatakse kasutajale telefonis
+  MAX_MINU_KONFLIKTE: 20,         // Mitu lahendamata konflikti näidatakse kasutajale telefonis
+  MAX_AJALOO_RIDU: 5000           // Mitu liikumist korraga AJALOO vaatesse/eksporti
 };
 
 /** Toote tüübid */
@@ -180,7 +181,15 @@ var TEGEVUSED = {
 
   // Etapp 4: konfliktid (ainult ADMIN)
   'konfliktid.nimekiri':  { fn: tKonfliktidNimekiri_, roll: ROLL.ADMIN },
-  'konfliktid.lahenda':   { fn: tKonfliktidLahenda_, roll: ROLL.ADMIN, kirjutab: true }
+  'konfliktid.lahenda':   { fn: tKonfliktidLahenda_, roll: ROLL.ADMIN, kirjutab: true },
+
+  // Etapp 5: sildipõhjad (vaikimisi põhjad on esipaneelis, siin hoitakse enda tehtuid)
+  'sildipohjad.nimekiri': { fn: tSildipohjadNimekiri_ },
+  'sildipohjad.salvesta': { fn: tSildipohjadSalvesta_, roll: ROLL.ADMIN, kirjutab: true },
+  'sildipohjad.kustuta':  { fn: tSildipohjadKustuta_, roll: ROLL.ADMIN, kirjutab: true },
+
+  // Etapp 6: ajalugu
+  'liikumised.nimekiri':  { fn: tLiikumisedNimekiri_ }
 };
 
 /**
@@ -1735,6 +1744,120 @@ function tKonfliktidLahenda_(data, admin) {
     uuendaRida_('Liikumised', l._rida, { lahendatud: true, 'konflikti_põhjus': l['konflikti_põhjus'] });
   });
   return { lahendatud: margitud.length };
+}
+
+// ---------------------------------------------------------------------------
+// SILDIPÕHJAD (etapp 5)
+// ---------------------------------------------------------------------------
+// Neli vaikimisi põhja on kirjas esipaneelis (js/sildid.js). Lehel Sildipõhjad
+// hoitakse admini enda tehtud põhju. "seaded" on JSON-tekst (veerised, fondid jms).
+
+var SILDI_PAIGUTUSED = ['TOODE', 'RIIUL', 'VAIKE', 'A4'];
+
+function tSildipohjadNimekiri_() {
+  return loeLeht_('Sildipõhjad').map(function (p) {
+    var seaded = {};
+    try { seaded = JSON.parse(p.seaded || '{}'); } catch (e) { /* vigane JSON – vaikimisi seaded */ }
+    return { id: p.id, nimi: p.nimi, laius_mm: p.laius_mm, korgus_mm: p['kõrgus_mm'], paigutus: p.paigutus, seaded: seaded };
+  });
+}
+
+/** Lisab uue põhja või muudab olemasolevat (data.id). */
+function tSildipohjadSalvesta_(data) {
+  var nimi = kohustuslik_(data.nimi, 'Nimi').slice(0, 100);
+  var laius = arv_(data.laius_mm, 'Laius'), korgus = arv_(data.korgus_mm, 'Kõrgus');
+  if (!(laius >= 10 && laius <= 300 && korgus >= 10 && korgus <= 400)) {
+    throw new ApiViga_('Sildi mõõdud peavad olema 10–300 mm (laius) ja 10–400 mm (kõrgus).', 'VALE_SISEND');
+  }
+  var paigutus = String(data.paigutus || '').toUpperCase();
+  if (SILDI_PAIGUTUSED.indexOf(paigutus) < 0) throw new ApiViga_('Tundmatu paigutus: ' + paigutus, 'VALE_SISEND');
+  var seaded = JSON.stringify(data.seaded || {});
+  if (seaded.length > 5000) throw new ApiViga_('Seaded on liiga pikad.', 'VALE_SISEND');
+  var rida = { nimi: nimi, laius_mm: laius, 'kõrgus_mm': korgus, paigutus: paigutus, seaded: seaded };
+  if (data.id) {
+    var olemas = leiaRida_('Sildipõhjad', function (p) { return p.id === data.id; });
+    if (!olemas) throw new ApiViga_('Sildipõhja ei leitud.', 'EI_LEITUD');
+    uuendaRida_('Sildipõhjad', olemas.rida, rida);
+    rida.id = data.id;
+  } else {
+    rida.id = 'S-' + Utilities.getUuid().replace(/-/g, '').slice(0, 8).toUpperCase();
+    lisaRida_('Sildipõhjad', rida);
+  }
+  return { id: rida.id };
+}
+
+function tSildipohjadKustuta_(data) {
+  var n = kustutaRead_('Sildipõhjad', function (p) { return p.id === data.id; });
+  if (!n) throw new ApiViga_('Sildipõhja ei leitud.', 'EI_LEITUD');
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// AJALUGU (etapp 6)
+// ---------------------------------------------------------------------------
+
+/**
+ * Liikumiste ajalugu, uuemad eespool.
+ * data: { alates, kuni (kuupäev AAAA-KK-PP, kaasa arvatud), toote_id, tyyp, kasutaja_id, max }
+ * Tagastab { read, kokku, kasutajad: [{ id, nimi }] }.
+ */
+function tLiikumisedNimekiri_(data) {
+  var liikumised = loeLeht_('Liikumised');
+  var tooted = {}, kasutajad = {}, riiulid = {}, ids = {};
+  loeLeht_('Tooted').forEach(function (t) { tooted[t.id] = t; });
+  loeLeht_('Kasutajad').forEach(function (k) { kasutajad[k.id] = k; });
+  loeLeht_('Riiulid').forEach(function (r) { riiulid[r.id] = r; });
+  liikumised.forEach(function (l) { ids[l.id] = l; });
+  var tyhistatud = tyhistatudIdd_(liikumised);
+
+  var alates = data.alates ? paevaAlgus_(data.alates) : null;
+  var kuni = data.kuni ? new Date(paevaAlgus_(data.kuni).getTime() + 86400000) : null;
+  var max = Math.min(Number(data.max) || 500, SEADED.MAX_AJALOO_RIDU);
+
+  var sobivad = liikumised.filter(function (l) {
+    var aeg = l['skännimise_aeg'];
+    if (alates && !(aeg >= alates)) return false;
+    if (kuni && !(aeg < kuni)) return false;
+    if (data.toote_id && l.toote_id !== data.toote_id) return false;
+    if (data.tyyp && l['tüüp'] !== data.tyyp) return false;
+    if (data.kasutaja_id && l.kasutaja_id !== data.kasutaja_id) return false;
+    return true;
+  });
+  sobivad.sort(function (a, b) { return (b['skännimise_aeg'] || 0) - (a['skännimise_aeg'] || 0); });
+
+  var read = sobivad.slice(0, max).map(function (l) {
+    var t = tooted[l.toote_id] || {};
+    var kuhu = l.kellele_kuhu;
+    if (l['tüüp'] === 'ÜMBERPAIGUTUS') kuhu = riiulid[kuhu] ? riiulid[kuhu].kood : kuhu;
+    if (l['tüüp'] === 'TÜHISTUS') {
+      var v = ids[kuhu];
+      kuhu = v ? 'Tühistab: ' + v['tüüp'] + (v.kogus ? ' ' + v.kogus : '') : '';
+    }
+    return {
+      id: l.id, aeg: isoAeg_(l['skännimise_aeg']), serveriAeg: isoAeg_(l['serverisse_jõudmise_aeg']),
+      tyyp: l['tüüp'], toote_id: l.toote_id, nimetus: t.nimetus || '', yhik: t['ühik'] || '',
+      kogus: l.kogus, kellele_kuhu: kuhu, markus: l['märkus'],
+      kasutaja: kasutajad[l.kasutaja_id] ? kasutajad[l.kasutaja_id].nimi : '',
+      konflikt: l.konflikt, pohjus: l['konflikti_põhjus'], lahendatud: l.lahendatud,
+      tyhistatud: !!tyhistatud[l.id], arvesse: lahebArvesse_(l)
+    };
+  });
+  return {
+    read: read,
+    kokku: sobivad.length,
+    kasutajad: Object.keys(kasutajad).map(function (id) { return { id: id, nimi: kasutajad[id].nimi }; })
+      .sort(function (a, b) { return a.nimi.localeCompare(b.nimi); })
+  };
+}
+
+/** "2026-10-22" → selle päeva algus Eesti aja järgi. */
+function paevaAlgus_(tekst) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(tekst));
+  if (!m) throw new ApiViga_('Kuupäev peab olema kujul AAAA-KK-PP.', 'VALE_SISEND');
+  var keskpaev = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12));
+  // Tallinna nihe sel päeval (+2 või +3 tundi)
+  var nihe = Number(Utilities.formatDate(keskpaev, 'Europe/Tallinn', 'H')) - 12;
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) - nihe * 3600000);
 }
 
 function positiivneKogus_(v) {

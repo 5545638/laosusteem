@@ -167,3 +167,56 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 - 14 uut automaattesti (`node tests/test-etapp4.js`). Need katavad ilma internetita lisatud toote uuesti saatmist, sama koodiga toodet kahest seadmest, lukustatud kasutaja liikumisi (salvestuvad konfliktina ega muuda saldot), konfliktide nimekirja ja õigusi ning kinnitamist, parandamist ja tühistamist. Lisaks läbivad endiselt 77 varasemat testi.
 - Brauseritest kahe „telefoniga”, kus võrk lülitati välja ja sisse. Kontrollisin testid 1–5 ja 7–11 ning konfliktide vaadet arvutis (kinnitamine ja parandamine). Kontrollisin ka, et järjekord jääb alles, kui leht laaditakse uuesti ajal, mil server ei vasta.
 - Päris telefoni lennukirežiimiga ma testida ei saanud.
+
+## Etapid 5 ja 6: sildiprint, ülevaated, eksport ja PWA
+
+### Enne testimist
+
+1. Ühenda GitHubis pull request (**Merge pull request → Confirm merge**).
+2. Kleebi uus `apps-script/Code.gs` Apps Scripti ja tee **Deploy → Manage deployments → ✎ → Version: New version → Deploy**. Funktsiooni `seadista` uuesti käivitama ei pea, sest tabeli veerud ei muutunud.
+3. **Seaded → Testi ühendust** peab näitama versiooni **1.5.0-etapp6**.
+4. Värskenda rakendust: telefonis sulge vaheleht ja ava uuesti, arvutis vajuta Cmd+Shift+R. Avalehel peavad nüüd olema aktiivsed ka **LADU**, **VÄLJAS OLEVAD**, **AJALUGU** ja (adminil) **SILDID**.
+
+### Sildiprint (arvutis, admin)
+
+Sildiprinterit veel pole, seega prindi testid **„Salvesta PDF-ina”** (Save as PDF) või tavalisele printerile. PDF-is on näha, kas lehe suurus ja sisu on õiged.
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 1 | **SILDID** → Varuosad → **Vali kõik filtreeritud** | Paremal on eelvaade valitud siltidest ja „Valitud N silti” |
+| 2 | Põhi **Tootesilt 62×29 mm** → **🖨 Prindi** → printer „Salvesta PDF-ina” | Printimisaknas on paberi suurus 62 × 29 mm. PDF-is on iga silt oma lehel: QR vasakul, paremal nimetus, vöötkood, kood ja riiul |
+| 3 | Sama põhjaga tootel, millel on tootja kood (EAN) | Sildil on tootja vöötkood. Kui märgid **Eelista sisekoodi**, on sildil sisekood |
+| 4 | Telefonis **SISSE** → skänni prinditud (või ekraanil olevat) silti, nii QR-i kui vöötkoodi | Mõlemad leiavad õige toote |
+| 5 | Allikas **Riiulid**, põhi **Riiulisilt 62×100 mm** → Prindi | Suur riiulikood, nimetus, QR, vöötkood ja all kood koos tsooniga |
+| 6 | Allikas **Tööriistad**, põhi **Väike tööriistasilt 29×29 mm** | Ainult QR ja kood |
+| 7 | Põhi **A4 kleebiseleht 3×8**, **Alusta kleebisest nr** 5 → Prindi | A4 leht, esimesed 4 kohta on tühjad ja sildid algavad 5. kohast |
+| 8 | Põhi Tootesilt → **Muuda / salvesta oma põhjana** → nimi „Proov 50×30”, laius 50, kõrgus 30 → Salvesta | Uus põhi on valikus (ka teises arvutis). **Kustuta põhi** eemaldab selle |
+| 9 | **Testprint** | Prinditakse üks näidissilt, millel on põhja mõõdud |
+| 10 | **TOOTED** → ava toode → **🖨 Prindi silt** | Avaneb aken põhja ja koguse valikuga. Prindi toimib nagu SILDID vaates |
+| 11 | **RIIULID** → riiuli real **Prindi silt** | Prinditakse selle riiuli silt |
+| 12 | **TOOTED → + Lisa toode** arvutis ja salvesta | Küsitakse „Prindi silt kohe?” |
+
+### Ülevaated ja eksport
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 13 | **LADU** | Kõik tooted koos saldo, riiuli ja olekuga. Miinimumist allpool olevad read on esile tõstetud. Otsing ja filtrid (tüüp, kategooria, riiul, „Alla miinimumi”) töötavad |
+| 14 | LADU → **⬇ CSV (Excel)** ja ava fail Excelis | Täpitähed on õiged, veerud on eraldi (semikoolon) ja kogused on komaga |
+| 15 | **VÄLJAS OLEVAD** | Välja antud tööriistad: kellele, millal ja mitu päeva tagasi. 30+ päeva tagasi välja antud on esile tõstetud. Linnuke **Näita ka remondis ja kadunud** lisab REMONDIS ja KADUNUD tööriistad |
+| 16 | **AJALUGU** → vali kuupäevad, tüüp ja kasutaja | Liikumised vastavad filtritele. Tühistatud ja konfliktiga read on märgitud |
+| 17 | Tootekaardil **Ajalugu** | Avaneb ainult selle toote ajalugu |
+| 18 | AJALUGU → **⬇ CSV (Excel)** | Fail sisaldab filtrile vastavaid ridu (kuni 5000) |
+
+### Telefon (PWA)
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 19 | Lisa rakendus avakuvale (JUHEND, punkt 7) | Avakuval on sinine ikoon „Ladu”. See avaneb täisekraanil ilma aadressiribata |
+| 20 | Lülita **lennukirežiim** sisse ja ava rakendus avakuvalt | Rakendus avaneb, ülaribal on „⚠ Võrguühendus puudub”. LADU näitab viimati laaditud saldosid. SISSE/VÄLJA salvestavad järjekorda nagu etapis 4 |
+| 21 | Lülita internet sisse | Ootel liikumised saadetakse ja riba läheb roheliseks |
+
+### Mida ma ise testisin
+
+- 6 uut automaattesti (`node tests/test-etapp56.js`). Need katavad sildipõhjade salvestamist ja kustutamist (ainult admin, mõõtude kontroll), ajaloo filtreid (kuupäev Tallinna aja järgi, toode, tüüp, kasutaja) ja tühistatud liikumiste märkimist. Lisaks läbivad endiselt 91 varasemat testi.
+- Brauseritest (Chromium): kõik neli põhja prinditi PDF-iks ja kontrollisin, et lehe suurus on täpne (nt 62 × 29 mm) ning et ükski tekst ega vöötkood ei lõigu. Kontrollisin ka oma põhja salvestamist, LADU / VÄLJAS / AJALUGU filtreid ja CSV-faile ning seda, et rakendus avaneb pärast esimest laadimist ka ilma võrguta.
+- Päris sildiprinteriga ja päris telefoni avakuvalt ma testida ei saanud.
