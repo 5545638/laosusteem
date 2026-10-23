@@ -200,8 +200,9 @@
       return new Promise(function (resolve) {
         var valmis = false;
         var d = LAO.modaal(pealkiri || 'Skänni kood',
-          '<form><div class="uks-skanner"></div>' +
-          '<div class="nupurida"><button type="button" class="nupp" data-sulge>Loobu</button></div></form>',
+          // Skänneril on oma vorm – see ei tohi olla teise vormi sees (pesastatud vormi brauser ei loo)
+          '<div class="uks-skanner"></div>' +
+          '<form><div class="nupurida"><button type="button" class="nupp" data-sulge>Loobu</button></div></form>',
           function () {});
         var sk = looSkanner(d.querySelector('.uks-skanner'), function (kood) {
           valmis = true;
