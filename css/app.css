@@ -286,6 +286,9 @@ a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
 .silt-riiul .silt-kood { white-space: normal; }
 .silt-riiul { display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
 .silt-suurkood { font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.silt-a4riiul { display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
+.silt-a4riiul .silt-suurkood { line-height: 1; overflow: hidden; max-width: 100%; }
+.silt-a4riiul .silt-riiulitekst { max-width: 100%; }
 .silt-vaike { display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
 .silt-tyhi { font-size: 8pt; color: #b42318; }
 .a4-leht { display: grid; box-sizing: border-box; width: 210mm; height: 297mm; overflow: hidden; }
