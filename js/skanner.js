@@ -35,6 +35,28 @@
     try { localStorage.setItem(KAAMERA_VOTI, jah ? '1' : '0'); } catch (e) { /* ignoreeri */ }
   }
 
+  // Kasutaja valitud kaamera (SEADED). Tühi = automaatne tagakaamera.
+  // Vajalik nt iPhone Pro puhul, mis vahetab lähedal automaatselt kaamerat ja pilt hägustub.
+  var KAAMERA_ID_VOTI = 'lao.kaameraId', KAAMERA_NIMI_VOTI = 'lao.kaameraNimi';
+
+  function valitudKaamera() {
+    try { return { id: localStorage.getItem(KAAMERA_ID_VOTI) || '', nimi: localStorage.getItem(KAAMERA_NIMI_VOTI) || '' }; }
+    catch (e) { return { id: '', nimi: '' }; }
+  }
+
+  function valiKaamera(id, nimi) {
+    try {
+      if (id) { localStorage.setItem(KAAMERA_ID_VOTI, id); localStorage.setItem(KAAMERA_NIMI_VOTI, nimi || ''); }
+      else { localStorage.removeItem(KAAMERA_ID_VOTI); localStorage.removeItem(KAAMERA_NIMI_VOTI); }
+    } catch (e) { /* ignoreeri */ }
+  }
+
+  /** Seadme kaamerate nimekiri [{id, label}] (küsib vajadusel kaamera luba). */
+  function kaamerad() {
+    if (typeof Html5Qrcode === 'undefined') return Promise.reject(new Error('Kaamera teek ei laadinud.'));
+    return Html5Qrcode.getCameras();
+  }
+
   // -------------------------------------------------------------------------
   // HELI JA VIBRATSIOON
   // -------------------------------------------------------------------------
@@ -131,16 +153,22 @@
       });
       kaameraSees = true;
       kaameraNupp.classList.add('aktiivne');
-      return lugeja.start(
-        { facingMode: 'environment' },
-        {
-          fps: 12,
-          // Lugemisala: lai ja madal riba – sobib nii vöötkoodile kui QR-ile
-          qrbox: function (w, h) { return { width: Math.floor(w * 0.85), height: Math.floor(Math.min(h * 0.6, w * 0.5)) }; }
-        },
-        function (tekst) { tuvastatud(tekst, 'kaamera'); },
-        function () { /* iga kaader ilma koodita – ignoreeri */ }
-      ).catch(function (err) {
+      var seaded = {
+        fps: 12,
+        // Lugemisala: lai ja madal riba – sobib nii vöötkoodile kui QR-ile
+        qrbox: function (w, h) { return { width: Math.floor(w * 0.85), height: Math.floor(Math.min(h * 0.6, w * 0.5)) }; }
+      };
+      var kaivita = function (kaamera) {
+        return lugeja.start(kaamera, seaded,
+          function (tekst) { tuvastatud(tekst, 'kaamera'); },
+          function () { /* iga kaader ilma koodita – ignoreeri */ });
+      };
+      var valitud = valitudKaamera().id;
+      return kaivita(valitud || { facingMode: 'environment' }).catch(function (err) {
+        // Valitud kaamerat pole enam (nt teine seade) – proovi automaatset tagakaamerat
+        if (!valitud || /NotAllowed|Permission/i.test(String(err && (err.name || err.message || err)))) throw err;
+        return kaivita({ facingMode: 'environment' });
+      }).catch(function (err) {
         kaameraSees = false;
         kaameraNupp.classList.remove('aktiivne');
         raam.hidden = true;
@@ -221,5 +249,8 @@
   LAO.looSkanner = looSkanner;
   LAO.skanniUksKood = skanniUksKood;
   LAO.piiks = piiks;
+  LAO.kaamerad = kaamerad;
+  LAO.valitudKaamera = valitudKaamera;
+  LAO.valiKaamera = valiKaamera;
   LAO.onPuude = onPuude;
 })();
