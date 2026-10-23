@@ -391,10 +391,11 @@
   // VAADE: SEADED
   // -------------------------------------------------------------------------
 
-  var RAKENDUSE_VERSIOON = 'v9'; // sama number mis ?v= failis index.html
+  var RAKENDUSE_VERSIOON = 'v10'; // sama number mis ?v= failis index.html
 
   function vaadeSeaded() {
     var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';
+    var kaamera = LAO.valitudKaamera();
     sisu.innerHTML =
       '<section class="kaart kitsas">' +
       '  <h1>Seaded</h1>' +
@@ -414,6 +415,14 @@
           '  <div class="nupurida nupurida-vasak"><button type="button" id="kontrolliSaldosid" class="nupp">Kontrolli saldosid</button></div>' +
           '  <div id="saldoKontroll"></div>'
         : '') +
+      '  <h2>Kaamera</h2>' +
+      '  <p class="vaike">Kui telefon vahetab koodile lähedale minnes kaamerat või pilt jääb häguseks, vali siit kindel kaamera. ' +
+      'iPhone\'il loeb lähedalt kõige teravamalt ülilainurkkaamera (Ultra Wide); tavaline tagakaamera vajab umbes 15 cm vahet.</p>' +
+      '  <label>Skännimise kaamera<select id="kaameraValik"><option value="">Automaatne (tagakaamera)</option>' +
+      (kaamera.id ? '<option value="' + esc(kaamera.id) + '" selected>' + esc(kaamera.nimi || 'Valitud kaamera') + '</option>' : '') +
+      '</select></label>' +
+      '  <div class="nupurida nupurida-vasak"><button type="button" id="otsiKaameraid" class="nupp">Otsi kaameraid</button></div>' +
+      '  <p id="kaameraTulemus" class="vaike"></p>' +
       '  <h2>Arendusrežiim</h2>' +
       '  <label class="linnuke"><input type="checkbox" id="arendus"' + (API.arendus() ? ' checked' : '') + '> Näita aegu (skännimisel ja siin)</label>' +
       '  <div id="ajad"></div>' +
@@ -439,7 +448,29 @@
     });
     if ($('#kontrolliSaldosid')) $('#kontrolliSaldosid').addEventListener('click', kontrolliSaldosid);
     $('#arendus').addEventListener('change', function () { API.arendus(this.checked); naitaAegu(); });
+    $('#kaameraValik').addEventListener('change', function () {
+      var o = this.selectedOptions[0];
+      LAO.valiKaamera(this.value, this.value ? o.textContent : '');
+      teade('Kaamera valitud: ' + o.textContent);
+    });
+    $('#otsiKaameraid').addEventListener('click', otsiKaameraid);
     naitaAegu();
+  }
+
+  /** Täidab kaamera valiku seadme kaameratega (nimed näitab brauser alles pärast kaamera luba). */
+  function otsiKaameraid() {
+    var tulemus = $('#kaameraTulemus'), valik = $('#kaameraValik');
+    tulemus.textContent = 'Otsin…';
+    LAO.kaamerad().then(function (list) {
+      var praegu = LAO.valitudKaamera().id;
+      valik.innerHTML = '<option value="">Automaatne (tagakaamera)</option>' + list.map(function (k, i) {
+        return '<option value="' + esc(k.id) + '"' + (k.id === praegu ? ' selected' : '') + '>' + esc(k.label || 'Kaamera ' + (i + 1)) + '</option>';
+      }).join('');
+      tulemus.textContent = list.length ? 'Leitud ' + list.length + ' kaamerat. Vali nimekirjast.' : 'Kaameraid ei leitud.';
+    }).catch(function (err) {
+      var t = String(err && (err.name || err.message || err));
+      tulemus.textContent = /NotAllowed|Permission/i.test(t) ? 'Kaamera kasutamine on keelatud – luba see brauseri seadetes.' : 'Ei õnnestunud: ' + t;
+    });
   }
 
   /** Saldode lehe kontroll (admin): erinevused liikumistest arvutatud seisuga. */
