@@ -12,7 +12,8 @@
  *   TOODE – QR vasakul, paremal nimetus, vöötkood, kood ja riiul
  *   RIIUL – suur riiulikood, QR, vöötkood, tsoon
  *   VAIKE – ainult QR ja kood tekstina (väikesed tööriistad)
- *   A4    – kleebiseleht (vaikimisi 3×8 kleebist 70×37 mm), sisu nagu TOODE
+ *   A4    – kleebiseleht (vaikimisi 3×8 kleebist 70×37 mm); toode nagu TOODE,
+ *           riiul = suur kood + vöötkood ilma QR-ita (a4RiiuliHtml)
  */
 (function () {
   'use strict';
@@ -31,7 +32,10 @@
       seaded: { veeris_mm: 1, kood_pt: 6 } },
     { id: 'V4', nimi: 'A4 kleebiseleht 3×8 (70×37 mm)', laius_mm: 70, korgus_mm: 37, paigutus: 'A4',
       seaded: { veeris_mm: 3, nimi_pt: 11, kood_pt: 7, riiul_pt: 7, ribakood_mm: 9,
-        veerge: 3, ridu: 8, leht_ylal_mm: 0.5, leht_vasakul_mm: 0 } }
+        veerge: 3, ridu: 8, leht_ylal_mm: 0.5, leht_vasakul_mm: 0 } },
+    { id: 'V5', nimi: 'A4 kleebiseleht 4×10 (48,5×25,4 mm)', laius_mm: 48.5, korgus_mm: 25.4, paigutus: 'A4',
+      seaded: { veeris_mm: 2, nimi_pt: 8, kood_pt: 6, riiul_pt: 6, ribakood_mm: 7,
+        veerge: 4, ridu: 10, leht_ylal_mm: 21.5, leht_vasakul_mm: 8 } }
   ];
   var PAIGUTUSE_NIMI = { TOODE: 'Tootesilt (QR + vöötkood + nimi)', RIIUL: 'Riiulisilt (suur kood)', VAIKE: 'Väike (QR + kood)', A4: 'A4 kleebiseleht' };
 
@@ -129,6 +133,7 @@
     }
 
     var ribaMm = Number(p.ribakood_mm) || 8;
+    if (pohi.paigutus === 'A4' && s.liik === 'riiul') return a4RiiuliHtml(s, p, stiil, sisuW, sisuH, naidatavKood, hoiatused);
     if (paigutus === 'RIIUL') {
       var b = vootkood(s.kood, s.koodiTyyp);
       kontrolliTihedust(b, sisuW, s, hoiatused);
@@ -156,6 +161,25 @@
       '<div class="silt-kood" style="font-size:' + pt(p.kood_pt, 7) + '">' + esc(s.kood) + '</div>' +
       (alam ? '<div class="silt-riiulitekst" style="font-size:' + pt(p.riiul_pt, 6) + '">' + esc(alam) + '</div>' : '') +
       '</div></div>';
+  }
+
+  /**
+   * Riiulisilt A4 kleebisel: üleval riiulikood suurelt (font sobitatakse laiusele),
+   * all vöötkood (Code128, telefon ja USB-skänner loevad). QR-i pole – silt jääb väike.
+   */
+  function a4RiiuliHtml(s, p, stiil, sisuW, sisuH, naidatavKood, hoiatused) {
+    var b = vootkood(s.kood, s.koodiTyyp);
+    kontrolliTihedust(b, sisuW, s, hoiatused);
+    var alam = [s.alam, s.tsoon].filter(Boolean).join(' · ');
+    var alamMm = alam ? (Number(p.riiul_pt) || 6) * 0.42 : 0;
+    // Paksu kirja märk on keskmiselt ~0,62 fondi kõrgusest; kõrgus kuni ~35% sildist
+    var kirjaMm = Math.min(sisuH * 0.35, sisuW / (naidatavKood.length * 0.62));
+    var ribaMm = Math.max(6, sisuH - kirjaMm - alamMm - 2);
+    return '<div class="silt silt-a4riiul" style="' + stiil + '">' +
+      '<div class="silt-suurkood" style="font-size:' + (kirjaMm * 2.835).toFixed(1) + 'pt">' + esc(naidatavKood) + '</div>' +
+      '<div class="silt-riba" style="height:' + ribaMm.toFixed(1) + 'mm">' + b.svg + '</div>' +
+      (alam ? '<div class="silt-riiulitekst" style="font-size:' + pt(p.riiul_pt, 6) + '">' + esc(alam) + '</div>' : '') +
+      '</div>';
   }
 
   /** Telefoni kaamera loeb kindlalt, kui vöötkoodi kitsaim joon on vähemalt ~0,19 mm. */
