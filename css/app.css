@@ -308,3 +308,7 @@ a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
 .tabel.ajalugu td { vertical-align: top; }
 .tooriba label.vaike { display: flex; flex-direction: column; gap: 2px; margin: 0; }
 .tooriba label.vaike input { margin: 0; }
+
+/* Uue versiooni teade (iPhone'i avakuva-äpp ei laadi lehte ise uuesti) */
+.uuendusriba { position: sticky; top: 0; z-index: 90; display: flex; gap: 10px; align-items: center; justify-content: center;
+  padding: 8px 12px; background: #fff4ce; color: #5c4400; font-weight: 600; border-bottom: 1px solid #e8d48a; }

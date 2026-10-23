@@ -391,6 +391,8 @@
   // VAADE: SEADED
   // -------------------------------------------------------------------------
 
+  var RAKENDUSE_VERSIOON = 'v7'; // sama number mis ?v= failis index.html
+
   function vaadeSeaded() {
     var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';
     sisu.innerHTML =
@@ -415,7 +417,7 @@
       '  <h2>Arendusrežiim</h2>' +
       '  <label class="linnuke"><input type="checkbox" id="arendus"' + (API.arendus() ? ' checked' : '') + '> Näita aegu (skännimisel ja siin)</label>' +
       '  <div id="ajad"></div>' +
-      '  <p class="vaike"><a href="#/avaleht">Tagasi</a></p>' +
+      '  <p class="vaike">Rakenduse versioon ' + RAKENDUSE_VERSIOON + ' · <a href="#/avaleht">Tagasi</a></p>' +
       '</section>';
     var vorm = $('#seadedVorm');
     vorm.addEventListener('submit', function (e) {
@@ -563,8 +565,26 @@
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     var oliKontroller = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.register('sw.js').catch(function () { /* vana brauser – töötab ka ilma */ });
+    // iPhone hoiab avakuva-äppi mälus ega laadi lehte ise uuesti – kontrolli uut versiooni,
+    // kui rakendus tuleb esiplaanile (ja iga 30 min järel)
+    var kontrolliUuendust = function () {
+      if (!navigator.onLine) return;
+      navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () { /* ignoreeri */ });
+    };
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) kontrolliUuendust(); });
+    setInterval(kontrolliUuendust, 30 * 60000);
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (oliKontroller) teade('Rakendus uuendati. Värskenda lehte, et uus versioon kasutusele võtta.');
+      if (!oliKontroller) return;
+      // Avalehel (pooleli vormi pole) värskenda kohe; mujal näita nuppu
+      if (/^#\/avaleht|^#?$/.test(location.hash) && !document.querySelector('dialog[open]')) { location.reload(); return; }
+      var riba = document.getElementById('uuendusRiba');
+      if (riba) return;
+      riba = document.createElement('div');
+      riba.id = 'uuendusRiba';
+      riba.className = 'uuendusriba';
+      riba.innerHTML = 'Rakendusest on uus versioon. <button type="button" class="nupp nupp-vaike nupp-pohi">Värskenda</button>';
+      riba.querySelector('button').addEventListener('click', function () { location.reload(); });
+      document.body.insertBefore(riba, document.body.firstChild);
     });
   }
 
