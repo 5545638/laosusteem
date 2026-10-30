@@ -107,6 +107,11 @@ var SKEEM = {
   ],
   Loendurid: [
     ['tüüp', 's'], ['järgmine', 'n']
+  ],
+  // Masinad, millele varuosi väljastatakse (nimekirja saadab Masinakulude rakendus).
+  // VÄLJA-liikumise kellele_kuhu = masina nimi; Masinakulud arvestab väljastuse masina kuluks.
+  Masinad: [
+    ['id', 's'], ['nimi', 's'], ['kood', 's'], ['aktiivne', 'b']
   ]
 };
 
@@ -198,6 +203,9 @@ var TEGEVUSED = {
 
   // Etapp 6: ajalugu
   'liikumised.nimekiri':  { fn: tLiikumisedNimekiri_ },
+
+  // Etapp 8: Masinakulude sidumine (masinate nimekiri; väljastused loetakse liikumised.nimekiri kaudu)
+  'masinad.salvesta':     { fn: tMasinadSalvesta_, roll: ROLL.ADMIN, kirjutab: true },
 
   // Saldode kontroll: Saldode leht vs liikumistest arvutatud seis
   'saldod.kontrolli':     { fn: tSaldodKontrolli_, roll: ROLL.ADMIN },
@@ -876,6 +884,7 @@ function tAndmed_(data, kasutaja) {
   return {
     tooted: tooted,
     riiulid: riiulid,
+    masinad: aktiivsedMasinad_(),
     kelleleSoovitused: kelleleSoovitused_(viimased.read.slice(-SEADED.SOOVITUSTE_RIDU)),
     minuKonfliktid: minu,
     konfliktideArv: kasutaja.roll === ROLL.ADMIN ? lahtised.length : null,
@@ -1749,6 +1758,7 @@ function tootleLiikumine_(ctx, l) {
         break;
       case 'VÄLJA':
         kirje.kogus = positiivneKogus_(l.kogus);
+        kirje.kellele_kuhu = String(l.kellele_kuhu || '').trim().slice(0, 200); // masin (Masinakulude jaoks)
         if (s.saldo - kirje.kogus < 0) konfliktid.push('Saldo läheks negatiivseks (' + ymarda_(s.saldo - kirje.kogus) + ')');
         s.saldo -= kirje.kogus;
         break;
@@ -2101,6 +2111,47 @@ function tLiikumisedNimekiri_(data) {
     kasutajad: Object.keys(kasutajad).map(function (id) { return { id: id, nimi: kasutajad[id].nimi }; })
       .sort(function (a, b) { return a.nimi.localeCompare(b.nimi); })
   };
+}
+
+// ---------------------------------------------------------------------------
+// MASINAD (Masinakulude sidumine)
+// ---------------------------------------------------------------------------
+
+/** Aktiivsed masinad telefoni VÄLJA-vormi jaoks. Kui Masinad leht puudub (vana tabel), tühi nimekiri. */
+function aktiivsedMasinad_() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Masinad');
+  if (!sh) return [];
+  return loeLeht_('Masinad').filter(function (m) { return m.aktiivne !== false && m.nimi; })
+    .map(function (m) { return { id: m.id, nimi: m.nimi, kood: m.kood || '' }; })
+    .sort(function (a, b) { return String(a.nimi).localeCompare(String(b.nimi)); });
+}
+
+/**
+ * Masinate nimekiri Masinakuludest: data.masinad = [{id, nimi, kood}]. Uued lisatakse, olemasolevad
+ * uuendatakse, nimekirjast puuduvad märgitakse mitteaktiivseks (ajalugu jääb alles).
+ */
+function tMasinadSalvesta_(data) {
+  var sisend = data.masinad || [];
+  if (!Array.isArray(sisend) || sisend.length > 500) throw new ApiViga_('Masinate nimekiri on vigane.', 'VALE_SISEND');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName('Masinad')) seadistaLeht_(ss, 'Masinad');
+  var olemas = {};
+  loeLehtRidadega_('Masinad').forEach(function (r) { olemas[r.obj.id] = r; });
+  var nahtud = {}, lisatud = 0, muudetud = 0;
+  sisend.forEach(function (m) {
+    var id = String(m.id || '').trim(), nimi = String(m.nimi || '').trim().slice(0, 120);
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(id) || !nimi) return;
+    nahtud[id] = true;
+    var obj = { id: id, nimi: nimi, kood: String(m.kood || '').trim().slice(0, 60), aktiivne: true };
+    var r = olemas[id];
+    if (!r) { lisaRida_('Masinad', obj); lisatud++; }
+    else if (r.obj.nimi !== obj.nimi || r.obj.kood !== obj.kood || r.obj.aktiivne === false) { uuendaRida_('Masinad', r.rida, obj); muudetud++; }
+  });
+  var peidetud = 0;
+  Object.keys(olemas).forEach(function (id) {
+    if (!nahtud[id] && olemas[id].obj.aktiivne !== false) { uuendaRida_('Masinad', olemas[id].rida, { aktiivne: false }); peidetud++; }
+  });
+  return { lisatud: lisatud, muudetud: muudetud, peidetud: peidetud, masinad: aktiivsedMasinad_() };
 }
 
 /** "2026-10-22" → selle päeva algus Eesti aja järgi. */

@@ -21,7 +21,7 @@
   var UUENDUSE_VAHE_MS = 3 * 60000;   // taustauuendus iga 3 minuti järel
   var MIN_VAHE_MS = 60000;            // sagedamini kui kord minutis taustal ei laeta
 
-  var andmed = { tooted: [], riiulid: [], kelleleSoovitused: [], minuKonfliktid: [], konfliktideArv: null, laetud: null };
+  var andmed = { tooted: [], riiulid: [], masinad: [], kelleleSoovitused: [], minuKonfliktid: [], konfliktideArv: null, laetud: null };
   try {
     var vana = JSON.parse(localStorage.getItem(VOTI) || 'null');
     if (vana && vana.tooted) andmed = vana;
@@ -111,6 +111,7 @@
         if (v) t._serverAeg = v._serverAeg;
       });
       andmed.riiulid = d.riiulid;
+      andmed.masinad = d.masinad || [];
       andmed.kelleleSoovitused = d.kelleleSoovitused || [];
       andmed.minuKonfliktid = d.minuKonfliktid || [];
       andmed.konfliktideArv = d.konfliktideArv;
