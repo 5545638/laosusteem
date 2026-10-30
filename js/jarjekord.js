@@ -421,7 +421,7 @@
         sisu = '<b>' + esc(TYYP_NIMI[l.tyyp] || l.tyyp) + '</b> ' +
           (['SISSE', 'VÄLJA', 'KORRIGEERIMINE'].indexOf(l.tyyp) >= 0 ? esc(LAO.arvTekst(l.tegelikKogus !== undefined ? l.tegelikKogus : l.kogus)) + ' ' + esc(t ? t.yhik : '') + ' ' : '') +
           esc(k.nimetus || (t ? t.nimetus : '')) +
-          (l.tyyp === 'VÄLJA_ANTUD' ? ' → ' + esc(l.kellele_kuhu) : '');
+          ((l.tyyp === 'VÄLJA_ANTUD' || l.tyyp === 'VÄLJA') && l.kellele_kuhu ? ' → ' + esc(l.kellele_kuhu) : '');
       }
       var muuKasutaja = s && k.kasutaja_id !== s.kasutaja.id ? ' <span class="vaike">(teine kasutaja)</span>' : '';
       return '<li class="ootel-rida' + (k.olek === 'viga' ? ' ootel-viga' : '') + '">' +

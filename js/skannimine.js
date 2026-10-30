@@ -185,6 +185,17 @@
   // SISSE / VÄLJA: koguse vorm
   // -------------------------------------------------------------------------
 
+  /** VÄLJA: masin, mille kuluks varuosa läheb (nimekiri tuleb Masinakuludest). Viimane valik jääb meelde. */
+  function masinaValik() {
+    var viimane = '';
+    try { viimane = localStorage.getItem('lao.masin') || ''; } catch (e) { /* ignoreeri */ }
+    return '  <label class="masin-valik">Masin<select name="masin">' +
+      '<option value="">— masinat ei vali (üldkulu) —</option>' +
+      LAO.andmed.masinad.map(function (m) {
+        return '<option value="' + esc(m.nimi) + '"' + (m.nimi === viimane ? ' selected' : '') + '>' + esc(m.nimi) + '</option>';
+      }).join('') + '</select></label>';
+  }
+
   function koguseVorm(t, aeg) {
     skanner.paus(true);
     var valja = reziim === 'valja';
@@ -197,6 +208,7 @@
       '  </div>' +
       '  <div class="kogus-yhik">' + esc(t.yhik) + '</div>' +
       '  <p id="saldoHoiatus" class="kaart-teade viga" hidden></p>' +
+      (valja && (LAO.andmed.masinad || []).length ? masinaValik() : '') +
       '  <input name="markus" placeholder="' + (valja ? 'Märkus (kellele, mille jaoks) – valikuline' : 'Märkus (tarnija, arve nr) – valikuline') + '">' +
       '  <div class="nupurida suured-nupud">' +
       '    <button type="button" class="nupp nupp-suur" id="loobu">Katkesta</button>' +
@@ -236,11 +248,14 @@
       e.preventDefault();
       var k = kogus();
       if (!isFinite(k) || k <= 0) { teade('Kogus peab olema suurem kui 0.', 'viga'); return; }
+      var masin = vorm.masin ? vorm.masin.value : '';
+      if (masin) { try { localStorage.setItem('lao.masin', masin); } catch (e2) { /* ignoreeri */ } }
       salvesta(vorm, {
         id: LAO.uusId(), toote_id: t.id, tyyp: valja ? 'VÄLJA' : 'SISSE', kogus: k,
+        kellele_kuhu: valja ? masin : '',
         markus: vorm.markus.value, skannimise_aeg: aeg.toISOString()
       }, t, function (uus) {
-        return (valja ? 'VÄLJA ' : 'SISSE ') + LAO.arvTekst(k) + ' ' + t.yhik + ' – ' + t.nimetus +
+        return (valja ? 'VÄLJA ' : 'SISSE ') + LAO.arvTekst(k) + ' ' + t.yhik + ' – ' + t.nimetus + (valja && masin ? ' → ' + masin : '') +
           '. Saldo nüüd ' + LAO.arvTekst(uus.saldo) + ' ' + t.yhik + '.';
       });
     });

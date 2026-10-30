@@ -226,6 +226,17 @@ Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / sal
 
 **Vöötkoodi loetavus:** kui rakendus hoiatab, et vöötkood on liiga tihe (pikk kood väikesel sildil), kasuta suuremat silti või lühemat (sise)koodi. QR-kood loeb alati.
 
+## 9. Sidumine Masinakuludega
+
+Masinakulude rakendus (arvutis) saadab laosüsteemi arvetelt lattu võetud kaubad ja masinate nimekirja ning loeb laost väljastused masinatele, et arvestada need masina kuluks.
+
+1. **Uuenda Apps Scripti kood:** kleebi uus `apps-script/Code.gs` ja tee **Juuruta → Halda juurutusi → ✎ Muuda → Uus versioon → Juuruta** (vt „Hiljem: koodi uuendamine“). Aadress jääb samaks. Lehte **Masinad** pole vaja ise luua – see tekib esimesel masinate saatmisel.
+2. **Masinakuludes:** ava vasakult **Ladu**, kontrolli laosüsteemi aadressi (sama, mis `js/config.js` failis), kirjuta admin-kasutaja nimi ja vajuta **Logi sisse** (küsitakse PIN-i).
+3. Vajuta **Sünkroniseeri laoga**. Masinad jõuavad laosüsteemi ja telefoni VÄLJA-vormi tekib valik **Masin**.
+4. Telefonis: **VÄLJA** → skänni toode → vali **Masin** → kinnita. Viimati valitud masin jääb telefoni meelde. Masinata väljastus läheb Masinakuludes üldkuluks.
+
+Hinnad on ainult Masinakuludes (keskmine ostuhind); laosüsteemis hindu ei näidata.
+
 ---
 
 ## Turvalisus lühidalt
