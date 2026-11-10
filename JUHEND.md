@@ -205,6 +205,10 @@ Sildid prinditakse otse brauserist (**SILDID** või tootekaardil **🖨 Prindi s
 | Riiulisilt | 62 × 100 mm rull | Riiulid: suur riiulikood, QR, vöötkood, tsoon |
 | Väike tööriistasilt | 29 × 29 mm lint | Väikesed tööriistad: QR ja kood |
 | A4 kleebiseleht 3×8 | 70 × 37 mm kleebised | Tavalise printeriga kleebiselehele |
+| A4 kleebiseleht 4×10 | 48,5 × 25,4 mm kleebised | Tavalise printeriga kleebiselehele |
+| P-touch lint 12 mm | 56 × 12 mm | Väikesed tööriistad: QR, vöötkood ja kood (nimeta) |
+| P-touch lint 18 mm | 64 × 18 mm | QR, nimetus (1 rida), vöötkood, kood, riiul |
+| P-touch lint 24 mm | 72 × 24 mm | QR, nimetus (2 rida), vöötkood, kood, riiul |
 
 Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / salvesta oma põhjana**, muuda mõõdud ja salvesta. Oma põhjad on kõigil arvutitel kasutada.
 
@@ -223,6 +227,15 @@ Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / sal
 5. Chrome jätab printeri valiku tavaliselt meelde, aga kontrolli esimestel kordadel ka veeriseid ja skaalat.
 
 **A4 kleebiseleht tavalise printeriga:** vali põhi „A4 kleebiseleht 3×8”, paber **A4**, veerised **Puuduvad**, skaala **100%**. Osaliselt kasutatud lehel määra **Alusta kleebisest nr** (loetakse vasakult paremale, ülevalt alla). Esimest korda prindi tavalisele paberile ja aseta see vastu valguse kleebiselehe peale, et näha, kas kõik kohad klapivad. Vajadusel muuda oma põhjas **Lehe ülaveeris** ja **Lehe vasakveeris**.
+
+**Brother P-touch (PT-P750W jt) TZe lint 12 / 18 / 24 mm:**
+
+1. Arvutis paigalda PT-P750W draiver Brotheri kodulehelt (Windows või Mac) ja ühenda printer USB-ga või Wi-Fi-ga. Pane printerisse sama laiusega lint, mis põhjal (nt TZe-251 = 24 mm valge lint, must kiri).
+2. Vali põhi **P-touch lint 24 mm** (või 12 / 18 mm) ja vajuta **Testprint**. Brauseri aknas: veerised **Puuduvad**, skaala **100%**. Paberi suurus peab olema sama, mis lindil (nt 24 mm × 72 mm).
+3. Kui silt tuleb lindile risti, kärbitult või väga väikesena, vali põhi → **Muuda / salvesta oma põhjana** → linnuta **Prindi 90° pööratult** → salvesta ja proovi uuesti.
+4. Lindi servadele printpea ei ulatu: 24 mm lindil prinditakse ~18 mm, 18 mm lindil ~14 mm ja 12 mm lindil ~9 mm kõrgune ala. Kui sisu lõikub üles- või allapoolt, suurenda oma põhjas **Üla/alaveeris**. Sildi pikkust muudad väljal **Laius**.
+5. **iPhone'ist (AirPrint):** ava rakendus, vali silt → **🖨 Prindi** → printeriks PT-P750W. iPhone ei lase paberi suurust valida, seega kontrolli esimese sildi järel, kas suurus klapib. Kui ei klapi, prindi arvutist.
+6. Vöötkoodi joon on lindipõhjades 0,282 mm (2 printeri punkti), nii et kood tuleb terav. Väga pikk kood ei mahu sellisena ära ja venitatakse sildi laiuseks.
 
 **Vöötkoodi loetavus:** kui rakendus hoiatab, et vöötkood on liiga tihe (pikk kood väikesel sildil), kasuta suuremat silti või lühemat (sise)koodi. QR-kood loeb alati.
 

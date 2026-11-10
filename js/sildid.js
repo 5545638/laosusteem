@@ -14,6 +14,15 @@
  *   VAIKE – ainult QR ja kood tekstina (väikesed tööriistad)
  *   A4    – kleebiseleht (vaikimisi 3×8 kleebist 70×37 mm); toode nagu TOODE,
  *           riiul = suur kood + vöötkood ilma QR-ita (a4RiiuliHtml)
+ *
+ * P-touch TZe lint (V6–V8, Brother PT-P750W jt): paigutus TOODE, silt on lindi
+ * peal pikuti (laius = sildi pikkus, kõrgus = lindi laius). Lisaseaded:
+ *   veeris_y_mm – ülemine/alumine veeris; lindi servad jäävad printpeast välja
+ *                 (24 mm lindil prinditav ~18 mm, 18 mm → ~14 mm, 12 mm → ~9 mm)
+ *   moodul_mm   – vöötkoodi kitsaima joone laius; 0,282 mm = 2 punkti 180 dpi juures,
+ *                 nii et jooned langevad täpselt printeri punktidele (terav kood)
+ *   nimi_pt = 0 / riiul_pt = 0 – rida jäetakse välja; nimi_ridu – nimetuse ridu (1–2)
+ *   poora       – prindi 90° pööratult (kui draiver ootab lehte, mille laius = lindi laius)
  */
 (function () {
   'use strict';
@@ -35,7 +44,13 @@
         veerge: 3, ridu: 8, leht_ylal_mm: 0.5, leht_vasakul_mm: 0 } },
     { id: 'V5', nimi: 'A4 kleebiseleht 4×10 (48,5×25,4 mm)', laius_mm: 48.5, korgus_mm: 25.4, paigutus: 'A4',
       seaded: { veeris_mm: 2, nimi_pt: 8, kood_pt: 6, riiul_pt: 6, ribakood_mm: 7,
-        veerge: 4, ridu: 10, leht_ylal_mm: 21.5, leht_vasakul_mm: 8 } }
+        veerge: 4, ridu: 10, leht_ylal_mm: 21.5, leht_vasakul_mm: 8 } },
+    { id: 'V6', nimi: 'P-touch lint 12 mm (56 mm pikk)', laius_mm: 56, korgus_mm: 12, paigutus: 'TOODE',
+      seaded: { veeris_mm: 2, veeris_y_mm: 1.5, nimi_pt: 0, kood_pt: 6, riiul_pt: 0, ribakood_mm: 5.5, moodul_mm: 0.282 } },
+    { id: 'V7', nimi: 'P-touch lint 18 mm (64 mm pikk)', laius_mm: 64, korgus_mm: 18, paigutus: 'TOODE',
+      seaded: { veeris_mm: 2, veeris_y_mm: 2, nimi_pt: 7, nimi_ridu: 1, kood_pt: 6, riiul_pt: 5, ribakood_mm: 6.5, moodul_mm: 0.282 } },
+    { id: 'V8', nimi: 'P-touch lint 24 mm (72 mm pikk)', laius_mm: 72, korgus_mm: 24, paigutus: 'TOODE',
+      seaded: { veeris_mm: 2, veeris_y_mm: 3, nimi_pt: 7.5, nimi_ridu: 2, kood_pt: 7, riiul_pt: 6, ribakood_mm: 6.5, moodul_mm: 0.282 } }
   ];
   var PAIGUTUSE_NIMI = { TOODE: 'Tootesilt (QR + vöötkood + nimi)', RIIUL: 'Riiulisilt (suur kood)', VAIKE: 'Väike (QR + kood)', A4: 'A4 kleebiseleht' };
 
@@ -119,9 +134,10 @@
   function sildiHtml(s, pohi, hoiatused) {
     var p = pohi.seaded || {};
     var W = pohi.laius_mm, H = pohi.korgus_mm, v = Number(p.veeris_mm) || 0;
-    var sisuW = W - 2 * v, sisuH = H - 2 * v;
+    var vy = p.veeris_y_mm === undefined || p.veeris_y_mm === '' ? v : Number(p.veeris_y_mm) || 0;
+    var sisuW = W - 2 * v, sisuH = H - 2 * vy;
     var paigutus = pohi.paigutus === 'A4' ? 'TOODE' : pohi.paigutus; // A4 kleebisel sama sisu nagu tootesildil
-    var stiil = 'width:' + W + 'mm;height:' + H + 'mm;padding:' + v + 'mm;';
+    var stiil = 'width:' + W + 'mm;height:' + H + 'mm;padding:' + vy + 'mm ' + v + 'mm;';
     if (!s.kood) return '<div class="silt" style="' + stiil + '"><div class="silt-tyhi">Koodita: ' + esc(s.pealkiri) + '</div></div>';
     var naidatavKood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
 
@@ -153,11 +169,14 @@
     kontrolliTihedust(b2, paremW, s, hoiatused);
     var pealkiri = s.liik === 'riiul' ? 'Riiul ' + naidatavKood : s.pealkiri;
     var alam = s.liik === 'riiul' ? [s.alam, s.tsoon].filter(Boolean).join(' · ') : (s.alam ? 'Riiul ' + s.alam : '');
+    if (Number(p.riiul_pt) === 0 && p.riiul_pt !== undefined && p.riiul_pt !== '') alam = '';
+    var nimiPeidus = Number(p.nimi_pt) === 0 && p.nimi_pt !== undefined && p.nimi_pt !== '';
+    var nimeRidu = Number(p.nimi_ridu) === 1 ? 1 : 2;
     return '<div class="silt silt-toode" style="' + stiil + '">' +
       '<div class="silt-qr" style="width:' + qrMm2 + 'mm;height:' + qrMm2 + 'mm">' + qr(s.kood) + '</div>' +
-      '<div class="silt-parem" style="width:' + paremW + 'mm">' +
-      '<div class="silt-nimi" style="font-size:' + pt(p.nimi_pt, 10) + '">' + esc(pealkiri) + '</div>' +
-      '<div class="silt-riba" style="height:' + ribaMm + 'mm">' + b2.svg + '</div>' +
+      '<div class="silt-parem" style="width:' + paremW + 'mm' + (nimiPeidus ? ';justify-content:center;gap:0.5mm' : '') + '">' +
+      (nimiPeidus ? '' : '<div class="silt-nimi" style="font-size:' + pt(p.nimi_pt, 10) + ';-webkit-line-clamp:' + nimeRidu + '">' + esc(pealkiri) + '</div>') +
+      '<div class="silt-riba" style="height:' + ribaMm + 'mm' + ribaLaius(b2, paremW, p) + '">' + b2.svg + '</div>' +
       '<div class="silt-kood" style="font-size:' + pt(p.kood_pt, 7) + '">' + esc(s.kood) + '</div>' +
       (alam ? '<div class="silt-riiulitekst" style="font-size:' + pt(p.riiul_pt, 6) + '">' + esc(alam) + '</div>' : '') +
       '</div></div>';
@@ -182,6 +201,17 @@
       '</div>';
   }
 
+  /**
+   * Fikseeritud joonelaiusega (moodul_mm) põhjal tehakse vöötkood täpselt
+   * mooduleid × moodul_mm laiune, kui see mahub; muidu venitatakse kogu laiusele.
+   */
+  function ribaLaius(b, laiusMm, p) {
+    var m = Number(p.moodul_mm) || 0;
+    if (!m) return '';
+    var w = b.mooduleid * m;
+    return w <= laiusMm ? ';width:' + w.toFixed(2) + 'mm' : '';
+  }
+
   /** Telefoni kaamera loeb kindlalt, kui vöötkoodi kitsaim joon on vähemalt ~0,19 mm. */
   function kontrolliTihedust(b, laiusMm, s, hoiatused) {
     if (!hoiatused) return;
@@ -197,9 +227,16 @@
   }
 
   /** Kõigi siltide HTML koos lehekülgedega (A4 puhul ruudustik). algus: A4 esimene vaba kleebis (1…). */
-  function lehtedeHtml(sildid, pohi, algus, hoiatused) {
+  function lehtedeHtml(sildid, pohi, algus, hoiatused, prindiks) {
     if (pohi.paigutus !== 'A4') {
-      return sildid.map(function (s) { return '<div class="rull-leht">' + sildiHtml(s, pohi, hoiatused) + '</div>'; }).join('');
+      var poora = prindiks && poorata(pohi);
+      return sildid.map(function (s) {
+        if (!poora) return '<div class="rull-leht">' + sildiHtml(s, pohi, hoiatused) + '</div>';
+        // Leht on lindi laiune (kõrgus × laius); silt pööratakse 90° päripäeva
+        return '<div class="rull-leht" style="width:' + pohi.korgus_mm + 'mm;height:' + pohi.laius_mm + 'mm">' +
+          '<div style="transform:translate(' + pohi.korgus_mm + 'mm,0) rotate(90deg);transform-origin:0 0">' +
+          sildiHtml(s, pohi, hoiatused) + '</div></div>';
+      }).join('');
     }
     var p = pohi.seaded || {};
     var veerge = Number(p.veerge) || 3, ridu = Number(p.ridu) || 8, lehel = veerge * ridu;
@@ -219,18 +256,22 @@
   // PRINTIMINE
   // -------------------------------------------------------------------------
 
+  function poorata(pohi) { var x = (pohi.seaded || {}).poora; return x === true || x === 1 || x === '1'; }
+
   /** Prindib sildid brauseri printimisdialoogiga. */
   function prindi(sildid, pohi, algus) {
     if (!sildid.length) { teade('Vali vähemalt üks silt.', 'viga'); return; }
     var ala = document.getElementById('prindiala');
     if (!ala) { ala = document.createElement('div'); ala.id = 'prindiala'; document.body.appendChild(ala); }
-    ala.innerHTML = lehtedeHtml(sildid, pohi, algus);
+    ala.innerHTML = lehtedeHtml(sildid, pohi, algus, null, true);
     var stiil = document.getElementById('prindiStiil');
     if (!stiil) { stiil = document.createElement('style'); stiil.id = 'prindiStiil'; document.head.appendChild(stiil); }
     // Täpne lehe suurus: rullil = üks silt, A4 = A4 leht. Veerised 0 – sildi veerised on sildi sees.
     stiil.textContent = pohi.paigutus === 'A4'
       ? '@page { size: 210mm 297mm; margin: 0; }'
-      : '@page { size: ' + pohi.laius_mm + 'mm ' + pohi.korgus_mm + 'mm; margin: 0; }';
+      : poorata(pohi)
+        ? '@page { size: ' + pohi.korgus_mm + 'mm ' + pohi.laius_mm + 'mm; margin: 0; }'
+        : '@page { size: ' + pohi.laius_mm + 'mm ' + pohi.korgus_mm + 'mm; margin: 0; }';
     document.body.classList.add('prindib');
     var lopeta = function () {
       document.body.classList.remove('prindib');
@@ -455,9 +496,11 @@
         return '<option value="' + k + '"' + (k === pohi.paigutus ? ' selected' : '') + '>' + esc(PAIGUTUSE_NIMI[k]) + '</option>';
       }).join('') + '</select></label>' +
       '<div class="valjarida2">' + vali('laius_mm', 'Laius (mm)', pohi.laius_mm) + vali('korgus_mm', 'Kõrgus (mm)', pohi.korgus_mm) + '</div>' +
-      '<div class="valjarida2">' + vali('veeris_mm', 'Veeris (mm)', p.veeris_mm) + vali('ribakood_mm', 'Vöötkoodi kõrgus (mm)', p.ribakood_mm) + '</div>' +
-      '<div class="valjarida2">' + vali('nimi_pt', 'Nimetuse font (pt)', p.nimi_pt) + vali('kood_pt', 'Koodi font (pt)', p.kood_pt) + '</div>' +
-      vali('riiul_pt', 'Riiuli/tsooni font (pt)', p.riiul_pt) +
+      '<div class="valjarida2">' + vali('veeris_mm', 'Veeris (mm)', p.veeris_mm) + vali('veeris_y_mm', 'Üla/alaveeris (mm)', p.veeris_y_mm, 'tühi = sama') + '</div>' +
+      '<div class="valjarida2">' + vali('ribakood_mm', 'Vöötkoodi kõrgus (mm)', p.ribakood_mm) + vali('moodul_mm', 'Vöötkoodi joon (mm)', p.moodul_mm, 'tühi = venita') + '</div>' +
+      '<div class="valjarida2">' + vali('nimi_pt', 'Nimetuse font (pt)', p.nimi_pt, '0 = peida') + vali('nimi_ridu', 'Nimetuse ridu', p.nimi_ridu, '1–2') + '</div>' +
+      '<div class="valjarida2">' + vali('kood_pt', 'Koodi font (pt)', p.kood_pt) + vali('riiul_pt', 'Riiuli/tsooni font (pt)', p.riiul_pt, '0 = peida') + '</div>' +
+      '<label class="linnuke"><input type="checkbox" name="poora"' + (poorata(pohi) ? ' checked' : '') + '> Prindi 90° pööratult <span class="vaike">(kui silt tuleb lindile risti või kärbitult)</span></label>' +
       '<fieldset class="ainult-a4"><legend>A4 leht</legend>' +
       '<div class="valjarida2">' + vali('veerge', 'Veerge', p.veerge || 3) + vali('ridu', 'Ridu', p.ridu || 8) + '</div>' +
       '<div class="valjarida2">' + vali('leht_ylal_mm', 'Lehe ülaveeris (mm)', p.leht_ylal_mm || 0) + vali('leht_vasakul_mm', 'Lehe vasakveeris (mm)', p.leht_vasakul_mm || 0) + '</div>' +
@@ -466,10 +509,11 @@
       LAO.MODAALI_NUPUD + '</form>',
       function (v) {
         var arvud = {};
-        ['veeris_mm', 'ribakood_mm', 'nimi_pt', 'kood_pt', 'riiul_pt', 'veerge', 'ridu', 'leht_ylal_mm', 'leht_vasakul_mm'].forEach(function (n) {
+        ['veeris_mm', 'veeris_y_mm', 'ribakood_mm', 'moodul_mm', 'nimi_pt', 'nimi_ridu', 'kood_pt', 'riiul_pt', 'veerge', 'ridu', 'leht_ylal_mm', 'leht_vasakul_mm'].forEach(function (n) {
           var x = String(v[n].value).replace(',', '.').trim();
           if (x !== '') arvud[n] = Number(x);
         });
+        if (v.poora.checked) arvud.poora = true;
         return API.kutsu('sildipohjad.salvesta', {
           id: oma ? pohi.id : undefined,
           nimi: v.nimi.value, paigutus: v.paigutus.value,
