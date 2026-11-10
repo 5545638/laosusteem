@@ -234,7 +234,7 @@ Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / sal
 2. Vali põhi **P-touch lint 24 mm** (või 12 / 18 mm) ja vajuta **Testprint**. Brauseri aknas: veerised **Puuduvad**, skaala **100%**. Paberi suurus peab olema sama, mis lindil (nt 24 mm × 72 mm).
 3. Kui silt tuleb lindile risti, kärbitult või väga väikesena, vali põhi → **Muuda / salvesta oma põhjana** → linnuta **Prindi 90° pööratult** → salvesta ja proovi uuesti.
 4. Lindi servadele printpea ei ulatu: 24 mm lindil prinditakse ~18 mm, 18 mm lindil ~14 mm ja 12 mm lindil ~9 mm kõrgune ala. Kui sisu lõikub üles- või allapoolt, suurenda oma põhjas **Üla/alaveeris**. Sildi pikkust muudad väljal **Laius**.
-5. **iPhone'ist (AirPrint):** ava rakendus, vali silt → **🖨 Prindi** → printeriks PT-P750W. iPhone ei lase paberi suurust valida, seega kontrolli esimese sildi järel, kas suurus klapib. Kui ei klapi, prindi arvutist.
+5. **iPhone'ist:** AirPrint ei oska lindi suurust valida, seega kasuta nuppu **📤 Jaga pildina** (SILDID-vaates või toote/riiuli „Prindi silt” aknas). Telefon teeb sildist pildi ja avab jagamismenüü: vali **iPrint&Label** (Brotheri äpp) või **Salvesta pilt** ning prindi pilt äpist (äpis vali lindi laius ja koopiate arv). Iga kood tuleb üks kord.
 6. Vöötkoodi joon on lindipõhjades 0,282 mm (2 printeri punkti), nii et kood tuleb terav. Väga pikk kood ei mahu sellisena ära ja venitatakse sildi laiuseks.
 
 **Vöötkoodi loetavus:** kui rakendus hoiatab, et vöötkood on liiga tihe (pikk kood väikesel sildil), kasuta suuremat silti või lühemat (sise)koodi. QR-kood loeb alati.
