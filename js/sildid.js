@@ -259,8 +259,17 @@
   function poorata(pohi) { var x = (pohi.seaded || {}).poora; return x === true || x === 1 || x === '1'; }
 
   /** Prindib sildid brauseri printimisdialoogiga. */
+  /** iPhone'i avakuva-äpp: window.print() ei tee seal midagi (iOS piirang). */
+  function avakuvaIphone() { return window.navigator.standalone === true; }
+
   function prindi(sildid, pohi, algus) {
     if (!sildid.length) { teade('Vali vähemalt üks silt.', 'viga'); return; }
+    if (avakuvaIphone()) {
+      if (pohi.paigutus === 'A4') { teade('Avakuva-äpist iPhone printida ei luba. A4 lehe jaoks ava laosüsteem Safaris või arvutis.', 'viga'); return; }
+      teade('Avakuva-äpist iPhone printida ei luba – jagan sildi pildina (vali printeri äpp või „Salvesta pilt”).');
+      jagaPildina(sildid, pohi);
+      return;
+    }
     var ala = document.getElementById('prindiala');
     if (!ala) { ala = document.createElement('div'); ala.id = 'prindiala'; document.body.appendChild(ala); }
     ala.innerHTML = lehtedeHtml(sildid, pohi, algus, null, true);
