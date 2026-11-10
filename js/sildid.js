@@ -291,6 +291,146 @@
   }
 
   // -------------------------------------------------------------------------
+  // SILT PILDINA (telefon → Brotheri äpp, nt iPrint&Label)
+  // -------------------------------------------------------------------------
+
+  /**
+   * iPhone'i AirPrint ei oska lindi/rulli suurust valida, seega saab sildi
+   * jagada PNG-pildina ja printida printeri äpist. Pilt joonistatakse otse
+   * lõuendile (mitte HTML-ist), et Safari seda ei blokeeriks.
+   * Pildil on ainult prinditav ala (ilma üla/alaveeriseta), sest äpp sobitab
+   * pildi lindi prinditava kõrgusega. Eraldusvõime 360 dpi.
+   */
+  var PILDI_DPI = 360;
+
+  function ribaBitid(kood, tyyp) {
+    var d = {};
+    try { JsBarcode(d, kood, { format: JSB_FORMAAT[tyyp] || 'CODE128' }); }
+    catch (e) { d = {}; JsBarcode(d, kood, { format: 'CODE128' }); }
+    return (d.encodings || []).map(function (e) { return e.data; }).join('');
+  }
+
+  /** Murrab teksti antud laiusele kuni `ridu` reale; liiga pika lõpetab „…“-ga. */
+  function murraRead(ctx, tekst, laius, ridu) {
+    var sonad = String(tekst || '').split(/\s+/).filter(Boolean), read = [], rida = '', i = 0;
+    for (; i < sonad.length; i++) {
+      var proov = rida ? rida + ' ' + sonad[i] : sonad[i];
+      if (!rida || ctx.measureText(proov).width <= laius) { rida = proov; continue; }
+      read.push(rida); rida = sonad[i];
+      if (read.length === ridu) break;
+    }
+    var lyhend = i < sonad.length;
+    if (!lyhend && rida) read.push(rida);
+    if (!read.length) return read;
+    var viimane = read[read.length - 1];
+    while (viimane.length > 1 && ctx.measureText(viimane + (lyhend ? '…' : '')).width > laius) { viimane = viimane.slice(0, -1); lyhend = true; }
+    read[read.length - 1] = viimane + (lyhend ? '…' : '');
+    return read;
+  }
+
+  /** Joonistab sildi (QR vasakul, paremal nimi/vöötkood/kood/riiul) lõuendile; Promise<Blob> (PNG). */
+  function sildiPilt(s, pohi) {
+    var p = pohi.seaded || {};
+    var mm = PILDI_DPI / 25.4;
+    var v = Number(p.veeris_mm) || 0;
+    var vy = p.veeris_y_mm === undefined || p.veeris_y_mm === '' ? v : Number(p.veeris_y_mm) || 0;
+    var sisuW = pohi.laius_mm - 2 * v;
+    var c = document.createElement('canvas');
+    c.width = Math.round(pohi.laius_mm * mm); c.height = Math.round((pohi.korgus_mm - 2 * vy) * mm);
+    var ctx = c.getContext('2d'), H = c.height;
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, H);
+    ctx.fillStyle = '#000'; ctx.textBaseline = 'top';
+    var x0 = Math.round(v * mm);
+
+    // QR vasakul, vaikne tsoon 4 moodulit; täisarvulised pikslid = terav
+    var q = qrcode(0, 'M'); q.addData(String(s.kood)); q.make();
+    var n = q.getModuleCount(), rakk = Math.max(1, Math.floor(H / (n + 8)));
+    var qx = x0 + Math.floor((H - rakk * n) / 2), qy = Math.floor((H - rakk * n) / 2);
+    for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) ctx.fillRect(qx + k * rakk, qy + r * rakk, rakk, rakk);
+
+    var px = x0 + H + Math.round(1.5 * mm), pw = Math.round(sisuW * mm) - H - Math.round(1.5 * mm);
+    var naidatavKood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
+    var pealkiri = s.liik === 'riiul' ? 'Riiul ' + naidatavKood : s.pealkiri;
+    var alam = s.liik === 'riiul' ? [s.alam, s.tsoon].filter(Boolean).join(' · ') : (s.alam ? 'Riiul ' + s.alam : '');
+    function peidus(x) { return Number(x) === 0 && x !== undefined && x !== ''; }
+    function fontPx(x, vaik) { return Math.round((Number(x) || vaik) * 0.3528 * mm); }
+    if (peidus(p.riiul_pt)) alam = '';
+    var SANS = 'Arial, Helvetica, sans-serif', MONO = 'Menlo, Consolas, "DejaVu Sans Mono", monospace';
+
+    var plokid = [], nimega = !peidus(p.nimi_pt);
+    if (nimega) {
+      var nf = fontPx(p.nimi_pt, 10), nr = Math.round(nf * 1.1);
+      ctx.font = 'bold ' + nf + 'px ' + SANS;
+      var read = murraRead(ctx, pealkiri, pw, Number(p.nimi_ridu) === 1 ? 1 : 2);
+      plokid.push({ h: read.length * nr, joonista: function (y) {
+        ctx.font = 'bold ' + nf + 'px ' + SANS;
+        read.forEach(function (t, i) { ctx.fillText(t, px, y + i * nr); });
+      } });
+    }
+    var bitid = ribaBitid(s.kood, s.koodiTyyp);
+    var moodul = Math.max(1, Math.floor(pw / (bitid.length + 20)));
+    if (Number(p.moodul_mm)) moodul = Math.min(moodul, Math.max(1, Math.round(Number(p.moodul_mm) * mm)));
+    var ribaH = Math.round((Number(p.ribakood_mm) || 8) * mm);
+    plokid.push({ h: ribaH, joonista: function (y) {
+      for (var i = 0; i < bitid.length; i++) if (bitid[i] === '1') ctx.fillRect(px + (10 + i) * moodul, y, moodul, ribaH);
+    } });
+    var kf = fontPx(p.kood_pt, 7);
+    plokid.push({ h: Math.round(kf * 1.1), joonista: function (y) { ctx.font = 'bold ' + kf + 'px ' + MONO; ctx.fillText(s.kood, px, y); } });
+    if (alam) {
+      var af = fontPx(p.riiul_pt, 6);
+      plokid.push({ h: Math.round(af * 1.1), joonista: function (y) {
+        ctx.font = af + 'px ' + SANS; ctx.fillText(murraRead(ctx, alam, pw, 1)[0] || '', px, y);
+      } });
+    }
+    // Nimega: plokid laiali kogu kõrgusele; nimeta: väikese vahega keskele
+    var kokku = plokid.reduce(function (a, b) { return a + b.h; }, 0), vahed = plokid.length - 1;
+    var vahe = Math.max(0, (H - kokku) / vahed), y = 0;
+    if (!nimega) { vahe = Math.min(vahe, Math.round(0.6 * mm)); y = Math.max(0, (H - kokku - vahe * vahed) / 2); }
+    plokid.forEach(function (b) { b.joonista(Math.round(y)); y += b.h + vahe; });
+
+    return new Promise(function (ok, viga) {
+      c.toBlob(function (b) { if (b) ok(b); else viga(new Error('Pildi tegemine ebaõnnestus.')); }, 'image/png');
+    });
+  }
+
+  /** Uus vajutus jagamiseks (Safari lubab jagada ainult kohe pärast vajutust). */
+  function jagaUuesti(failid) {
+    LAO.modaal('Pildid on valmis', '<form><p>' + failid.length + ' silti pildina.</p>' +
+      '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
+      '<button type="submit" class="nupp nupp-pohi">📤 Jaga</button></div></form>',
+      function () { return navigator.share({ files: failid }).catch(function (e) { if (!e || e.name !== 'AbortError') throw e; }); });
+  }
+
+  function failinimi(s) { return 'silt-' + String(s.kood).replace(/[^A-Za-z0-9_-]+/g, '_') + '.png'; }
+
+  /**
+   * Jagab sildid PNG-piltidena (iPhone'is jagamismenüü → printeri äpp või
+   * „Salvesta pilt“). Kui jagamist pole (arvuti), laaditakse pildid alla.
+   */
+  function jagaPildina(sildid, pohi) {
+    var unik = [], nahtud = {};
+    sildid.forEach(function (s) { if (s.kood && !nahtud[s.kood]) { nahtud[s.kood] = 1; unik.push(s); } });
+    if (!unik.length) { teade('Vali vähemalt üks koodiga silt.', 'viga'); return Promise.resolve(); }
+    if (pohi.paigutus === 'A4') { teade('A4 kleebiselehte ei saa pildina jagada – vali rulli või lindi põhi.', 'viga'); return Promise.resolve(); }
+    return Promise.all(unik.map(function (s) { return sildiPilt(s, pohi); })).then(function (blobid) {
+      var failid = blobid.map(function (b, i) { return new File([b], failinimi(unik[i]), { type: 'image/png' }); });
+      if (navigator.canShare && navigator.canShare({ files: failid })) {
+        return navigator.share({ files: failid }).catch(function (e) {
+          if (e && e.name === 'AbortError') return;
+          if (e && e.name === 'NotAllowedError') return jagaUuesti(failid); // Safari: vajutusest möödus liiga palju aega
+          throw e;
+        });
+      }
+      failid.forEach(function (f) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(f); a.download = f.name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+      });
+    }).catch(function (e) { teade(e.message || 'Jagamine ebaõnnestus.', 'viga'); });
+  }
+
+  // -------------------------------------------------------------------------
   // VAADE: SILDID
   // -------------------------------------------------------------------------
 
@@ -330,7 +470,9 @@
       '      <div class="nupurida nupurida-vasak">' +
       '        <button class="nupp nupp-pohi nupp-suur" id="prindiNupp" type="button">🖨 Prindi</button>' +
       '        <button class="nupp" id="testNupp" type="button">Testprint</button>' +
+      '        <button class="nupp" id="jagaNupp" type="button">📤 Jaga pildina</button>' +
       '      </div>' +
+      '      <p class="vaike">Telefonis: „Jaga pildina” → printeri äpp (nt Brother iPrint&amp;Label) või „Salvesta pilt”. Iga kood tuleb üks kord, arvu määrad äpis.</p>' +
       '      <p id="sHoiatus" class="kaart-teade hoiatus" hidden></p>' +
       '      <h3>Eelvaade</h3>' +
       '      <div id="sEelvaade" class="sildid-eelvaade"></div>' +
@@ -459,6 +601,11 @@
     $('#prindiNupp').addEventListener('click', function () {
       prindi(laiali(valitudSildid()), leiaPohi($('#sPohi').value), $('#sAlgus').value);
     });
+    $('#jagaNupp').addEventListener('click', function () {
+      var sildid = valitudSildid().map(function (x) { return x.silt; });
+      var p = leiaPohi($('#sPohi').value);
+      jagaPildina(sildid.length ? sildid : [testSilt(p)], p);
+    });
     $('#testNupp').addEventListener('click', function () {
       var p = leiaPohi($('#sPohi').value);
       prindi([testSilt(p)], p, $('#sAlgus').value);
@@ -549,6 +696,7 @@
       (t && t.koodid.length > 1 ? '<label class="linnuke"><input type="checkbox" name="sise"' + (eelista ? ' checked' : '') + '> Eelista sisekoodi</label>' : '') +
       '<div class="sildid-eelvaade kiir-eelvaade"></div>' +
       '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
+      '<button type="button" class="nupp" data-jaga>📤 Jaga pildina</button>' +
       '<button type="submit" class="nupp nupp-pohi">🖨 Prindi</button></div></form>',
       function (v) {
         prindi(laiali([{ silt: silt(), kogus: v.kogus.value }]), leiaPohi(v.pohi.value), v.algus.value);
@@ -568,11 +716,13 @@
       joonista();
     }
     vorm.pohi.addEventListener('change', function () { vaikePohi = vorm.pohi.value; joonista(); });
+    d.querySelector('[data-jaga]').addEventListener('click', function () { jagaPildina([silt()], leiaPohi(vorm.pohi.value)); });
     if (vorm.sise) vorm.sise.addEventListener('change', joonista);
     pohjad();
     (pohjadLaetud || laePohjad()).then(pohjad);
   }
 
   LAO.kiirprint = kiirprint;
+  LAO.sildiPilt = sildiPilt; // testimiseks
   LAO.vaated['sildid'] = { fn: vaadeSildid, admin: true };
 })();
