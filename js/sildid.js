@@ -10,10 +10,10 @@
  * Sildipõhjad: neli vaikimisi põhja (VAIKIMISI_POHJAD) + admini enda salvestatud
  * põhjad (tabeli leht Sildipõhjad). Paigutused:
  *   TOODE – QR vasakul, paremal nimetus, vöötkood, kood ja riiul
- *   RIIUL – suur riiulikood, QR, vöötkood, tsoon
+ *   RIIUL – suur riiulikood ja QR (riiulisildil vöötkoodi pole – telefon loeb QR-i kindlamalt)
  *   VAIKE – ainult QR ja kood tekstina (väikesed tööriistad)
  *   A4    – kleebiseleht (vaikimisi 3×8 kleebist 70×37 mm); toode nagu TOODE,
- *           riiul = suur kood + vöötkood ilma QR-ita (a4RiiuliHtml)
+ *           riiul = QR + suur riiulikood (riiuliQrHtml, ka lindil ja 62 mm rullil)
  *
  * P-touch TZe lint (V6–V8, Brother PT-P750W jt): paigutus TOODE, silt on lindi
  * peal pikuti (laius = sildi pikkus, kõrgus = lindi laius). Lisaseaded:
@@ -149,17 +149,15 @@
     }
 
     var ribaMm = Number(p.ribakood_mm) || 8;
-    if (pohi.paigutus === 'A4' && s.liik === 'riiul') return a4RiiuliHtml(s, p, stiil, sisuW, sisuH, naidatavKood, hoiatused);
+    // Riiulisilt: ainult QR ja suur riiulikood (telefon loeb QR-i kindlamalt kui vöötkoodi)
+    if (s.liik === 'riiul' && paigutus === 'TOODE') return riiuliQrHtml(s, stiil, sisuW, sisuH, naidatavKood);
     if (paigutus === 'RIIUL') {
-      var b = vootkood(s.kood, s.koodiTyyp);
-      kontrolliTihedust(b, sisuW, s, hoiatused);
-      var qrMm = Math.max(10, Math.min(sisuW * 0.75, sisuH - ribaMm - (Number(p.kood_pt) || 34) * 0.4 - 14));
+      // Kood nii suurelt kui laiusele mahub (kuni 30% sildi kõrgusest)
+      var kirjaPt = Math.min(sisuW / (naidatavKood.length * 0.62), sisuH * 0.3) * 2.835;
+      var qrMm = Math.max(10, Math.min(sisuW, sisuH - kirjaPt * 0.42 - 4));
       return '<div class="silt silt-riiul" style="' + stiil + '">' +
-        '<div class="silt-suurkood" style="font-size:' + pt(p.kood_pt, 34) + '">' + esc(naidatavKood) + '</div>' +
-        (s.alam && s.alam !== s.kood ? '<div class="silt-nimi" style="font-size:' + pt(p.nimi_pt, 10) + '">' + esc(s.alam) + '</div>' : '') +
-        '<div class="silt-qr" style="width:' + qrMm + 'mm;height:' + qrMm + 'mm">' + qr(s.kood) + '</div>' +
-        '<div class="silt-riba" style="height:' + ribaMm + 'mm">' + b.svg + '</div>' +
-        '<div class="silt-kood" style="font-size:' + pt(p.riiul_pt, 9) + '">' + esc(s.kood) + (s.tsoon ? ' · ' + esc(s.tsoon) : '') + '</div></div>';
+        '<div class="silt-suurkood" style="font-size:' + kirjaPt.toFixed(1) + 'pt">' + esc(naidatavKood) + '</div>' +
+        '<div class="silt-qr" style="width:' + qrMm + 'mm;height:' + qrMm + 'mm">' + qr(s.kood) + '</div></div>';
     }
 
     // TOODE (ja A4): QR vasakul, paremal nimetus, vöötkood, kood, riiul
@@ -183,21 +181,16 @@
   }
 
   /**
-   * Riiulisilt A4 kleebisel: üleval riiulikood suurelt (font sobitatakse laiusele),
-   * all vöötkood (Code128, telefon ja USB-skänner loevad). QR-i pole – silt jääb väike.
+   * Riiulisilt (lint, rull, A4 kleebis): QR vasakul, paremal riiulikood nii suurelt
+   * kui mahub. Vöötkoodi pole – telefon loeb väikesel sildil QR-i kindlamalt.
    */
-  function a4RiiuliHtml(s, p, stiil, sisuW, sisuH, naidatavKood, hoiatused) {
-    var b = vootkood(s.kood, s.koodiTyyp);
-    kontrolliTihedust(b, sisuW, s, hoiatused);
-    var alam = [s.alam, s.tsoon].filter(Boolean).join(' · ');
-    var alamMm = alam ? (Number(p.riiul_pt) || 6) * 0.42 : 0;
-    // Paksu kirja märk on keskmiselt ~0,62 fondi kõrgusest; kõrgus kuni ~35% sildist
-    var kirjaMm = Math.min(sisuH * 0.35, sisuW / (naidatavKood.length * 0.62));
-    var ribaMm = Math.max(6, sisuH - kirjaMm - alamMm - 2);
-    return '<div class="silt silt-a4riiul" style="' + stiil + '">' +
-      '<div class="silt-suurkood" style="font-size:' + (kirjaMm * 2.835).toFixed(1) + 'pt">' + esc(naidatavKood) + '</div>' +
-      '<div class="silt-riba" style="height:' + ribaMm.toFixed(1) + 'mm">' + b.svg + '</div>' +
-      (alam ? '<div class="silt-riiulitekst" style="font-size:' + pt(p.riiul_pt, 6) + '">' + esc(alam) + '</div>' : '') +
+  function riiuliQrHtml(s, stiil, sisuW, sisuH, naidatavKood) {
+    var qrMm = sisuH, paremW = sisuW - qrMm - 1.5;
+    // Paksu kirja märk on keskmiselt ~0,62 fondi suurusest; kõrgus kuni 80% sildist
+    var kirjaMm = Math.min(sisuH * 0.8, paremW / (naidatavKood.length * 0.62));
+    return '<div class="silt silt-riiulqr" style="' + stiil + '">' +
+      '<div class="silt-qr" style="width:' + qrMm + 'mm;height:' + qrMm + 'mm">' + qr(s.kood) + '</div>' +
+      '<div class="silt-suurkood" style="width:' + paremW + 'mm;font-size:' + (kirjaMm * 2.835).toFixed(1) + 'pt">' + esc(naidatavKood) + '</div>' +
       '</div>';
   }
 
@@ -359,12 +352,22 @@
 
     var px = x0 + H + Math.round(1.5 * mm), pw = Math.round(sisuW * mm) - H - Math.round(1.5 * mm);
     var naidatavKood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
+    var SANS = 'Arial, Helvetica, sans-serif', MONO = 'Menlo, Consolas, "DejaVu Sans Mono", monospace';
+    if (s.liik === 'riiul') {
+      // Riiulisilt: ainult QR ja suur riiulikood
+      var suur = Math.round(H * 0.8);
+      ctx.font = 'bold ' + suur + 'px ' + SANS;
+      var lw = ctx.measureText(naidatavKood).width;
+      if (lw > pw) { suur = Math.floor(suur * pw / lw); ctx.font = 'bold ' + suur + 'px ' + SANS; lw = ctx.measureText(naidatavKood).width; }
+      ctx.textBaseline = 'middle';
+      ctx.fillText(naidatavKood, px + Math.max(0, (pw - lw) / 2), Math.round(H / 2));
+      return valmis(c);
+    }
     var pealkiri = s.liik === 'riiul' ? 'Riiul ' + naidatavKood : s.pealkiri;
     var alam = s.liik === 'riiul' ? [s.alam, s.tsoon].filter(Boolean).join(' · ') : (s.alam ? 'Riiul ' + s.alam : '');
     function peidus(x) { return Number(x) === 0 && x !== undefined && x !== ''; }
     function fontPx(x, vaik) { return Math.round((Number(x) || vaik) * 0.3528 * mm); }
     if (peidus(p.riiul_pt)) alam = '';
-    var SANS = 'Arial, Helvetica, sans-serif', MONO = 'Menlo, Consolas, "DejaVu Sans Mono", monospace';
 
     var plokid = [], nimega = !peidus(p.nimi_pt);
     if (nimega) {
@@ -397,6 +400,10 @@
     if (!nimega) { vahe = Math.min(vahe, Math.round(0.6 * mm)); y = Math.max(0, (H - kokku - vahe * vahed) / 2); }
     plokid.forEach(function (b) { b.joonista(Math.round(y)); y += b.h + vahe; });
 
+    return valmis(c);
+  }
+
+  function valmis(c) {
     return new Promise(function (ok, viga) {
       c.toBlob(function (b) { if (b) ok(b); else viga(new Error('Pildi tegemine ebaõnnestus.')); }, 'image/png');
     });
