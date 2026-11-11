@@ -131,9 +131,12 @@
    */
   function qrVeeris(pohi) { return autoPikkus(pohi) ? 0 : 4; }
   function qrVahe(pohi) { return autoPikkus(pohi) ? 2.5 : 1.5; }
-  /** Riiulikoodi fondi suurus (em, mm): lindil suurtähed ~ kogu kõrgus, muidu 80%. */
+  /**
+   * Riiulikoodi fondi suurus (em, mm). Lindil on suurtähtede kõrgus pool QR-i kõrgusest
+   * (Arial: suurtäht ~0,716 em → em = 0,5 / 0,716 ≈ 0,7 × kõrgus); muidu 80%.
+   */
   function riiuliKiri(pohi, sisuH, laiusMm, pikkus) {
-    var max = autoPikkus(pohi) ? sisuH * 1.2 : sisuH * 0.8;
+    var max = autoPikkus(pohi) ? sisuH * 0.7 : sisuH * 0.8;
     return laiusMm === null ? max : Math.min(max, laiusMm / (pikkus * 0.62));
   }
 
