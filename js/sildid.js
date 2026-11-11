@@ -160,24 +160,31 @@
         '<div class="silt-qr" style="width:' + qrMm + 'mm;height:' + qrMm + 'mm">' + qr(s.kood) + '</div></div>';
     }
 
-    // TOODE (ja A4): QR vasakul, paremal nimetus, vöötkood, kood, riiul
+    // TOODE (ja A4): QR vasakul, paremal vöötkood (~75% QR-i kõrgusest) ja kood tekstina
     var qrMm2 = sisuH;
     var paremW = sisuW - qrMm2 - 1.5;
     var b2 = vootkood(s.kood, s.koodiTyyp);
     kontrolliTihedust(b2, paremW, s, hoiatused);
-    var pealkiri = s.liik === 'riiul' ? 'Riiul ' + naidatavKood : s.pealkiri;
-    var alam = s.liik === 'riiul' ? [s.alam, s.tsoon].filter(Boolean).join(' · ') : (s.alam ? 'Riiul ' + s.alam : '');
-    if (Number(p.riiul_pt) === 0 && p.riiul_pt !== undefined && p.riiul_pt !== '') alam = '';
-    var nimiPeidus = Number(p.nimi_pt) === 0 && p.nimi_pt !== undefined && p.nimi_pt !== '';
-    var nimeRidu = Number(p.nimi_ridu) === 1 ? 1 : 2;
-    return '<div class="silt silt-toode" style="' + stiil + '">' +
+    var m = tooteMoodud(s.kood, sisuH, p);
+    return '<div class="silt silt-toode silt-toode2" style="' + stiil + '">' +
       '<div class="silt-qr" style="width:' + qrMm2 + 'mm;height:' + qrMm2 + 'mm">' + qr(s.kood) + '</div>' +
-      '<div class="silt-parem" style="width:' + paremW + 'mm' + (nimiPeidus ? ';justify-content:center;gap:0.5mm' : '') + '">' +
-      (nimiPeidus ? '' : '<div class="silt-nimi" style="font-size:' + pt(p.nimi_pt, 10) + ';-webkit-line-clamp:' + nimeRidu + '">' + esc(pealkiri) + '</div>') +
-      '<div class="silt-riba" style="height:' + ribaMm + 'mm' + ribaLaius(b2, paremW, p) + '">' + b2.svg + '</div>' +
-      '<div class="silt-kood" style="font-size:' + pt(p.kood_pt, 7) + '">' + esc(s.kood) + '</div>' +
-      (alam ? '<div class="silt-riiulitekst" style="font-size:' + pt(p.riiul_pt, 6) + '">' + esc(alam) + '</div>' : '') +
+      '<div class="silt-parem" style="width:' + paremW + 'mm">' +
+      '<div class="silt-riba" style="height:' + m.ribaMm.toFixed(2) + 'mm' + ribaLaius(b2, paremW, p) + '">' + b2.svg + '</div>' +
+      '<div class="silt-kood" style="font-size:' + m.koodPt.toFixed(1) + 'pt">' + esc(s.kood) + '</div>' +
       '</div></div>';
+  }
+
+  /**
+   * Tootesildi mõõdud: QR-i nähtav osa (ilma vaikse tsoonita) = n/(n+8) lahtri kõrgusest;
+   * vöötkood on 75% sellest, kood tekstina mahub ülejäänud kõrgusele.
+   */
+  function tooteMoodud(kood, sisuH, p) {
+    var q = qrcode(0, 'M'); q.addData(String(kood)); q.make();
+    var n = q.getModuleCount();
+    var qrNahtav = sisuH * n / (n + 8);
+    var ribaMm = qrNahtav * 0.75;
+    var koodMm = Math.min((Number(p.kood_pt) || 7) * 0.3528 * 1.4, (sisuH - ribaMm) * 0.8);
+    return { ribaMm: ribaMm, koodPt: koodMm / 0.3528 / 1.1 };
   }
 
   /**
@@ -312,24 +319,6 @@
     return (d.encodings || []).map(function (e) { return e.data; }).join('');
   }
 
-  /** Murrab teksti antud laiusele kuni `ridu` reale; liiga pika lõpetab „…“-ga. */
-  function murraRead(ctx, tekst, laius, ridu) {
-    var sonad = String(tekst || '').split(/\s+/).filter(Boolean), read = [], rida = '', i = 0;
-    for (; i < sonad.length; i++) {
-      var proov = rida ? rida + ' ' + sonad[i] : sonad[i];
-      if (!rida || ctx.measureText(proov).width <= laius) { rida = proov; continue; }
-      read.push(rida); rida = sonad[i];
-      if (read.length === ridu) break;
-    }
-    var lyhend = i < sonad.length;
-    if (!lyhend && rida) read.push(rida);
-    if (!read.length) return read;
-    var viimane = read[read.length - 1];
-    while (viimane.length > 1 && ctx.measureText(viimane + (lyhend ? '…' : '')).width > laius) { viimane = viimane.slice(0, -1); lyhend = true; }
-    read[read.length - 1] = viimane + (lyhend ? '…' : '');
-    return read;
-  }
-
   /** Joonistab sildi (QR vasakul, paremal nimi/vöötkood/kood/riiul) lõuendile; Promise<Blob> (PNG). */
   function sildiPilt(s, pohi) {
     var p = pohi.seaded || {};
@@ -363,43 +352,16 @@
       ctx.fillText(naidatavKood, px + Math.max(0, (pw - lw) / 2), Math.round(H / 2));
       return valmis(c);
     }
-    var pealkiri = s.liik === 'riiul' ? 'Riiul ' + naidatavKood : s.pealkiri;
-    var alam = s.liik === 'riiul' ? [s.alam, s.tsoon].filter(Boolean).join(' · ') : (s.alam ? 'Riiul ' + s.alam : '');
-    function peidus(x) { return Number(x) === 0 && x !== undefined && x !== ''; }
-    function fontPx(x, vaik) { return Math.round((Number(x) || vaik) * 0.3528 * mm); }
-    if (peidus(p.riiul_pt)) alam = '';
-
-    var plokid = [], nimega = !peidus(p.nimi_pt);
-    if (nimega) {
-      var nf = fontPx(p.nimi_pt, 10), nr = Math.round(nf * 1.1);
-      ctx.font = 'bold ' + nf + 'px ' + SANS;
-      var read = murraRead(ctx, pealkiri, pw, Number(p.nimi_ridu) === 1 ? 1 : 2);
-      plokid.push({ h: read.length * nr, joonista: function (y) {
-        ctx.font = 'bold ' + nf + 'px ' + SANS;
-        read.forEach(function (t, i) { ctx.fillText(t, px, y + i * nr); });
-      } });
-    }
+    // Tootesilt: vöötkood ~75% QR-i kõrgusest, all kood tekstina; plokk keskel
+    var m = tooteMoodud(s.kood, H / mm, p);
     var bitid = ribaBitid(s.kood, s.koodiTyyp);
     var moodul = Math.max(1, Math.floor(pw / (bitid.length + 20)));
     if (Number(p.moodul_mm)) moodul = Math.min(moodul, Math.max(1, Math.round(Number(p.moodul_mm) * mm)));
-    var ribaH = Math.round((Number(p.ribakood_mm) || 8) * mm);
-    plokid.push({ h: ribaH, joonista: function (y) {
-      for (var i = 0; i < bitid.length; i++) if (bitid[i] === '1') ctx.fillRect(px + (10 + i) * moodul, y, moodul, ribaH);
-    } });
-    var kf = fontPx(p.kood_pt, 7);
-    plokid.push({ h: Math.round(kf * 1.1), joonista: function (y) { ctx.font = 'bold ' + kf + 'px ' + MONO; ctx.fillText(s.kood, px, y); } });
-    if (alam) {
-      var af = fontPx(p.riiul_pt, 6);
-      plokid.push({ h: Math.round(af * 1.1), joonista: function (y) {
-        ctx.font = af + 'px ' + SANS; ctx.fillText(murraRead(ctx, alam, pw, 1)[0] || '', px, y);
-      } });
-    }
-    // Nimega: plokid laiali kogu kõrgusele; nimeta: väikese vahega keskele
-    var kokku = plokid.reduce(function (a, b) { return a + b.h; }, 0), vahed = plokid.length - 1;
-    var vahe = Math.max(0, (H - kokku) / vahed), y = 0;
-    if (!nimega) { vahe = Math.min(vahe, Math.round(0.6 * mm)); y = Math.max(0, (H - kokku - vahe * vahed) / 2); }
-    plokid.forEach(function (b) { b.joonista(Math.round(y)); y += b.h + vahe; });
-
+    var ribaH = Math.round(m.ribaMm * mm), kf = Math.round(m.koodPt * 0.3528 * mm);
+    var y = Math.max(0, Math.round((H - ribaH - kf * 1.1) / 2));
+    for (var i = 0; i < bitid.length; i++) if (bitid[i] === '1') ctx.fillRect(px + (10 + i) * moodul, y, moodul, ribaH);
+    ctx.font = 'bold ' + kf + 'px ' + MONO; ctx.textBaseline = 'top';
+    ctx.fillText(s.kood, px + 10 * moodul, y + ribaH + Math.round(kf * 0.1));
     return valmis(c);
   }
 
