@@ -406,8 +406,11 @@
     return (d.encodings || []).map(function (e) { return e.data; }).join('');
   }
 
-  /** Joonistab sildi (QR vasakul, paremal nimi/vöötkood/kood/riiul) lõuendile; Promise<Blob> (PNG). */
-  function sildiPilt(s, pohi) {
+  /** Silt PNG-na: Promise<Blob>. */
+  function sildiPilt(s, pohi) { return valmis(sildiLouend(s, pohi)); }
+
+  /** Joonistab sildi (QR vasakul, paremal kood / vöötkood) lõuendile. */
+  function sildiLouend(s, pohi) {
     pohi = pohiSildile(s, pohi);
     var p = pohi.seaded || {};
     var mm = PILDI_DPI / 25.4;
@@ -440,7 +443,7 @@
       // Suurtähed ja numbrid on ~0,716 fondi suurusest – paigutame need vertikaalselt keskele
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(naidatavKood, px + Math.max(0, (pw - lw) / 2), Math.round((H + suur * 0.716) / 2));
-      return valmis(lindile(c, pohi));
+      return lindile(c, pohi);
     }
     // Tootesilt: vöötkood ~75% QR-i kõrgusest, all kood tekstina; plokk keskel
     var m = tooteMoodud(s.kood, H / mm, p, vz);
@@ -452,7 +455,7 @@
     for (var i = 0; i < bitid.length; i++) if (bitid[i] === '1') ctx.fillRect(px + (10 + i) * moodul, y, moodul, ribaH);
     ctx.font = 'bold ' + kf + 'px ' + MONO; ctx.textBaseline = 'top';
     ctx.fillText(s.kood, px + 10 * moodul, y + ribaH + Math.round(kf * 0.1));
-    return valmis(lindile(c, pohi));
+    return lindile(c, pohi);
   }
 
   /**
@@ -490,13 +493,60 @@
    * Jagab sildid PNG-piltidena (iPhone'is jagamismenüü → printeri äpp või
    * „Salvesta pilt“). Kui jagamist pole (arvuti), laaditakse pildid alla.
    */
-  function jagaPildina(sildid, pohi) {
+  var RIBAS_MAX = 20; // siltide arv ühes ribapildis (iPhone'i lõuendi suuruse piir)
+
+  /**
+   * Lindisildid üheks pikaks ribaks (pildid üksteise all, vahel lõikejooned servades).
+   * AirPrint lõikab iga lehe/pildi eraldi ja jätab iga ette ~2,5 cm tühja linti,
+   * ühe ribana tuleb tühi algus ainult korra. Promise<[Blob]> (kuni RIBAS_MAX silti pildis).
+   */
+  function ribaPildid(sildid, pohi) {
+    var tykid = [];
+    for (var i = 0; i < sildid.length; i += RIBAS_MAX) tykid.push(sildid.slice(i, i + RIBAS_MAX));
+    return Promise.all(tykid.map(function (tykk) {
+      var l = tykk.map(function (s) { return sildiLouend(s, pohi); });
+      var r = document.createElement('canvas');
+      r.width = l[0].width; r.height = l.reduce(function (h, c) { return h + c.height; }, 0);
+      var ctx = r.getContext('2d'), y = 0, kriips = Math.round(1.5 * PILDI_DPI / 25.4);
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, r.width, r.height); ctx.fillStyle = '#000';
+      l.forEach(function (c, j) {
+        ctx.drawImage(c, 0, y); y += c.height;
+        if (j < l.length - 1) { ctx.fillRect(0, y - 1, kriips, 2); ctx.fillRect(r.width - kriips, y - 1, kriips, 2); }
+      });
+      return valmis(r);
+    }));
+  }
+
+  /**
+   * viis: 'riba' = lindisildid üheks ribaks (tühi algus korra, lõikad ise kääridega),
+   * 'eraldi' = iga kood oma pildina (printer lõikab, aga iga sildi ette ~2,5 cm tühja).
+   * Lindipõhjal mitme sildiga küsitakse; uus vajutus annab Safarile ka jagamisloa.
+   */
+  function jagaPildina(sildid, pohi, viis) {
+    var mitu = sildid.filter(function (s) { return s.kood; }).length > 1;
+    if (!viis && autoPikkus(pohi) && mitu) {
+      LAO.modaal('Kuidas printida?', '<form><input type="hidden" name="viis" value="riba">' +
+        '<p><b>Üks riba</b> – tühi algus ainult korra, sildid lõikad kääridega lahti (lõikekohad on servades kriipsuga).</p>' +
+        '<p><b>Eraldi sildid</b> – printer lõikab iga sildi ise, aga iga sildi ette jääb ~2,5 cm tühja linti.</p>' +
+        '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
+        '<button type="submit" class="nupp" data-viis="eraldi">Eraldi sildid</button>' +
+        '<button type="submit" class="nupp nupp-pohi" data-viis="riba">Üks riba</button></div></form>',
+        function (vorm) { return jagaPildina(sildid, pohi, vorm.viis.value); });
+      Array.prototype.forEach.call(document.querySelectorAll('dialog [data-viis]'), function (b) {
+        b.addEventListener('click', function () { b.form.viis.value = b.dataset.viis; });
+      });
+      return Promise.resolve();
+    }
     var unik = [], nahtud = {};
     sildid.forEach(function (s) { if (s.kood && !nahtud[s.kood]) { nahtud[s.kood] = 1; unik.push(s); } });
     if (!unik.length) { teade('Vali vähemalt üks koodiga silt.', 'viga'); return Promise.resolve(); }
     if (pohi.paigutus === 'A4') { teade('A4 kleebiselehte ei saa pildina jagada – vali rulli või lindi põhi.', 'viga'); return Promise.resolve(); }
-    return Promise.all(unik.map(function (s) { return sildiPilt(s, pohi); })).then(function (blobid) {
-      var failid = blobid.map(function (b, i) { return new File([b], failinimi(unik[i]), { type: 'image/png' }); });
+    var koodiga = sildid.filter(function (s) { return s.kood; });
+    var riba = viis === 'riba' && autoPikkus(pohi) && koodiga.length > 1;
+    return (riba ? ribaPildid(koodiga, pohi) : Promise.all(unik.map(function (s) { return sildiPilt(s, pohi); }))).then(function (blobid) {
+      var failid = blobid.map(function (b, i) {
+        return new File([b], riba ? 'sildid-' + (i + 1) + '.png' : failinimi(unik[i]), { type: 'image/png' });
+      });
       if (navigator.canShare && navigator.canShare({ files: failid })) {
         return navigator.share({ files: failid }).catch(function (e) {
           if (e && e.name === 'AbortError') return;
@@ -816,6 +866,6 @@
   }
 
   LAO.kiirprint = kiirprint;
-  LAO.sildiPilt = sildiPilt; // testimiseks
+  LAO.sildiPilt = sildiPilt; LAO.ribaPildid = ribaPildid; // testimiseks
   LAO.vaated['sildid'] = { fn: vaadeSildid, admin: true };
 })();
