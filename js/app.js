@@ -398,7 +398,7 @@
   // VAADE: SEADED
   // -------------------------------------------------------------------------
 
-  var RAKENDUSE_VERSIOON = 'v24'; // sama number mis ?v= failis index.html
+  var RAKENDUSE_VERSIOON = 'v25'; // sama number mis ?v= failis index.html
 
   function vaadeSeaded() {
     var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';
@@ -577,6 +577,7 @@
     vaade.fn(param);
   }
 
+  window.addEventListener('hashchange', function (e) { LAO.eelmineAadress = e.oldURL; });
   window.addEventListener('hashchange', marsruut);
   // Esimene joonistamine alles siis, kui ka teised vaadete failid (nt js/tooted.js) on laetud
   // ja seadmesse salvestatud toodete nimekiri on mälus (IndexedDB, tavaliselt mõni ms).

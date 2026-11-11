@@ -111,12 +111,15 @@
     }).join('');
     $('#lRiiul').innerHTML = LAO.riiuliValikud(laoFilter.riiul).replace('– pole määratud –', 'Kõik riiulid');
     var list = laoList();
+    var admin = LAO.onAdmin();
     var madal = list.filter(LAO.allMiinimumi).length;
     $('#laoArv').textContent = list.length + ' toodet' + (madal ? ' · ' + madal + ' alla miinimumi' : '');
     $('#laoTabel').innerHTML = list.length ? '<table class="tabel"><thead><tr><th>Kood(id)</th><th>Nimetus</th><th>Tüüp</th><th>Kategooria</th>' +
       '<th>Riiul</th><th>Saldo / olek</th><th>Miinimum</th></tr></thead><tbody>' + list.map(function (t) {
         var r = LAO.riiul(t.riiul_id);
-        return '<tr' + (LAO.allMiinimumi(t) ? ' class="rida-madal"' : '') + '>' +
+        // Adminil avab rida tootekaardi (andmete, koodide ja saldo muutmine)
+        var klass = (LAO.allMiinimumi(t) ? 'rida-madal' : '') + (admin && !t.ootel ? ' rida-klikitav' : '');
+        return '<tr class="' + klass + '" data-id="' + esc(t.id) + '">' +
           '<td data-silt="Kood"><code>' + esc(t.koodid.map(function (k) { return k.kood; }).join(', ') || (t.ootel ? '(saatmata)' : '')) + '</code></td>' +
           '<td data-silt="Nimetus"><b>' + esc(t.nimetus) + '</b></td>' +
           '<td data-silt="Tüüp">' + esc(LAO.tyypNimi(t.tyyp)) + '</td>' +
@@ -125,6 +128,9 @@
           '<td data-silt="Saldo">' + LAO.seisHtml(t) + '</td>' +
           '<td data-silt="Miinimum">' + esc(t.miinimumkogus === null ? '' : LAO.arvTekst(t.miinimumkogus) + ' ' + t.yhik) + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="vaike">Midagi ei leitud.</p>';
+    if (admin) Array.prototype.forEach.call(document.querySelectorAll('#laoTabel tr.rida-klikitav'), function (tr) {
+      tr.addEventListener('click', function () { location.hash = '#/toode/' + encodeURIComponent(tr.dataset.id); });
+    });
   }
 
   // -------------------------------------------------------------------------

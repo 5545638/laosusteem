@@ -88,6 +88,28 @@
       alam: r ? r.kood : '', tsoon: r ? r.tsoon : '' };
   }
 
+  /**
+   * Tühjad koodid: varuks prinditud QR-sildid kaubale, millel oma koodi pole.
+   * Kood on juhuslik (L- + 6 märki, ilma segiaetavate märkideta 0/O, 1/I jne), seega
+   * eri seadmetes ja eri kordadel loodud koodid ei kattu. Laos pole neid enne olemas –
+   * PAIGUTA-vaates skännimisel luuakse toode (nimeta) ja seotakse riiuliga.
+   */
+  var TYHJA_MARGID = 'ACDEFGHJKMNPRTUVWXY34679';
+  function uusTyhiKood() {
+    for (;;) {
+      var b = new Uint8Array(6), k = 'L-';
+      (window.crypto || window.msCrypto).getRandomValues(b);
+      for (var i = 0; i < 6; i++) k += TYHJA_MARGID.charAt(b[i] % TYHJA_MARGID.length);
+      if (!LAO.leiaKoodiga(k)) return k;
+    }
+  }
+  function tyhjast(kood, ainultQr) {
+    return { liik: 'toode', id: kood, pealkiri: '', kood: kood, koodiTyyp: 'SISEKOOD', alam: '', tsoon: '', ainultQr: !!ainultQr };
+  }
+
+  /** „Ainult QR” silt (linti säästes): ruut QR, lindil otsad vaid nii palju, et telefon QR-i leiaks. */
+  var AINULT_QR_OTS_MM = 2.5;
+
   function riiulist(r) {
     return { liik: 'riiul', id: r.id, pealkiri: r.nimetus || '', kood: r.kood, koodiTyyp: 'CODE128',
       alam: r.nimetus || '', tsoon: r.tsoon || '' };
@@ -160,6 +182,12 @@
     if (!s.kood) return '<div class="silt" style="' + stiil + '"><div class="silt-tyhi">Koodita: ' + esc(s.pealkiri) + '</div></div>';
     var naidatavKood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
 
+    if (s.ainultQr) {
+      var aq = Math.min(sisuW, sisuH);
+      return '<div class="silt silt-ainultqr" style="' + stiil + 'display:flex;align-items:center;justify-content:center">' +
+        '<div class="silt-qr" style="width:' + aq + 'mm;height:' + aq + 'mm">' + qr(s.kood, qrVeeris(pohi)) + '</div></div>';
+    }
+
     if (paigutus === 'VAIKE') {
       var q = Math.min(sisuW, sisuH - (Number(p.kood_pt) || 6) * 0.45);
       return '<div class="silt silt-vaike" style="' + stiil + '">' +
@@ -209,7 +237,8 @@
     var p = pohi.seaded || {}, v = Number(p.veeris_mm) || 0;
     var vy = p.veeris_y_mm === undefined || p.veeris_y_mm === '' ? v : Number(p.veeris_y_mm) || 0;
     var sisuH = pohi.korgus_mm - 2 * vy, sisu;
-    if (pohi.paigutus === 'VAIKE') sisu = sisuH;
+    if (s.ainultQr) { sisu = sisuH; v = AINULT_QR_OTS_MM; }
+    else if (pohi.paigutus === 'VAIKE') sisu = sisuH;
     else if (ainultQr(s, pohi)) {
       var kood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
       sisu = sisuH + qrVahe(pohi) + kood.length * 0.62 * riiuliKiri(pohi, sisuH, null, kood.length);
@@ -319,7 +348,8 @@
   function paberiPikkus(sildid, pohi) {
     // Ülempiiriga lindipõhjal alati max pikkus – Macis piisab ühest paberisuurusest lindi kohta
     var max = Number((pohi.seaded || {}).max_pikkus_mm) || 0;
-    if (autoPikkus(pohi) && max && pohi.paigutus !== 'A4') return max;
+    var koikQr = sildid.length && sildid.every(function (s) { return s.ainultQr; }); // ainult QR: lühike paber
+    if (autoPikkus(pohi) && max && pohi.paigutus !== 'A4' && !koikQr) return max;
     return sildid.reduce(function (m, s) { return Math.max(m, pohiSildile(s, pohi).laius_mm); }, 0) || pohi.laius_mm;
   }
 
@@ -430,6 +460,7 @@
     var qx = x0 + Math.floor((H - rakk * n) / 2), qy = Math.floor((H - rakk * n) / 2);
     for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) ctx.fillRect(qx + k * rakk, qy + r * rakk, rakk, rakk);
 
+    if (s.ainultQr) return lindile(c, pohi);
     var vahe = Math.round(qrVahe(pohi) * mm);
     var px = x0 + H + vahe, pw = Math.round(sisuW * mm) - H - vahe;
     var naidatavKood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
@@ -508,7 +539,7 @@
       var mm = PILDI_DPI / 25.4, siht = Number((pohi.seaded || {}).veeris_mm) || 0;
       var l = tykk.map(function (s) {
         var v = Number((pohiSildile(s, pohi).seaded || {}).veeris_mm) || 0;
-        return { c: sildiLouend(s, pohi), lisa: Math.round(Math.max(0, siht - v) * mm) };
+        return { c: sildiLouend(s, pohi), lisa: s.ainultQr ? 0 : Math.round(Math.max(0, siht - v) * mm) }; // ainult QR: lühikesed otsad
       });
       var r = document.createElement('canvas');
       r.width = l[0].c.width; r.height = l.reduce(function (h, x) { return h + x.c.height + 2 * x.lisa; }, 0);
@@ -572,7 +603,8 @@
   // VAADE: SILDID
   // -------------------------------------------------------------------------
 
-  var valik = {};   // 'toode:<id>' / 'riiul:<id>' → kogus
+  var valik = {};   // 'toode:<id>' / 'riiul:<id>' / 'tyhi:<kood>' → kogus
+  var tyhjad = [];  // selles vaates loodud tühjad koodid
   var allikas = 'tooted';
 
   function vaadeSildid() {
@@ -585,6 +617,13 @@
       '        <label><input type="radio" name="allikas" value="tooted"><span>Varuosad</span></label>' +
       '        <label><input type="radio" name="allikas" value="tooriistad"><span>Tööriistad</span></label>' +
       '        <label><input type="radio" name="allikas" value="riiulid"><span>Riiulid</span></label>' +
+      '        <label><input type="radio" name="allikas" value="tyhjad"><span>Tühjad koodid</span></label>' +
+      '      </div>' +
+      '      <div id="tyhjadVorm" class="kaart-teade info" hidden>' +
+      '        <p>Varuks QR-sildid kaubale, millel oma koodi pole. Kleebi silt kaubale ja skänni see <b>PAIGUTA</b> vaates – toode luuakse ja seotakse riiuliga, nime saad lisada hiljem.</p>' +
+      '        <div class="nupurida nupurida-vasak"><label>Mitu koodi<input id="tyhjadArv" type="number" min="1" max="200" value="20"></label>' +
+      '        <button class="nupp nupp-pohi" id="looTyhjad" type="button">Loo uued koodid</button></div>' +
+      '        <label class="linnuke"><input type="checkbox" id="tyhjadQr"> Ainult QR <span class="vaike">(ilma kirjata – säästab linti; vali lindipõhi ja „Jaga pildina” → Üks riba)</span></label>' +
       '      </div>' +
       '      <div class="tooriba">' +
       '        <input id="sOtsing" type="search" placeholder="Otsi nime või koodi järgi">' +
@@ -645,6 +684,10 @@
     function filtreeritud() {
       var otsing = $('#sOtsing').value.trim().toLowerCase();
       var kat = $('#sKategooria').value, riiul = $('#sRiiul').value;
+      if (allikas === 'tyhjad') {
+        return tyhjad.filter(function (k) { return !otsing || k.toLowerCase().indexOf(otsing) >= 0; })
+          .map(function (k) { return { voti: 'tyhi:' + k, nimi: k, info: LAO.leiaKoodiga(k) ? 'juba kasutusel' : 'vaba', silt: tyhjast(k, $('#tyhjadQr').checked) }; });
+      }
       if (allikas === 'riiulid') {
         return LAO.andmed.riiulid.filter(function (r) {
           return !r.arhiveeritud && (!otsing || (r.kood + ' ' + (r.nimetus || '') + ' ' + (r.tsoon || '')).toLowerCase().indexOf(otsing) >= 0);
@@ -666,7 +709,8 @@
     }
 
     function joonistaNimekiri() {
-      var tooriistaFiltrid = allikas !== 'riiulid';
+      var tooriistaFiltrid = allikas !== 'riiulid' && allikas !== 'tyhjad';
+      $('#tyhjadVorm').hidden = allikas !== 'tyhjad';
       $('#sKategooria').hidden = !tooriistaFiltrid;
       $('#sRiiul').hidden = !tooriistaFiltrid;
       var list = filtreeritud();
@@ -675,7 +719,7 @@
         return '<tr><td class="lk"><label class="linnuke"><input type="checkbox" data-voti="' + esc(x.voti) + '"' + (k ? ' checked' : '') + '>' +
           '<span><b>' + esc(x.nimi) + '</b><br><span class="vaike">' + esc(x.info) + '</span></span></label></td>' +
           '<td class="arv"><input type="number" min="0" max="999" value="' + (k || 1) + '" data-kogus="' + esc(x.voti) + '" aria-label="Siltide arv"></td></tr>';
-      }).join('') + '</tbody></table>' : '<p class="vaike">Midagi ei leitud.</p>';
+      }).join('') + '</tbody></table>' : '<p class="vaike">' + (allikas === 'tyhjad' ? 'Vajuta „Loo uued koodid”.' : 'Midagi ei leitud.') + '</p>';
       Array.prototype.forEach.call(document.querySelectorAll('#sNimekiri [data-voti]'), function (c) {
         c.addEventListener('change', function () {
           var kogus = document.querySelector('[data-kogus="' + c.dataset.voti + '"]');
@@ -699,6 +743,7 @@
       return Object.keys(valik).map(function (voti) {
         var osad = voti.split(':'), s = null;
         if (osad[0] === 'riiul') { var r = LAO.riiul(osad[1]); s = r && riiulist(r); }
+        else if (osad[0] === 'tyhi') s = tyhjast(osad[1], $('#tyhjadQr').checked);
         else { var t = LAO.toode(osad[1]); s = t && tootest(t, eel); }
         return s ? { silt: s, kogus: valik[voti] } : null;
       }).filter(Boolean);
@@ -739,6 +784,21 @@
       joonistaNimekiri(); eelvaade();
     });
     $('#tyhjenda').addEventListener('click', function () { valik = {}; joonistaNimekiri(); eelvaade(); });
+    var TYHJAD_QR_VOTI = 'lao.tyhjadAinultQr';
+    try { $('#tyhjadQr').checked = localStorage.getItem(TYHJAD_QR_VOTI) !== '0'; } catch (e) { $('#tyhjadQr').checked = true; }
+    $('#tyhjadQr').addEventListener('change', function () {
+      try { localStorage.setItem(TYHJAD_QR_VOTI, $('#tyhjadQr').checked ? '1' : '0'); } catch (e) { /* ignoreeri */ }
+      eelvaade();
+    });
+    $('#looTyhjad').addEventListener('click', function () {
+      var n = Math.max(1, Math.min(200, Number($('#tyhjadArv').value) || 20));
+      // Uus komplekt asendab eelmise (eelmise valik eemaldatakse)
+      Object.keys(valik).forEach(function (v) { if (v.indexOf('tyhi:') === 0) delete valik[v]; });
+      tyhjad = [];
+      while (tyhjad.length < n) { var k = uusTyhiKood(); if (tyhjad.indexOf(k) < 0) tyhjad.push(k); }
+      tyhjad.forEach(function (k) { valik['tyhi:' + k] = 1; });
+      joonistaNimekiri(); eelvaade();
+    });
     $('#prindiNupp').addEventListener('click', function () {
       prindi(laiali(valitudSildid()), leiaPohi($('#sPohi').value), $('#sAlgus').value);
     });
