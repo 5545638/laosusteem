@@ -23,6 +23,7 @@
  *                 nii et jooned langevad täpselt printeri punktidele (terav kood)
  *   nimi_pt = 0 / riiul_pt = 0 – rida jäetakse välja; nimi_ridu – nimetuse ridu (1–2)
  *   auto_pikkus – sildi pikkus = sisu laius + 2 × veeris_mm (laius_mm on siis ainult varuväärtus)
+ *   max_pikkus_mm – pikkuse ülempiir: otsad lühenevad (min 2 mm), seejärel kahaneb kiri/vöötkood
  *   poora       – prindi 90° pööratult (kui draiver ootab lehte, mille laius = lindi laius)
  */
 (function () {
@@ -47,11 +48,11 @@
       seaded: { veeris_mm: 2, nimi_pt: 8, kood_pt: 6, riiul_pt: 6, ribakood_mm: 7,
         veerge: 4, ridu: 10, leht_ylal_mm: 21.5, leht_vasakul_mm: 8 } },
     { id: 'V6', nimi: 'P-touch lint 12 mm (pikkus sisu järgi)', laius_mm: 56, korgus_mm: 12, paigutus: 'TOODE',
-      seaded: { auto_pikkus: true, veeris_mm: 10, veeris_y_mm: 1.5, nimi_pt: 0, kood_pt: 6, riiul_pt: 0, ribakood_mm: 5.5, moodul_mm: 0.282 } },
+      seaded: { auto_pikkus: true, max_pikkus_mm: 50, veeris_mm: 10, veeris_y_mm: 1.5, nimi_pt: 0, kood_pt: 6, riiul_pt: 0, ribakood_mm: 5.5, moodul_mm: 0.282 } },
     { id: 'V7', nimi: 'P-touch lint 18 mm (pikkus sisu järgi)', laius_mm: 64, korgus_mm: 18, paigutus: 'TOODE',
-      seaded: { auto_pikkus: true, veeris_mm: 10, veeris_y_mm: 2, nimi_pt: 7, nimi_ridu: 1, kood_pt: 6, riiul_pt: 5, ribakood_mm: 6.5, moodul_mm: 0.282 } },
+      seaded: { auto_pikkus: true, max_pikkus_mm: 50, veeris_mm: 10, veeris_y_mm: 2, nimi_pt: 7, nimi_ridu: 1, kood_pt: 6, riiul_pt: 5, ribakood_mm: 6.5, moodul_mm: 0.282 } },
     { id: 'V8', nimi: 'P-touch lint 24 mm (pikkus sisu järgi)', laius_mm: 72, korgus_mm: 24, paigutus: 'TOODE',
-      seaded: { auto_pikkus: true, veeris_mm: 10, veeris_y_mm: 3, nimi_pt: 7.5, nimi_ridu: 2, kood_pt: 7, riiul_pt: 6, ribakood_mm: 6.5, moodul_mm: 0.282 } }
+      seaded: { auto_pikkus: true, max_pikkus_mm: 50, veeris_mm: 10, veeris_y_mm: 3, nimi_pt: 7.5, nimi_ridu: 2, kood_pt: 7, riiul_pt: 6, ribakood_mm: 6.5, moodul_mm: 0.282 } }
   ];
   var PAIGUTUSE_NIMI = { TOODE: 'Tootesilt (QR + vöötkood + nimi)', RIIUL: 'Riiulisilt (suur kood)', VAIKE: 'Väike (QR + kood)', A4: 'A4 kleebiseleht' };
 
@@ -187,7 +188,7 @@
       '<div class="silt-qr" style="width:' + qrMm2 + 'mm;height:' + qrMm2 + 'mm">' + qr(s.kood, qrVeeris(pohi)) + '</div>' +
       '<div class="silt-parem" style="width:' + paremW + 'mm">' +
       '<div class="silt-riba" style="height:' + m.ribaMm.toFixed(2) + 'mm' + ribaLaius(b2, paremW, p) + '">' + b2.svg + '</div>' +
-      '<div class="silt-kood" style="font-size:' + m.koodPt.toFixed(1) + 'pt">' + esc(s.kood) + '</div>' +
+      '<div class="silt-kood" style="font-size:' + Math.min(m.koodPt, (paremW - 1) / (String(s.kood).length * 0.6 * 0.3528)).toFixed(1) + 'pt">' + esc(s.kood) + '</div>' +
       '</div></div>';
   }
 
@@ -212,8 +213,12 @@
       var koodW = String(s.kood).length * 0.6 * m.koodPt * 0.3528 + 1;
       sisu = sisuH + qrVahe(pohi) + Math.max(ribaW, koodW);
     }
-    var koopia = Object.assign({}, pohi);
-    koopia.laius_mm = Math.ceil(sisu + 2 * v); // täis-mm, et Macis oleks lihtne paberisuurust teha
+    // Ülempiir (max_pikkus_mm): esmalt lühenevad otsad (kuni 2 mm), siis jääb sisule vähem
+    // ruumi – riiulikood ja vöötkood kahanevad sildi joonistamisel ise laiusele.
+    var L = Math.ceil(sisu + 2 * v), max = Number(p.max_pikkus_mm) || 0;
+    if (max && L > max) { v = Math.max(2, Math.min(v, (max - sisu) / 2)); L = max; }
+    var koopia = Object.assign({}, pohi, { seaded: Object.assign({}, p, { veeris_mm: v }) });
+    koopia.laius_mm = L; // täis-mm, et Macis oleks lihtne paberisuurust teha
     return koopia;
   }
 
@@ -311,9 +316,9 @@
 
   /** Fikseeritud pikkusega (L) põhi ühele sildile: lisaruum jagatakse otste vahel võrdselt. */
   function uhtlanePohi(s, pohi, L) {
-    var oma = pohiSildile(s, pohi).laius_mm, p = Object.assign({}, pohi.seaded || {});
+    var ps = pohiSildile(s, pohi), p = Object.assign({}, ps.seaded || {});
     p.auto_pikkus = false;
-    p.veeris_mm = (Number(p.veeris_mm) || 0) + (L - oma) / 2;
+    p.veeris_mm = (Number(p.veeris_mm) || 0) + (L - ps.laius_mm) / 2;
     return Object.assign({}, pohi, { laius_mm: L, seaded: p });
   }
 
@@ -433,7 +438,7 @@
     var bitid = ribaBitid(s.kood, s.koodiTyyp);
     var moodul = Math.max(1, Math.floor(pw / (bitid.length + 20)));
     if (Number(p.moodul_mm)) moodul = Math.min(moodul, Math.max(1, Math.round(Number(p.moodul_mm) * mm)));
-    var ribaH = Math.round(m.ribaMm * mm), kf = Math.round(m.koodPt * 0.3528 * mm);
+    var ribaH = Math.round(m.ribaMm * mm), kf = Math.round(Math.min(m.koodPt * 0.3528 * mm, pw / (String(s.kood).length * 0.6)));
     var y = Math.max(0, Math.round((H - ribaH - kf * 1.1) / 2));
     for (var i = 0; i < bitid.length; i++) if (bitid[i] === '1') ctx.fillRect(px + (10 + i) * moodul, y, moodul, ribaH);
     ctx.font = 'bold ' + kf + 'px ' + MONO; ctx.textBaseline = 'top';
@@ -700,6 +705,7 @@
         return '<option value="' + k + '"' + (k === pohi.paigutus ? ' selected' : '') + '>' + esc(PAIGUTUSE_NIMI[k]) + '</option>';
       }).join('') + '</select></label>' +
       '<div class="valjarida2">' + vali('laius_mm', 'Laius (mm)', pohi.laius_mm) + vali('korgus_mm', 'Kõrgus (mm)', pohi.korgus_mm) + '</div>' +
+      vali('max_pikkus_mm', 'Max pikkus (mm)', p.max_pikkus_mm, 'pikkus sisu järgi; tühi = piiranguta') +
       '<div class="valjarida2">' + vali('veeris_mm', 'Veeris (mm)', p.veeris_mm) + vali('veeris_y_mm', 'Üla/alaveeris (mm)', p.veeris_y_mm, 'tühi = sama') + '</div>' +
       '<div class="valjarida2">' + vali('ribakood_mm', 'Vöötkoodi kõrgus (mm)', p.ribakood_mm) + vali('moodul_mm', 'Vöötkoodi joon (mm)', p.moodul_mm, 'tühi = venita') + '</div>' +
       '<div class="valjarida2">' + vali('nimi_pt', 'Nimetuse font (pt)', p.nimi_pt, '0 = peida') + vali('nimi_ridu', 'Nimetuse ridu', p.nimi_ridu, '1–2') + '</div>' +
@@ -714,7 +720,7 @@
       LAO.MODAALI_NUPUD + '</form>',
       function (v) {
         var arvud = {};
-        ['veeris_mm', 'veeris_y_mm', 'ribakood_mm', 'moodul_mm', 'nimi_pt', 'nimi_ridu', 'kood_pt', 'riiul_pt', 'veerge', 'ridu', 'leht_ylal_mm', 'leht_vasakul_mm'].forEach(function (n) {
+        ['max_pikkus_mm', 'veeris_mm', 'veeris_y_mm', 'ribakood_mm', 'moodul_mm', 'nimi_pt', 'nimi_ridu', 'kood_pt', 'riiul_pt', 'veerge', 'ridu', 'leht_ylal_mm', 'leht_vasakul_mm'].forEach(function (n) {
           var x = String(v[n].value).replace(',', '.').trim();
           if (x !== '') arvud[n] = Number(x);
         });
