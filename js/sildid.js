@@ -210,7 +210,7 @@
       sisu = sisuH + qrVahe(pohi) + Math.max(ribaW, koodW);
     }
     var koopia = Object.assign({}, pohi);
-    koopia.laius_mm = Math.ceil((sisu + 2 * v) * 2) / 2;
+    koopia.laius_mm = Math.ceil(sisu + 2 * v); // täis-mm, et Macis oleks lihtne paberisuurust teha
     return koopia;
   }
 
@@ -269,15 +269,18 @@
   /** Kõigi siltide HTML koos lehekülgedega (A4 puhul ruudustik). algus: A4 esimene vaba kleebis (1…). */
   function lehtedeHtml(sildid, pohi, algus, hoiatused, prindiks) {
     if (pohi.paigutus !== 'A4') {
-      var poora = prindiks && poorata(pohi), auto = prindiks && autoPikkus(pohi);
+      var poora = prindiks && poorata(pohi);
+      // Printimisel on kõik sildid sama pikad (pikima järgi): printeri draiver kasutab ühte
+      // paberisuurust. Lühem sisu jääb keskele.
+      var L = prindiks && autoPikkus(pohi) ? paberiPikkus(sildid, pohi) : 0;
       return sildid.map(function (s) {
-        var ps = pohiSildile(s, pohi);
-        var leht = auto ? 'page:' + lehenimi(ps) + ';' : ''; // igal sildil oma lehe suurus (@page nimega)
-        if (!poora) return '<div class="rull-leht" style="' + leht + '">' + sildiHtml(s, pohi, hoiatused) + '</div>';
+        var pp = L ? uhtlanePohi(s, pohi, L) : pohi;
+        var ps = pohiSildile(s, pp);
+        if (!poora) return '<div class="rull-leht">' + sildiHtml(s, pp, hoiatused) + '</div>';
         // Leht on lindi laiune (kõrgus × laius); silt pööratakse 90° päripäeva
-        return '<div class="rull-leht" style="' + leht + 'width:' + ps.korgus_mm + 'mm;height:' + ps.laius_mm + 'mm">' +
+        return '<div class="rull-leht" style="width:' + ps.korgus_mm + 'mm;height:' + ps.laius_mm + 'mm">' +
           '<div style="transform:translate(' + ps.korgus_mm + 'mm,0) rotate(90deg);transform-origin:0 0">' +
-          sildiHtml(s, pohi, hoiatused) + '</div></div>';
+          sildiHtml(s, pp, hoiatused) + '</div></div>';
       }).join('');
     }
     var p = pohi.seaded || {};
@@ -298,12 +301,31 @@
   // PRINTIMINE
   // -------------------------------------------------------------------------
 
-  function lehenimi(ps) { return 'silt' + Math.round(ps.laius_mm * 10) + 'x' + Math.round(ps.korgus_mm * 10); }
+  /** Pikima sildi pikkus (mm) – sellise paberisuurusega tuleb printida. */
+  function paberiPikkus(sildid, pohi) {
+    return sildid.reduce(function (m, s) { return Math.max(m, pohiSildile(s, pohi).laius_mm); }, 0) || pohi.laius_mm;
+  }
+
+  /** Fikseeritud pikkusega (L) põhi ühele sildile: lisaruum jagatakse otste vahel võrdselt. */
+  function uhtlanePohi(s, pohi, L) {
+    var oma = pohiSildile(s, pohi).laius_mm, p = Object.assign({}, pohi.seaded || {});
+    p.auto_pikkus = false;
+    p.veeris_mm = (Number(p.veeris_mm) || 0) + (L - oma) / 2;
+    return Object.assign({}, pohi, { laius_mm: L, seaded: p });
+  }
+
+  /** Vihje: millise paberisuurusega printida (lindipõhjad, mille pikkus on sisu järgi). */
+  function paberiVihje(sildid, pohi) {
+    if (!autoPikkus(pohi) || pohi.paigutus === 'A4') return '';
+    var L = paberiPikkus(sildid, pohi);
+    return 'Paberi suurus printimisel: <b>' + pohi.korgus_mm + ' × ' + L + ' mm</b> (Macis: Prindi süsteemidialoogi abil → Paper Size → Manage Custom Sizes, Width ' +
+      L + ' mm, Height ' + pohi.korgus_mm + ' mm, veerised 0). Lühemad sildid jäävad lehe keskele.';
+  }
 
   /** @page reegel ühe sildi mõõtudele (pööratult vahetatakse küljed). */
-  function lehereegel(ps, nimi) {
+  function lehereegel(ps) {
     var w = poorata(ps) ? ps.korgus_mm : ps.laius_mm, h = poorata(ps) ? ps.laius_mm : ps.korgus_mm;
-    return '@page' + (nimi ? ' ' + nimi : '') + ' { size: ' + w + 'mm ' + h + 'mm; margin: 0; }';
+    return '@page { size: ' + w + 'mm ' + h + 'mm; margin: 0; }';
   }
 
   function poorata(pohi) { var x = (pohi.seaded || {}).poora; return x === true || x === 1 || x === '1'; }
@@ -328,16 +350,7 @@
     // Täpne lehe suurus: rullil = üks silt, A4 = A4 leht. Veerised 0 – sildi veerised on sildi sees.
     if (pohi.paigutus === 'A4') stiil.textContent = '@page { size: 210mm 297mm; margin: 0; }';
     else if (!autoPikkus(pohi)) stiil.textContent = lehereegel(pohi);
-    else {
-      // Automaatne pikkus: vaikeleht = pikim silt, iga silt oma nimega lehel
-      var reeglid = {}, pikim = pohi;
-      sildid.forEach(function (s) {
-        var ps = pohiSildile(s, pohi);
-        reeglid[lehenimi(ps)] = lehereegel(ps, lehenimi(ps));
-        if (ps.laius_mm > pikim.laius_mm || pikim === pohi) pikim = ps;
-      });
-      stiil.textContent = lehereegel(pikim) + '\n' + Object.keys(reeglid).map(function (k) { return reeglid[k]; }).join('\n');
-    }
+    else stiil.textContent = lehereegel(Object.assign({}, pohi, { laius_mm: paberiPikkus(sildid, pohi) }));
     document.body.classList.add('prindib');
     var lopeta = function () {
       document.body.classList.remove('prindib');
@@ -512,6 +525,7 @@
       '      </div>' +
       '      <p class="vaike">Telefonis: „Jaga pildina” → printeri äpp (nt Brother iPrint&amp;Label) või „Salvesta pilt”. Iga kood tuleb üks kord, arvu määrad äpis.</p>' +
       '      <p id="sHoiatus" class="kaart-teade hoiatus" hidden></p>' +
+      '      <p id="sPaber" class="kaart-teade" hidden></p>' +
       '      <h3>Eelvaade</h3>' +
       '      <div id="sEelvaade" class="sildid-eelvaade"></div>' +
       '    </div>' +
@@ -615,6 +629,8 @@
         '<div class="eelvaade-sisu' + (pohi.paigutus === 'A4' ? ' eelvaade-a4' : '') + '">' +
         lehtedeHtml(naidis, pohi, $('#sAlgus').value, hoiatused) + '</div>' +
         (sildid.length > MAX_EELVAADE ? '<p class="vaike">… ja veel ' + (sildid.length - MAX_EELVAADE) + ' silti.</p>' : '');
+      var vihje = paberiVihje(sildid.length ? sildid : naidis, pohi);
+      $('#sPaber').hidden = !vihje; $('#sPaber').innerHTML = vihje;
       $('#sHoiatus').hidden = !hoiatused.length;
       $('#sHoiatus').textContent = hoiatused.length
         ? 'Vöötkood on selle sildi jaoks väga tihe (' + hoiatused.slice(0, 3).join(', ') + '). Telefon ei pruugi seda lugeda – vali suurem silt või loe QR-koodi.'
@@ -735,6 +751,7 @@
       '<label class="ainult-a4" hidden>Alusta kleebisest nr<input name="algus" type="number" min="1" value="1"></label></div>' +
       (t && t.koodid.length > 1 ? '<label class="linnuke"><input type="checkbox" name="sise"' + (eelista ? ' checked' : '') + '> Eelista sisekoodi</label>' : '') +
       '<div class="sildid-eelvaade kiir-eelvaade"></div>' +
+      '<p class="vaike kiir-paber"></p>' +
       '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
       '<button type="button" class="nupp" data-jaga>📤 Jaga pildina</button>' +
       '<button type="submit" class="nupp nupp-pohi">🖨 Prindi</button></div></form>',
@@ -748,6 +765,7 @@
       var p = leiaPohi(vorm.pohi.value);
       d.querySelector('.ainult-a4').hidden = p.paigutus !== 'A4';
       d.querySelector('.kiir-eelvaade').innerHTML = '<div class="eelvaade-sisu">' + sildiHtml(silt(), p, []) + '</div>';
+      d.querySelector('.kiir-paber').innerHTML = paberiVihje([silt()], p);
     }
     function pohjad() {
       vorm.pohi.innerHTML = koikPohjad().map(function (p) {

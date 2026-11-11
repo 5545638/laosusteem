@@ -237,7 +237,7 @@ Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / sal
 5. **iPhone'ist:** AirPrint ei oska lindi suurust valida, seega kasuta nuppu **📤 Jaga pildina** (SILDID-vaates või toote/riiuli „Prindi silt” aknas). Telefon teeb sildist pildi ja avab jagamismenüü: vali **iPrint&Label** (Brotheri äpp) või **Salvesta pilt** ning prindi pilt äpist (äpis vali lindi laius ja koopiate arv). Iga kood tuleb üks kord.
 6. Vöötkoodi joon on lindipõhjades 0,282 mm (2 printeri punkti), nii et kood tuleb terav. Väga pikk kood ei mahu sellisena ära ja venitatakse sildi laiuseks.
 
-**Lindisildi pikkus:** P-touchi lindipõhjadel arvutatakse pikkus iga sildi sisu järgi, otstesse jääb 10 mm (põhjas väli **Veeris**). QR ja riiulikood on kogu prinditava kõrgusega (24 mm lindil ~18 mm). Kui prindid Macis kohandatud paberisuurusega, vali suurus, mis on vähemalt sama pikk kui silt – „Jaga pildina” teeb pildi alati õige pikkusega.
+**Lindisildi pikkus:** P-touchi lindipõhjadel arvutatakse pikkus iga sildi sisu järgi, otstesse jääb 10 mm (põhjas väli **Veeris**). QR ja riiulikood on kogu prinditava kõrgusega (24 mm lindil ~18 mm). Printimisel on ühe korraga prinditavad sildid kõik sama pikad (pikima järgi, lühem sisu keskel). Rakendus näitab eelvaate all, millise paberisuurusega printida (nt **24 × 107 mm**) – Macis tee see kord kohandatud suuruseks (Prindi süsteemidialoogi abil → Paper Size → Manage Custom Sizes, veerised 0). „Jaga pildina” teeb pildi alati õige pikkusega.
 
 **Tootesildid:** QR-kood vasakul, paremal vöötkood (umbes 75% QR-koodi kõrgusest) ja kood tekstina. Toote nime sildil pole.
 
