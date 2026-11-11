@@ -22,6 +22,7 @@
  *   moodul_mm   – vöötkoodi kitsaima joone laius; 0,282 mm = 2 punkti 180 dpi juures,
  *                 nii et jooned langevad täpselt printeri punktidele (terav kood)
  *   nimi_pt = 0 / riiul_pt = 0 – rida jäetakse välja; nimi_ridu – nimetuse ridu (1–2)
+ *   auto_pikkus – sildi pikkus = sisu laius + 2 × veeris_mm (laius_mm on siis ainult varuväärtus)
  *   poora       – prindi 90° pööratult (kui draiver ootab lehte, mille laius = lindi laius)
  */
 (function () {
@@ -45,12 +46,12 @@
     { id: 'V5', nimi: 'A4 kleebiseleht 4×10 (48,5×25,4 mm)', laius_mm: 48.5, korgus_mm: 25.4, paigutus: 'A4',
       seaded: { veeris_mm: 2, nimi_pt: 8, kood_pt: 6, riiul_pt: 6, ribakood_mm: 7,
         veerge: 4, ridu: 10, leht_ylal_mm: 21.5, leht_vasakul_mm: 8 } },
-    { id: 'V6', nimi: 'P-touch lint 12 mm (56 mm pikk)', laius_mm: 56, korgus_mm: 12, paigutus: 'TOODE',
-      seaded: { veeris_mm: 2, veeris_y_mm: 1.5, nimi_pt: 0, kood_pt: 6, riiul_pt: 0, ribakood_mm: 5.5, moodul_mm: 0.282 } },
-    { id: 'V7', nimi: 'P-touch lint 18 mm (64 mm pikk)', laius_mm: 64, korgus_mm: 18, paigutus: 'TOODE',
-      seaded: { veeris_mm: 2, veeris_y_mm: 2, nimi_pt: 7, nimi_ridu: 1, kood_pt: 6, riiul_pt: 5, ribakood_mm: 6.5, moodul_mm: 0.282 } },
-    { id: 'V8', nimi: 'P-touch lint 24 mm (72 mm pikk)', laius_mm: 72, korgus_mm: 24, paigutus: 'TOODE',
-      seaded: { veeris_mm: 2, veeris_y_mm: 3, nimi_pt: 7.5, nimi_ridu: 2, kood_pt: 7, riiul_pt: 6, ribakood_mm: 6.5, moodul_mm: 0.282 } }
+    { id: 'V6', nimi: 'P-touch lint 12 mm (pikkus sisu järgi)', laius_mm: 56, korgus_mm: 12, paigutus: 'TOODE',
+      seaded: { auto_pikkus: true, veeris_mm: 10, veeris_y_mm: 1.5, nimi_pt: 0, kood_pt: 6, riiul_pt: 0, ribakood_mm: 5.5, moodul_mm: 0.282 } },
+    { id: 'V7', nimi: 'P-touch lint 18 mm (pikkus sisu järgi)', laius_mm: 64, korgus_mm: 18, paigutus: 'TOODE',
+      seaded: { auto_pikkus: true, veeris_mm: 10, veeris_y_mm: 2, nimi_pt: 7, nimi_ridu: 1, kood_pt: 6, riiul_pt: 5, ribakood_mm: 6.5, moodul_mm: 0.282 } },
+    { id: 'V8', nimi: 'P-touch lint 24 mm (pikkus sisu järgi)', laius_mm: 72, korgus_mm: 24, paigutus: 'TOODE',
+      seaded: { auto_pikkus: true, veeris_mm: 10, veeris_y_mm: 3, nimi_pt: 7.5, nimi_ridu: 2, kood_pt: 7, riiul_pt: 6, ribakood_mm: 6.5, moodul_mm: 0.282 } }
   ];
   var PAIGUTUSE_NIMI = { TOODE: 'Tootesilt (QR + vöötkood + nimi)', RIIUL: 'Riiulisilt (suur kood)', VAIKE: 'Väike (QR + kood)', A4: 'A4 kleebiseleht' };
 
@@ -117,11 +118,23 @@
   }
 
   /** QR-kood SVG-na (vaikne tsoon 4 moodulit, veaparandus M). */
-  function qr(kood) {
+  function qr(kood, veeris) {
     var q = qrcode(0, 'M');
     q.addData(String(kood));
     q.make();
-    return q.createSvgTag({ cellSize: 1, margin: 4, scalable: true });
+    return q.createSvgTag({ cellSize: 1, margin: veeris === undefined ? 4 : veeris, scalable: true });
+  }
+
+  /**
+   * Lindil (automaatse pikkusega põhi) on QR ilma vaikse tsoonita, et see täidaks kogu
+   * prinditava kõrguse: lindi prindimata servad ja otsad on niigi valged. Muidu 4 moodulit.
+   */
+  function qrVeeris(pohi) { return autoPikkus(pohi) ? 0 : 4; }
+  function qrVahe(pohi) { return autoPikkus(pohi) ? 2.5 : 1.5; }
+  /** Riiulikoodi fondi suurus (em, mm): lindil suurtähed ~ kogu kõrgus, muidu 80%. */
+  function riiuliKiri(pohi, sisuH, laiusMm, pikkus) {
+    var max = autoPikkus(pohi) ? sisuH * 1.2 : sisuH * 0.8;
+    return laiusMm === null ? max : Math.min(max, laiusMm / (pikkus * 0.62));
   }
 
   // -------------------------------------------------------------------------
@@ -132,6 +145,7 @@
 
   /** Ühe sildi HTML. hoiatused: massiiv, kuhu lisatakse liiga tiheda vöötkoodi hoiatus. */
   function sildiHtml(s, pohi, hoiatused) {
+    pohi = pohiSildile(s, pohi);
     var p = pohi.seaded || {};
     var W = pohi.laius_mm, H = pohi.korgus_mm, v = Number(p.veeris_mm) || 0;
     var vy = p.veeris_y_mm === undefined || p.veeris_y_mm === '' ? v : Number(p.veeris_y_mm) || 0;
@@ -150,7 +164,7 @@
 
     var ribaMm = Number(p.ribakood_mm) || 8;
     // Riiulisilt: ainult QR ja suur riiulikood (telefon loeb QR-i kindlamalt kui vöötkoodi)
-    if (s.liik === 'riiul' && paigutus === 'TOODE') return riiuliQrHtml(s, stiil, sisuW, sisuH, naidatavKood);
+    if (s.liik === 'riiul' && paigutus === 'TOODE') return riiuliQrHtml(s, pohi, stiil, sisuW, sisuH, naidatavKood);
     if (paigutus === 'RIIUL') {
       // Kood nii suurelt kui laiusele mahub (kuni 30% sildi kõrgusest)
       var kirjaPt = Math.min(sisuW / (naidatavKood.length * 0.62), sisuH * 0.3) * 2.835;
@@ -162,26 +176,52 @@
 
     // TOODE (ja A4): QR vasakul, paremal vöötkood (~75% QR-i kõrgusest) ja kood tekstina
     var qrMm2 = sisuH;
-    var paremW = sisuW - qrMm2 - 1.5;
+    var paremW = sisuW - qrMm2 - qrVahe(pohi);
     var b2 = vootkood(s.kood, s.koodiTyyp);
     kontrolliTihedust(b2, paremW, s, hoiatused);
-    var m = tooteMoodud(s.kood, sisuH, p);
-    return '<div class="silt silt-toode silt-toode2" style="' + stiil + '">' +
-      '<div class="silt-qr" style="width:' + qrMm2 + 'mm;height:' + qrMm2 + 'mm">' + qr(s.kood) + '</div>' +
+    var m = tooteMoodud(s.kood, sisuH, p, qrVeeris(pohi));
+    return '<div class="silt silt-toode silt-toode2" style="' + stiil + 'gap:' + qrVahe(pohi) + 'mm">' +
+      '<div class="silt-qr" style="width:' + qrMm2 + 'mm;height:' + qrMm2 + 'mm">' + qr(s.kood, qrVeeris(pohi)) + '</div>' +
       '<div class="silt-parem" style="width:' + paremW + 'mm">' +
       '<div class="silt-riba" style="height:' + m.ribaMm.toFixed(2) + 'mm' + ribaLaius(b2, paremW, p) + '">' + b2.svg + '</div>' +
       '<div class="silt-kood" style="font-size:' + m.koodPt.toFixed(1) + 'pt">' + esc(s.kood) + '</div>' +
       '</div></div>';
   }
 
+  function autoPikkus(pohi) { var x = (pohi.seaded || {}).auto_pikkus; return x === true || x === 1 || x === '1'; }
+
+  /**
+   * Automaatse pikkusega põhja korral põhja koopia, mille laius_mm = sisu laius
+   * + veerised mõlemas otsas (ümardatud 0,5 mm-ni). Muidu põhi ise.
+   */
+  function pohiSildile(s, pohi) {
+    if (!autoPikkus(pohi) || !s || !s.kood || pohi.paigutus === 'A4') return pohi;
+    var p = pohi.seaded || {}, v = Number(p.veeris_mm) || 0;
+    var vy = p.veeris_y_mm === undefined || p.veeris_y_mm === '' ? v : Number(p.veeris_y_mm) || 0;
+    var sisuH = pohi.korgus_mm - 2 * vy, sisu;
+    if (pohi.paigutus === 'VAIKE') sisu = sisuH;
+    else if (s.liik === 'riiul') {
+      var kood = s.kood.replace(/^R-/, '');
+      sisu = sisuH + qrVahe(pohi) + kood.length * 0.62 * riiuliKiri(pohi, sisuH, null, kood.length);
+    } else {
+      var m = tooteMoodud(s.kood, sisuH, p, qrVeeris(pohi));
+      var ribaW = vootkood(s.kood, s.koodiTyyp).mooduleid * (Number(p.moodul_mm) || 0.33);
+      var koodW = String(s.kood).length * 0.6 * m.koodPt * 0.3528 + 1;
+      sisu = sisuH + qrVahe(pohi) + Math.max(ribaW, koodW);
+    }
+    var koopia = Object.assign({}, pohi);
+    koopia.laius_mm = Math.ceil((sisu + 2 * v) * 2) / 2;
+    return koopia;
+  }
+
   /**
    * Tootesildi mõõdud: QR-i nähtav osa (ilma vaikse tsoonita) = n/(n+8) lahtri kõrgusest;
    * vöötkood on 75% sellest, kood tekstina mahub ülejäänud kõrgusele.
    */
-  function tooteMoodud(kood, sisuH, p) {
+  function tooteMoodud(kood, sisuH, p, veeris) {
     var q = qrcode(0, 'M'); q.addData(String(kood)); q.make();
-    var n = q.getModuleCount();
-    var qrNahtav = sisuH * n / (n + 8);
+    var n = q.getModuleCount(), vz = veeris === undefined ? 4 : veeris;
+    var qrNahtav = sisuH * n / (n + 2 * vz);
     var ribaMm = qrNahtav * 0.75;
     var koodMm = Math.min((Number(p.kood_pt) || 7) * 0.3528 * 1.4, (sisuH - ribaMm) * 0.8);
     return { ribaMm: ribaMm, koodPt: koodMm / 0.3528 / 1.1 };
@@ -191,13 +231,13 @@
    * Riiulisilt (lint, rull, A4 kleebis): QR vasakul, paremal riiulikood nii suurelt
    * kui mahub. Vöötkoodi pole – telefon loeb väikesel sildil QR-i kindlamalt.
    */
-  function riiuliQrHtml(s, stiil, sisuW, sisuH, naidatavKood) {
-    var qrMm = sisuH, paremW = sisuW - qrMm - 1.5;
-    // Paksu kirja märk on keskmiselt ~0,62 fondi suurusest; kõrgus kuni 80% sildist
-    var kirjaMm = Math.min(sisuH * 0.8, paremW / (naidatavKood.length * 0.62));
-    return '<div class="silt silt-riiulqr" style="' + stiil + '">' +
-      '<div class="silt-qr" style="width:' + qrMm + 'mm;height:' + qrMm + 'mm">' + qr(s.kood) + '</div>' +
-      '<div class="silt-suurkood" style="width:' + paremW + 'mm;font-size:' + (kirjaMm * 2.835).toFixed(1) + 'pt">' + esc(naidatavKood) + '</div>' +
+  function riiuliQrHtml(s, pohi, stiil, sisuW, sisuH, naidatavKood) {
+    var qrMm = sisuH, paremW = sisuW - qrMm - qrVahe(pohi);
+    // Paksu kirja märk on keskmiselt ~0,62 fondi suurusest
+    var kirjaMm = riiuliKiri(pohi, sisuH, paremW, naidatavKood.length);
+    return '<div class="silt silt-riiulqr" style="' + stiil + 'gap:' + qrVahe(pohi) + 'mm">' +
+      '<div class="silt-qr" style="width:' + qrMm + 'mm;height:' + qrMm + 'mm">' + qr(s.kood, qrVeeris(pohi)) + '</div>' +
+      '<div class="silt-suurkood" style="width:' + paremW + 'mm;height:' + sisuH + 'mm;line-height:' + sisuH + 'mm;font-size:' + (kirjaMm * 2.835).toFixed(1) + 'pt">' + esc(naidatavKood) + '</div>' +
       '</div>';
   }
 
@@ -229,12 +269,14 @@
   /** Kõigi siltide HTML koos lehekülgedega (A4 puhul ruudustik). algus: A4 esimene vaba kleebis (1…). */
   function lehtedeHtml(sildid, pohi, algus, hoiatused, prindiks) {
     if (pohi.paigutus !== 'A4') {
-      var poora = prindiks && poorata(pohi);
+      var poora = prindiks && poorata(pohi), auto = prindiks && autoPikkus(pohi);
       return sildid.map(function (s) {
-        if (!poora) return '<div class="rull-leht">' + sildiHtml(s, pohi, hoiatused) + '</div>';
+        var ps = pohiSildile(s, pohi);
+        var leht = auto ? 'page:' + lehenimi(ps) + ';' : ''; // igal sildil oma lehe suurus (@page nimega)
+        if (!poora) return '<div class="rull-leht" style="' + leht + '">' + sildiHtml(s, pohi, hoiatused) + '</div>';
         // Leht on lindi laiune (kõrgus × laius); silt pööratakse 90° päripäeva
-        return '<div class="rull-leht" style="width:' + pohi.korgus_mm + 'mm;height:' + pohi.laius_mm + 'mm">' +
-          '<div style="transform:translate(' + pohi.korgus_mm + 'mm,0) rotate(90deg);transform-origin:0 0">' +
+        return '<div class="rull-leht" style="' + leht + 'width:' + ps.korgus_mm + 'mm;height:' + ps.laius_mm + 'mm">' +
+          '<div style="transform:translate(' + ps.korgus_mm + 'mm,0) rotate(90deg);transform-origin:0 0">' +
           sildiHtml(s, pohi, hoiatused) + '</div></div>';
       }).join('');
     }
@@ -256,6 +298,14 @@
   // PRINTIMINE
   // -------------------------------------------------------------------------
 
+  function lehenimi(ps) { return 'silt' + Math.round(ps.laius_mm * 10) + 'x' + Math.round(ps.korgus_mm * 10); }
+
+  /** @page reegel ühe sildi mõõtudele (pööratult vahetatakse küljed). */
+  function lehereegel(ps, nimi) {
+    var w = poorata(ps) ? ps.korgus_mm : ps.laius_mm, h = poorata(ps) ? ps.laius_mm : ps.korgus_mm;
+    return '@page' + (nimi ? ' ' + nimi : '') + ' { size: ' + w + 'mm ' + h + 'mm; margin: 0; }';
+  }
+
   function poorata(pohi) { var x = (pohi.seaded || {}).poora; return x === true || x === 1 || x === '1'; }
 
   /** Prindib sildid brauseri printimisdialoogiga. */
@@ -276,11 +326,18 @@
     var stiil = document.getElementById('prindiStiil');
     if (!stiil) { stiil = document.createElement('style'); stiil.id = 'prindiStiil'; document.head.appendChild(stiil); }
     // Täpne lehe suurus: rullil = üks silt, A4 = A4 leht. Veerised 0 – sildi veerised on sildi sees.
-    stiil.textContent = pohi.paigutus === 'A4'
-      ? '@page { size: 210mm 297mm; margin: 0; }'
-      : poorata(pohi)
-        ? '@page { size: ' + pohi.korgus_mm + 'mm ' + pohi.laius_mm + 'mm; margin: 0; }'
-        : '@page { size: ' + pohi.laius_mm + 'mm ' + pohi.korgus_mm + 'mm; margin: 0; }';
+    if (pohi.paigutus === 'A4') stiil.textContent = '@page { size: 210mm 297mm; margin: 0; }';
+    else if (!autoPikkus(pohi)) stiil.textContent = lehereegel(pohi);
+    else {
+      // Automaatne pikkus: vaikeleht = pikim silt, iga silt oma nimega lehel
+      var reeglid = {}, pikim = pohi;
+      sildid.forEach(function (s) {
+        var ps = pohiSildile(s, pohi);
+        reeglid[lehenimi(ps)] = lehereegel(ps, lehenimi(ps));
+        if (ps.laius_mm > pikim.laius_mm || pikim === pohi) pikim = ps;
+      });
+      stiil.textContent = lehereegel(pikim) + '\n' + Object.keys(reeglid).map(function (k) { return reeglid[k]; }).join('\n');
+    }
     document.body.classList.add('prindib');
     var lopeta = function () {
       document.body.classList.remove('prindib');
@@ -321,6 +378,7 @@
 
   /** Joonistab sildi (QR vasakul, paremal nimi/vöötkood/kood/riiul) lõuendile; Promise<Blob> (PNG). */
   function sildiPilt(s, pohi) {
+    pohi = pohiSildile(s, pohi);
     var p = pohi.seaded || {};
     var mm = PILDI_DPI / 25.4;
     var v = Number(p.veeris_mm) || 0;
@@ -335,25 +393,27 @@
 
     // QR vasakul, vaikne tsoon 4 moodulit; täisarvulised pikslid = terav
     var q = qrcode(0, 'M'); q.addData(String(s.kood)); q.make();
-    var n = q.getModuleCount(), rakk = Math.max(1, Math.floor(H / (n + 8)));
+    var vz = qrVeeris(pohi), n = q.getModuleCount(), rakk = Math.max(1, Math.floor(H / (n + 2 * vz)));
     var qx = x0 + Math.floor((H - rakk * n) / 2), qy = Math.floor((H - rakk * n) / 2);
     for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) ctx.fillRect(qx + k * rakk, qy + r * rakk, rakk, rakk);
 
-    var px = x0 + H + Math.round(1.5 * mm), pw = Math.round(sisuW * mm) - H - Math.round(1.5 * mm);
+    var vahe = Math.round(qrVahe(pohi) * mm);
+    var px = x0 + H + vahe, pw = Math.round(sisuW * mm) - H - vahe;
     var naidatavKood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
     var SANS = 'Arial, Helvetica, sans-serif', MONO = 'Menlo, Consolas, "DejaVu Sans Mono", monospace';
     if (s.liik === 'riiul') {
       // Riiulisilt: ainult QR ja suur riiulikood
-      var suur = Math.round(H * 0.8);
+      var suur = Math.round(riiuliKiri(pohi, H, null, 1));
       ctx.font = 'bold ' + suur + 'px ' + SANS;
       var lw = ctx.measureText(naidatavKood).width;
       if (lw > pw) { suur = Math.floor(suur * pw / lw); ctx.font = 'bold ' + suur + 'px ' + SANS; lw = ctx.measureText(naidatavKood).width; }
-      ctx.textBaseline = 'middle';
-      ctx.fillText(naidatavKood, px + Math.max(0, (pw - lw) / 2), Math.round(H / 2));
+      // Suurtähed ja numbrid on ~0,716 fondi suurusest – paigutame need vertikaalselt keskele
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(naidatavKood, px + Math.max(0, (pw - lw) / 2), Math.round((H + suur * 0.716) / 2));
       return valmis(c);
     }
     // Tootesilt: vöötkood ~75% QR-i kõrgusest, all kood tekstina; plokk keskel
-    var m = tooteMoodud(s.kood, H / mm, p);
+    var m = tooteMoodud(s.kood, H / mm, p, vz);
     var bitid = ribaBitid(s.kood, s.koodiTyyp);
     var moodul = Math.max(1, Math.floor(pw / (bitid.length + 20)));
     if (Number(p.moodul_mm)) moodul = Math.min(moodul, Math.max(1, Math.round(Number(p.moodul_mm) * mm)));
@@ -625,6 +685,7 @@
       '<div class="valjarida2">' + vali('ribakood_mm', 'Vöötkoodi kõrgus (mm)', p.ribakood_mm) + vali('moodul_mm', 'Vöötkoodi joon (mm)', p.moodul_mm, 'tühi = venita') + '</div>' +
       '<div class="valjarida2">' + vali('nimi_pt', 'Nimetuse font (pt)', p.nimi_pt, '0 = peida') + vali('nimi_ridu', 'Nimetuse ridu', p.nimi_ridu, '1–2') + '</div>' +
       '<div class="valjarida2">' + vali('kood_pt', 'Koodi font (pt)', p.kood_pt) + vali('riiul_pt', 'Riiuli/tsooni font (pt)', p.riiul_pt, '0 = peida') + '</div>' +
+      '<label class="linnuke"><input type="checkbox" name="auto_pikkus"' + (autoPikkus(pohi) ? ' checked' : '') + '> Pikkus sisu järgi <span class="vaike">(lint: Laius on siis ainult varuväärtus, Veeris = tühi ots mõlemas otsas)</span></label>' +
       '<label class="linnuke"><input type="checkbox" name="poora"' + (poorata(pohi) ? ' checked' : '') + '> Prindi 90° pööratult <span class="vaike">(kui silt tuleb lindile risti või kärbitult)</span></label>' +
       '<fieldset class="ainult-a4"><legend>A4 leht</legend>' +
       '<div class="valjarida2">' + vali('veerge', 'Veerge', p.veerge || 3) + vali('ridu', 'Ridu', p.ridu || 8) + '</div>' +
@@ -639,6 +700,7 @@
           if (x !== '') arvud[n] = Number(x);
         });
         if (v.poora.checked) arvud.poora = true;
+        if (v.auto_pikkus.checked) arvud.auto_pikkus = true;
         return API.kutsu('sildipohjad.salvesta', {
           id: oma ? pohi.id : undefined,
           nimi: v.nimi.value, paigutus: v.paigutus.value,
