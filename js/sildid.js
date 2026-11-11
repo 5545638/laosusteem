@@ -504,13 +504,18 @@
     var tykid = [];
     for (var i = 0; i < sildid.length; i += RIBAS_MAX) tykid.push(sildid.slice(i, i + RIBAS_MAX));
     return Promise.all(tykid.map(function (tykk) {
-      var l = tykk.map(function (s) { return sildiLouend(s, pohi); });
+      // Ribas on igal sildil põhja täisveeris (nt 10 mm) mõlemas otsas, ka kui 50 mm piir seda lühendas
+      var mm = PILDI_DPI / 25.4, siht = Number((pohi.seaded || {}).veeris_mm) || 0;
+      var l = tykk.map(function (s) {
+        var v = Number((pohiSildile(s, pohi).seaded || {}).veeris_mm) || 0;
+        return { c: sildiLouend(s, pohi), lisa: Math.round(Math.max(0, siht - v) * mm) };
+      });
       var r = document.createElement('canvas');
-      r.width = l[0].width; r.height = l.reduce(function (h, c) { return h + c.height; }, 0);
-      var ctx = r.getContext('2d'), y = 0, kriips = Math.round(1.5 * PILDI_DPI / 25.4);
+      r.width = l[0].c.width; r.height = l.reduce(function (h, x) { return h + x.c.height + 2 * x.lisa; }, 0);
+      var ctx = r.getContext('2d'), y = 0, kriips = Math.round(1.5 * mm);
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, r.width, r.height); ctx.fillStyle = '#000';
-      l.forEach(function (c, j) {
-        ctx.drawImage(c, 0, y); y += c.height;
+      l.forEach(function (x, j) {
+        ctx.drawImage(x.c, 0, y + x.lisa); y += x.c.height + 2 * x.lisa;
         if (j < l.length - 1) { ctx.fillRect(0, y - 1, kriips, 2); ctx.fillRect(r.width - kriips, y - 1, kriips, 2); }
       });
       return valmis(r);
