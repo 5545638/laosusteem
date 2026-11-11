@@ -161,9 +161,39 @@
       '<div class="toote-info"><code>' + esc(t.koodid[0] ? t.koodid[0].kood : '') + '</code>' +
       (r ? ' · Riiul <b>' + esc(r.kood) + '</b>' : '') + '</div>' +
       '<div class="toote-seis">' + (t.tyyp === 'VARUOSA' ? 'Saldo: ' : 'Olek: ') + LAO.seisHtml(t) + '</div>' +
+      komplektiInfo(t) +
       (LAO.onNimeta(t) ? '<div class="vaike">Nimi on lisamata' + (LAO.onAdmin() ? ' – <a href="#/toode/' + encodeURIComponent(t.id) + '">lisa nimi</a>' : '') + '</div>' : '') +
       (t.arhiveeritud ? '<div class="kaart-teade viga">Toode on arhiveeritud – liikumine märgitakse adminile ülevaatamiseks.</div>' : '') +
       '</div>';
+  }
+
+  /** Tööriistakomplekt: osal „Kuulub: Akutrell …”, põhitööriistal osade nimekiri koos olekutega. */
+  function komplektiInfo(t) {
+    var pohi = LAO.komplektiPohi(t);
+    if (pohi) {
+      var pr = LAO.riiul(pohi.riiul_id);
+      return '<div class="komplekt-info">Kuulub: <b>' + esc(pohi.nimetus) + '</b> <code>' + esc(LAO.esimeneKood(pohi)) + '</code>' +
+        '<div class="vaike">' + LAO.seisHtml(pohi) + (pr ? ' · Riiul <b>' + esc(pr.kood) + '</b>' : '') + '</div></div>';
+    }
+    var osad = LAO.komplektiOsad(t);
+    if (!osad.length) return '';
+    return '<div class="komplekt-info">Komplekti osad:' + osad.map(function (o) {
+      return '<div class="komplekt-osa"><span>' + esc(o.nimetus) + ' <code>' + esc(LAO.esimeneKood(o)) + '</code></span>' + LAO.seisHtml(o) + '</div>';
+    }).join('') + '</div>';
+  }
+
+  /** Linnukesed: koos põhitööriistaga välja antavad / tagastatavad komplekti osad (vaikimisi kõik). */
+  function osadeValik(osad, pealkiri) {
+    if (!osad.length) return '';
+    return '<fieldset class="komplekt-valik"><legend>' + esc(pealkiri) + '</legend>' + osad.map(function (o) {
+      return '<label class="linnuke"><input type="checkbox" name="osa" value="' + esc(o.id) + '" checked> ' +
+        esc(o.nimetus) + ' <code>' + esc(LAO.esimeneKood(o)) + '</code></label>';
+    }).join('') + '</fieldset>';
+  }
+
+  function valitudOsad(vorm) {
+    return Array.prototype.map.call(vorm.querySelectorAll('[name=osa]:checked'), function (c) { return LAO.toode(c.value); })
+      .filter(function (o) { return !!o; });
   }
 
   /** Riiuli skännimisel: riiuli tooted, millest saab valida (väikeste detailide jaoks). */
@@ -274,11 +304,13 @@
     skanner.paus(true);
     var admin = LAO.onAdmin();
     var html = tooteKaart(t);
+    var osad = LAO.komplektiOsad(t);
     if (t.olek === 'LAOS') {
       html +=
         '<form id="tooriistaVorm" autocomplete="off">' +
         '  <label>Kellele / kuhu *<input name="kellele" list="kelleleList" required placeholder="nt Jaan Tamm või Objekt Tartu"></label>' +
         '  <datalist id="kelleleList">' + kelleleValikud() + '</datalist>' +
+        osadeValik(osad.filter(function (o) { return o.olek === 'LAOS'; }), 'Anna koos välja') +
         '  <input name="markus" placeholder="Märkus – valikuline">' +
         '  <div class="nupurida suured-nupud">' +
         '    <button type="button" class="nupp nupp-suur" id="loobu">Katkesta</button>' +
@@ -292,6 +324,9 @@
         (t.alates ? '<br>alates ' + esc(LAO.aeg(t.alates)) + (paevi !== null ? ' (' + paevi + ' päeva)' : '') : '') +
         '</div>' +
         '<form id="tooriistaVorm" autocomplete="off">' +
+        (t.olek === 'VÄLJA ANTUD' ? osadeValik(osad.filter(function (o) {
+          return o.olek === 'VÄLJA ANTUD' && o.kellele === t.kellele;
+        }), 'Tagasta koos') : '') +
         '  <input name="markus" placeholder="Märkus (nt seisukord) – valikuline">' +
         '  <div class="nupurida suured-nupud">' +
         '    <button type="button" class="nupp nupp-suur" id="loobu">Katkesta</button>' +
@@ -313,14 +348,23 @@
       if (t.olek === 'LAOS') {
         var kellele = vorm.kellele.value.trim();
         if (!kellele) { vorm.kellele.focus(); return; }
+        var kaasa = valitudOsad(vorm);
         salvesta(vorm, {
           id: LAO.uusId(), toote_id: t.id, tyyp: 'VÄLJA_ANTUD', kellele_kuhu: kellele,
           markus: vorm.markus.value, skannimise_aeg: aeg.toISOString()
-        }, t, function () { return 'VÄLJA ANTUD: ' + t.nimetus + ' → ' + kellele; });
+        }, t, function () { return 'VÄLJA ANTUD: ' + t.nimetus + osadeTekst(kaasa) + ' → ' + kellele; }, false,
+        kaasa.map(function (o) {
+          return { id: LAO.uusId(), toote_id: o.id, tyyp: 'VÄLJA_ANTUD', kellele_kuhu: kellele,
+            markus: vorm.markus.value, skannimise_aeg: aeg.toISOString() };
+        }));
       } else {
+        var tagasi = valitudOsad(vorm);
         salvesta(vorm, {
           id: LAO.uusId(), toote_id: t.id, tyyp: 'TAGASTATUD', markus: vorm.markus.value, skannimise_aeg: aeg.toISOString()
-        }, t, function () { return 'TAGASTATUD: ' + t.nimetus + ' on laos.'; });
+        }, t, function () { return 'TAGASTATUD: ' + t.nimetus + osadeTekst(tagasi) + ' on laos.'; }, false,
+        tagasi.map(function (o) {
+          return { id: LAO.uusId(), toote_id: o.id, tyyp: 'TAGASTATUD', markus: vorm.markus.value, skannimise_aeg: aeg.toISOString() };
+        }));
       }
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-olek]'), function (b) {
@@ -333,6 +377,10 @@
       });
     });
     if (vorm.kellele) vorm.kellele.focus();
+  }
+
+  function osadeTekst(osad) {
+    return osad.length ? ' + ' + osad.map(function (o) { return o.nimetus; }).join(', ') : '';
   }
 
   /** Kellele/kuhu soovitused: serveri nimekiri + selles seadmes viimati kasutatud. */
@@ -481,20 +529,22 @@
   /**
    * Salvestab liikumise (kohe seadmesse, serverisse taustal – vt js/jarjekord.js).
    * kirjeldus(uusSeis) → tulemuse tekst. eiTyhista: ümberpaigutust ei saa tühistada.
+   * lisad: samas toimingus kaasa minevad liikumised (komplekti osad) – tühistatakse koos.
    */
-  function salvesta(vorm, liikumine, t, kirjeldus, eiTyhista) {
+  function salvesta(vorm, liikumine, t, kirjeldus, eiTyhista, lisad) {
     if (vorm) LAO.hoivatud(vorm, true);
     var nupud = document.querySelectorAll('#toiming button');
     Array.prototype.forEach.call(nupud, function (b) { b.disabled = true; });
     var t0 = performance.now();
-    LAO.salvestaLiikumised([liikumine]).then(function (tul) {
+    lisad = lisad || [];
+    LAO.salvestaLiikumised([liikumine].concat(lisad)).then(function (tul) {
       ajad.salvestus = performance.now() - t0;
       API.mootmine('salvestus', ajad.salvestus);
       var r = tul[0];
       if (!r.ok) throw new Error(r.viga || 'Salvestamine ebaõnnestus.');
       if (liikumine.kellele_kuhu && liikumine.tyyp === 'VÄLJA_ANTUD') jataKellegeMeelde(liikumine.kellele_kuhu);
       var uus = LAO.toode(t.id) || t;
-      naitaTulemust(kirjeldus(uus), r, liikumine, eiTyhista);
+      naitaTulemust(kirjeldus(uus), r, liikumine, eiTyhista, lisad);
       valmis();
     }).catch(function (err) {
       LAO.piiks('viga');
@@ -508,7 +558,7 @@
   var naidatav = null; // viimase tulemuse liikumise id (et serveri vastus saaks teksti uuendada)
 
   /** Roheline teade viimase toimingu kohta + saatmise olek + Tühista-nupp. */
-  function naitaTulemust(tekst, r, liikumine, eiTyhista) {
+  function naitaTulemust(tekst, r, liikumine, eiTyhista, lisad) {
     LAO.piiks('ok');
     naidatav = liikumine.id; // null = midagi ei salvestatud (nt toode oli juba õigel riiulil)
     $('#tulemus').innerHTML =
@@ -523,7 +573,9 @@
     $('#tyhista').addEventListener('click', function () {
       var b = $('#tyhista');
       b.disabled = true;
-      LAO.jarjekord.tyhista(liikumine.id).then(function (tul) {
+      // Komplekt: koos välja antud / tagastatud osad tühistatakse koos põhitööriistaga
+      var idd = [liikumine.id].concat((lisad || []).map(function (l) { return l.id; }));
+      LAO.jarjekord.tyhistaMitu(idd).then(function (tul) {
         if (!tul.ok) throw new Error(tul.viga);
         LAO.piiks('ok');
         naidatav = null;

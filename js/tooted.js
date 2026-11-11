@@ -88,7 +88,9 @@
       if (filter.madal && !LAO.allMiinimumi(t)) return false;
       if (filter.nimeta && !LAO.onNimeta(t)) return false;
       if (otsing) {
-        var tekst = (t.nimetus + ' ' + t.kategooria + ' ' + t.koodid.map(function (k) { return k.kood; }).join(' ')).toLowerCase();
+        var pohi = LAO.komplektiPohi(t); // osa leiab ka põhitööriista nime järgi („akutrell” → trell ja tema akud)
+        var tekst = (t.nimetus + ' ' + t.kategooria + ' ' + t.koodid.map(function (k) { return k.kood; }).join(' ') +
+          (pohi ? ' ' + pohi.nimetus : '')).toLowerCase();
         if (tekst.indexOf(otsing) < 0) return false;
       }
       return true;
@@ -110,7 +112,7 @@
         return '<tr class="' + klass + '" data-id="' + esc(t.id) + '">' +
           '<td data-silt="Kood"><code>' + esc(t.koodid[0] ? t.koodid[0].kood : '') + '</code>' +
           (t.koodid.length > 1 ? ' <span class="vaike">+' + (t.koodid.length - 1) + '</span>' : '') + '</td>' +
-          '<td data-silt="Nimetus"><b>' + esc(t.nimetus) + '</b>' + (t.arhiveeritud ? ' <span class="silt">arhiveeritud</span>' : '') + '</td>' +
+          '<td data-silt="Nimetus"><b>' + esc(t.nimetus) + '</b>' + (t.arhiveeritud ? ' <span class="silt">arhiveeritud</span>' : '') + komplektiMarge(t) + '</td>' +
           '<td data-silt="Tüüp">' + esc(LAO.tyypNimi(t.tyyp)) + '</td>' +
           '<td data-silt="Kategooria">' + esc(t.kategooria) + '</td>' +
           '<td data-silt="Riiul">' + esc(r ? r.kood : '') + '</td>' +
@@ -122,6 +124,14 @@
     Array.prototype.forEach.call(document.querySelectorAll('#tooteTabel tr[data-id]'), function (tr) {
       tr.addEventListener('click', function () { location.hash = '#/toode/' + encodeURIComponent(tr.dataset.id); });
     });
+  }
+
+  /** Nimekirjas nime all: „kuulub: Akutrell” (osa) või „komplekt: 2 osa” (põhitööriist). */
+  function komplektiMarge(t) {
+    var pohi = LAO.komplektiPohi(t);
+    if (pohi) return '<div class="vaike">↳ kuulub: ' + esc(pohi.nimetus) + '</div>';
+    var osi = LAO.komplektiOsad(t).length;
+    return osi ? '<div class="vaike">komplekt: ' + osi + ' osa' + '</div>' : '';
   }
 
   // -------------------------------------------------------------------------
@@ -143,7 +153,7 @@
     var kohe = !!(valikud && valikud.kohe);
     var admin = LAO.onAdmin();
     var d = modaalHtml(eel, admin, kohe && !!eel.kood);
-    var dialog = LAO.modaal('Lisa toode', d, function (v) {
+    var dialog = LAO.modaal(eel.komplekt_id ? 'Lisa komplekti uus osa' : 'Lisa toode', d, function (v) {
       var tyyp = v.tyyp.value;
       var data = {
         kood: v.kood.value.trim(),
@@ -153,6 +163,7 @@
         yhik: v.yhik.value,
         kategooria: v.kategooria.value,
         riiul_id: v.riiul_id.value,
+        komplekt_id: tyyp === 'TÖÖRIIST' && eel.komplekt_id ? eel.komplekt_id : '', // uus osa otse komplekti
         miinimumkogus: tyyp === 'VARUOSA' ? v.miinimumkogus.value : '',
         algsaldo: admin && tyyp === 'VARUOSA' ? v.algsaldo.value : '',
         eksemplare: tyyp === 'TÖÖRIIST' && !v.kood.value.trim() ? v.eksemplare.value : 1
@@ -315,6 +326,8 @@
       '</section>' +
       '</div>' +
 
+      (varuosa ? '' : komplektiHtml(t)) +
+
       (varuosa
         ? '<section class="kaart">' +
           '  <h2>Inventuur</h2>' +
@@ -389,6 +402,7 @@
     });
 
     $('#prindiSilt').addEventListener('click', function () { LAO.kiirprint({ toode: t.id }); });
+    if (!varuosa) seoKomplekt(t);
 
     // Arhiveerimine
     $('#arhiiviNupp').addEventListener('click', function () {
@@ -396,6 +410,95 @@
       API.kutsu('tooted.arhiveeri', { id: t.id, arhiveeritud: !t.arhiveeritud })
         .then(function () { teade(t.arhiveeritud ? 'Taastatud.' : 'Arhiveeritud.'); return varskenda(t.id); })
         .catch(function (err) { teade(err.message, 'viga'); });
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // TÖÖRIISTAKOMPLEKT (nt akutrell + akud): osa juures on põhitööriista id (komplekt_id)
+  // -------------------------------------------------------------------------
+
+  function komplektiHtml(t) {
+    var pohi = LAO.komplektiPohi(t);
+    if (t.komplekt_id) {
+      return '<section class="kaart">' +
+        '  <h2>Komplekt</h2>' +
+        '  <p>Kuulub komplekti: ' + (pohi
+          ? '<a href="#/toode/' + encodeURIComponent(pohi.id) + '"><b>' + esc(pohi.nimetus) + '</b></a> <code>' + esc(LAO.esimeneKood(pohi)) + '</code> ' + LAO.seisHtml(pohi)
+          : '<span class="vaike">(põhitööriista ei leitud)</span>') + '</p>' +
+        '  <div class="nupurida nupurida-vasak"><button class="nupp nupp-oht" id="komplektistValja">Eemalda komplektist</button></div>' +
+        '</section>';
+    }
+    var osad = LAO.komplektiOsad(t);
+    return '<section class="kaart">' +
+      '  <h2>Komplekt</h2>' +
+      '  <p class="vaike">Selle tööriista juurde kuuluvad osad (nt akud, laadija). Igal osal on oma kood ja silt – ' +
+      'osa skännimisel näed, millise tööriista juurde see kuulub.</p>' +
+      (osad.length
+        ? '<table class="tabel"><tbody>' + osad.map(function (o) {
+          return '<tr><td data-silt="Kood"><code>' + esc(LAO.esimeneKood(o)) + '</code></td>' +
+            '<td data-silt="Osa"><a href="#/toode/' + encodeURIComponent(o.id) + '"><b>' + esc(o.nimetus) + '</b></a></td>' +
+            '<td data-silt="Olek">' + LAO.seisHtml(o) + '</td>' +
+            '<td class="tegevused"><button class="nupp nupp-vaike nupp-oht" data-osa-valja="' + esc(o.id) + '">Eemalda</button></td></tr>';
+        }).join('') + '</tbody></table>'
+        : '<p class="vaike">Osi pole veel lisatud.</p>') +
+      '  <form id="osaVorm" class="koodivorm" autocomplete="off">' +
+      '    <label>Lisa olemasolev tööriist osaks<input name="kood" placeholder="Skänni või sisesta osa kood" autocapitalize="characters"></label>' +
+      '    <div class="nupurida"><button type="button" id="osaSkanni" class="nupp">📷 Skänni osa</button>' +
+      '      <button type="submit" class="nupp nupp-pohi">Lisa osaks</button></div>' +
+      '    <div class="nupurida nupurida-vasak"><button type="button" id="osaUus" class="nupp"' +
+      (t.ootel ? ' disabled title="Tööriist on veel serverisse saatmata"' : '') + '>+ Lisa uus osa</button></div>' +
+      '    <p class="vormi-viga" id="osaViga"></p>' +
+      '  </form>' +
+      '</section>';
+  }
+
+  function seoKomplekt(t) {
+    function maara(osaId, pohiId, tekst) {
+      return API.kutsu('tooted.muuda', { id: osaId, komplekt_id: pohiId })
+        .then(function () { teade(tekst); return varskenda(t.id); });
+    }
+    var valja = $('#komplektistValja');
+    if (valja) {
+      valja.addEventListener('click', function () {
+        if (!confirm('Eemaldada „' + t.nimetus + '” komplektist?')) return;
+        maara(t.id, '', 'Komplektist eemaldatud.').catch(function (err) { teade(err.message, 'viga'); });
+      });
+      return;
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-osa-valja]'), function (b) {
+      b.addEventListener('click', function () {
+        var o = LAO.toode(b.dataset.osaValja);
+        if (!confirm('Eemaldada „' + (o ? o.nimetus : '') + '” sellest komplektist?\nTööriist ise jääb alles.')) return;
+        maara(b.dataset.osaValja, '', 'Osa komplektist eemaldatud.').catch(function (err) { teade(err.message, 'viga'); });
+      });
+    });
+    var ov = $('#osaVorm');
+    function lisaOsaKoodiga(kood) {
+      $('#osaViga').textContent = '';
+      var leitud = LAO.leiaKoodiga(kood);
+      var o = leitud && leitud.toode;
+      var viga = !kood ? 'Skänni või sisesta osa kood.'
+        : !o ? 'Koodiga ' + kood + ' tööriista ei leitud. Uue osa jaoks vajuta „+ Lisa uus osa”.'
+        : o.id === t.id ? 'See on sama tööriist.'
+        : o.tyyp !== 'TÖÖRIIST' ? '„' + o.nimetus + '” on varuosa – komplekti saab teha ainult tööriistadest.'
+        : o.ootel ? '„' + o.nimetus + '” on veel serverisse saatmata – proovi hetke pärast uuesti.'
+        : o.komplekt_id === t.id ? '„' + o.nimetus + '” on juba selles komplektis.' : '';
+      if (viga) { $('#osaViga').textContent = viga; return; }
+      var vana = LAO.komplektiPohi(o);
+      if (vana && !confirm('„' + o.nimetus + '” kuulub praegu komplekti „' + vana.nimetus + '”. Tõsta siia ümber?')) return;
+      LAO.hoivatud(ov, true);
+      maara(o.id, t.id, 'Lisatud komplekti: ' + o.nimetus).catch(function (err) {
+        LAO.hoivatud(ov, false);
+        $('#osaViga').textContent = err.message;
+      });
+    }
+    ov.addEventListener('submit', function (e) { e.preventDefault(); lisaOsaKoodiga(ov.kood.value.trim()); });
+    $('#osaSkanni').addEventListener('click', function () {
+      LAO.skanniUksKood('Skänni komplekti osa silt').then(function (kood) { if (kood) lisaOsaKoodiga(kood); });
+    });
+    $('#osaUus').addEventListener('click', function () {
+      avaLisaToode({ tyyp: 'TÖÖRIIST', komplekt_id: t.id, kategooria: t.kategooria, riiul_id: t.riiul_id },
+        function () { varskenda(t.id); });
     });
   }
 
