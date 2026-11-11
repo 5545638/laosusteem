@@ -391,7 +391,7 @@
   // VAADE: SEADED
   // -------------------------------------------------------------------------
 
-  var RAKENDUSE_VERSIOON = 'v21'; // sama number mis ?v= failis index.html
+  var RAKENDUSE_VERSIOON = 'v22'; // sama number mis ?v= failis index.html
 
   function vaadeSeaded() {
     var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';
@@ -416,9 +416,10 @@
           '  <div id="saldoKontroll"></div>'
         : '') +
       '  <h2>Kaamera</h2>' +
-      '  <p class="vaike">Kui telefon vahetab koodile lähedale minnes kaamerat või pilt jääb häguseks, vali siit kindel kaamera. ' +
-      'iPhone\'il loeb lähedalt kõige teravamalt ülilainurkkaamera (Ultra Wide); tavaline tagakaamera vajab umbes 15 cm vahet.</p>' +
-      '  <label>Skännimise kaamera<select id="kaameraValik"><option value="">Automaatne (tagakaamera)</option>' +
+      '  <p class="vaike">Automaatne valik kasutab iPhone\'il tavalist (1×) tagakaamerat, mis ei vaheta lähedal objektiivi. ' +
+      'Hoia koodi umbes 15–25 cm kaugusel – kaamera loeb täisresolutsioonis, nii et lähemale minna pole vaja. ' +
+      'Kui pilt jääb ikka häguseks, vali siit kindel kaamera.</p>' +
+      '  <label>Skännimise kaamera<select id="kaameraValik"><option value="">Automaatne (tavaline tagakaamera)</option>' +
       (kaamera.id ? '<option value="' + esc(kaamera.id) + '" selected>' + esc(kaamera.nimi || 'Valitud kaamera') + '</option>' : '') +
       '</select></label>' +
       '  <div class="nupurida nupurida-vasak"><button type="button" id="otsiKaameraid" class="nupp">Otsi kaameraid</button></div>' +
@@ -463,7 +464,7 @@
     tulemus.textContent = 'Otsin…';
     LAO.kaamerad().then(function (list) {
       var praegu = LAO.valitudKaamera().id;
-      valik.innerHTML = '<option value="">Automaatne (tagakaamera)</option>' + list.map(function (k, i) {
+      valik.innerHTML = '<option value="">Automaatne (tavaline tagakaamera)</option>' + list.map(function (k, i) {
         return '<option value="' + esc(k.id) + '"' + (k.id === praegu ? ' selected' : '') + '>' + esc(k.label || 'Kaamera ' + (i + 1)) + '</option>';
       }).join('');
       tulemus.textContent = list.length ? 'Leitud ' + list.length + ' kaamerat. Vali nimekirjast.' : 'Kaameraid ei leitud.';

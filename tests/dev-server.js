@@ -14,7 +14,7 @@ const VIIVITUS = Number(process.env.VIIVITUS_MS) || 0;
 const K = looKeskkond();
 console.log(K.g.seadista());
 const JUUR = path.join(__dirname, '..');
-const TYYBID = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const TYYBID = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.wasm': 'application/wasm' };
 
 http.createServer((req, res) => {
   if (req.url.startsWith('/api')) {

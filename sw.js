@@ -4,33 +4,35 @@
  * Paigaldamisel salvestatakse brauseri vahemällu kõik rakenduse failid (FAILID).
  * Leht ise (index.html) ja config.js loetakse alati kõigepealt võrgust (et uuendused
  * jõuaksid kohe kohale) ja ainult siis vahemälust, kui võrku pole. Ülejäänud failid
- * on versiooninumbriga (?v=21) ja tulevad otse vahemälust – kiire avanemine.
+ * on versiooninumbriga (?v=22) ja tulevad otse vahemälust – kiire avanemine.
  * API päringud (script.google.com) käivad alati otse serverisse, neid ei puudutata.
  *
  * UUENDAMISEL: tõsta VERSIOON ja ?v= numbrid siin ja failis index.html.
  */
-var VERSIOON = 'laosusteem-v21';
+var VERSIOON = 'laosusteem-v22';
 var FAILID = [
   './',
   'index.html',
   'manifest.webmanifest',
-  'css/app.css?v=21',
-  'js/config.js?v=21',
-  'js/api.js?v=21',
-  'js/app.js?v=21',
-  'js/andmed.js?v=21',
-  'js/jarjekord.js?v=21',
-  'js/tooted.js?v=21',
-  'js/riiulid.js?v=21',
-  'js/import.js?v=21',
+  'css/app.css?v=22',
+  'js/config.js?v=22',
+  'js/api.js?v=22',
+  'js/app.js?v=22',
+  'js/andmed.js?v=22',
+  'js/jarjekord.js?v=22',
+  'js/tooted.js?v=22',
+  'js/riiulid.js?v=22',
+  'js/import.js?v=22',
+  'js/vendor/zxing-reader.min.js?v=3.1.6',
+  'js/vendor/zxing_reader.wasm?v=3.1.6',
   'js/vendor/html5-qrcode.min.js?v=2.3.8',
-  'js/skanner.js?v=21',
-  'js/skannimine.js?v=21',
+  'js/skanner.js?v=22',
+  'js/skannimine.js?v=22',
   'js/vendor/jsbarcode.all.min.js?v=3.11.6',
   'js/vendor/qrcode.js?v=1.4.4',
-  'js/sildid.js?v=21',
-  'js/ulevaated.js?v=21',
-  'js/konfliktid.js?v=21',
+  'js/sildid.js?v=22',
+  'js/ulevaated.js?v=22',
+  'js/konfliktid.js?v=22',
   'ikoonid/ikoon-192.png',
   'ikoonid/ikoon-512.png',
   'ikoonid/favicon-32.png',

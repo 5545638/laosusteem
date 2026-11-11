@@ -1,8 +1,9 @@
 /**
  * SKÄNNER – koodi lugemine kaamerast, USB-skännerist või käsitsi.
  *
- * Kaamera: html5-qrcode teek (js/vendor/html5-qrcode.min.js), toetab
- * EAN-13, EAN-8, UPC-A, UPC-E, Code128, Code39 ja QR-koode.
+ * Kaamera: oma videovoog (kuni 1920×1080) + ZXing-C++ WebAssembly dekooder
+ * (js/vendor/zxing-reader.min.js), loeb QR-koode ning EAN-13/8, UPC-A/E, Code128, Code39.
+ * Kui WebAssembly ei laadi, kasutatakse varuks html5-qrcode teeki (aeglasem).
  * USB-skänner käitub nagu klaviatuur: see "kirjutab" koodi tekstivälja ja
  * vajutab Enterit, seega sama väli sobib ka käsitsi sisestamiseks.
  *
@@ -51,10 +52,77 @@
     } catch (e) { /* ignoreeri */ }
   }
 
+  // iPhone Pro: brauseri "tagakaamera" on virtuaalne mitme objektiiviga kaamera, mis vahetab lähedal
+  // objektiivi ja pilt hägustub. Kui kasutaja pole kaamerat valinud, leitakse esimesel käivitamisel
+  // tavaline (1×) tagakaamera ja jäetakse see meelde.
+  var AUTO_VOTI = 'lao.kaameraAuto';
+
+  function automaatneKaamera() {
+    try { return localStorage.getItem(AUTO_VOTI) || ''; } catch (e) { return ''; }
+  }
+
+  function unustaAutomaatne() {
+    try { localStorage.removeItem(AUTO_VOTI); } catch (e) { /* ignoreeri */ }
+  }
+
+  function onIos() {
+    return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  /**
+   * Valib tagakaamerate seast tavalise: välistab ülilainurga, tele ning mitme objektiiviga (Dual/Triple)
+   * kaamerad; kui nimed on tundmatus keeles, võtab lühima nimega (iOS-is "Back Camera").
+   * Tagastab deviceId või '' (kui tagakaameraid on ainult üks või midagi ei leitud).
+   */
+  function valiTavalineKaamera(seadmed) {
+    var esi = /front|esi|eesmine|selfie|user|facetime/i;
+    var tagumised = seadmed.filter(function (d) {
+      if (d.kind !== 'videoinput' || !d.label) return false;
+      try {
+        var v = d.getCapabilities && d.getCapabilities().facingMode;
+        if (v && v.length) return v.indexOf('environment') >= 0;
+      } catch (e) { /* ignoreeri */ }
+      return !esi.test(d.label);
+    });
+    if (tagumised.length < 2) return '';
+    var eri = /ultra|wide|tele|dual|triple|lainurk|kahe|kolme|topelt/i;
+    var tavalised = tagumised.filter(function (d) { return !eri.test(d.label); });
+    var hulk = tavalised.length ? tavalised : tagumised;
+    hulk.sort(function (a, b) { return a.label.length - b.label.length; });
+    return hulk[0].deviceId;
+  }
+
   /** Seadme kaamerate nimekiri [{id, label}] (küsib vajadusel kaamera luba). */
   function kaamerad() {
     if (typeof Html5Qrcode === 'undefined') return Promise.reject(new Error('Kaamera teek ei laadinud.'));
     return Html5Qrcode.getCameras();
+  }
+
+  // -------------------------------------------------------------------------
+  // DEKOODER (ZXing-C++ WebAssembly, js/vendor/zxing-reader.min.js + zxing_reader.wasm)
+  // -------------------------------------------------------------------------
+
+  var ZXING_WASM = 'js/vendor/zxing_reader.wasm?v=3.1.6';
+  var LUGEMISE_SEADED = {
+    // Riiuli- ja tootesildid on QR; vöötkoodid jäävad tootjakoodide jaoks (ZXing-C++ loeb neid kiiresti)
+    formats: ['QRCode', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'Code128', 'Code39'],
+    tryHarder: true,
+    tryInvert: false,
+    maxNumberOfSymbols: 1
+  };
+  var dekooder = null;
+
+  /** Laeb dekoodri (üks kord); Promise lükatakse tagasi, kui brauser WebAssemblyt ei toeta. */
+  function laeDekooder() {
+    if (!dekooder) {
+      if (!window.ZXingWASM || typeof WebAssembly !== 'object') return Promise.reject(new Error('WebAssembly puudub'));
+      dekooder = Promise.resolve(window.ZXingWASM.prepareZXingModule({
+        overrides: { locateFile: function (f, eesliide) { return /\.wasm$/.test(f) ? ZXING_WASM : eesliide + f; } },
+        fireImmediately: true
+      })).catch(function (err) { dekooder = null; throw err; });
+    }
+    return dekooder;
   }
 
   // -------------------------------------------------------------------------
@@ -139,23 +207,139 @@
       teadeEl.hidden = !t;
     }
 
+    // --- Kaamera ---
+    // Põhiviis: oma videovoog kõrge resolutsiooniga + ZXing-C++ (WebAssembly) dekooder,
+    // mis loeb pildi nähtava osa täisresolutsioonis (~5–20 ms kaadri kohta).
+    // Varuviis (kui WebAssembly ei laadi): html5-qrcode nagu varem.
+    var voog = null, video = null, tsykliId = 0, varuviis = false;
+
     function kaivitaKaamera() {
       if (kaameraSees) return Promise.resolve();
-      if (typeof Html5Qrcode === 'undefined') { naitaTeadet('Kaamera teek ei laadinud. Sisesta kood käsitsi.'); return Promise.resolve(); }
-      if (!window.isSecureContext) { naitaTeadet('Kaamera töötab ainult https-aadressil.'); return Promise.resolve(); }
+      if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        naitaTeadet('Kaamera töötab ainult https-aadressil.'); return Promise.resolve();
+      }
       raam.hidden = false;
       naitaTeadet('');
+      kaameraSees = true;
+      kaameraNupp.classList.add('aktiivne');
+      var tsykkel = ++tsykliId;
+      return laeDekooder().then(function () {
+        if (tsykkel !== tsykliId) return;
+        return kaivitaOmaKaamera(tsykkel);
+      }, function () {
+        if (tsykkel !== tsykliId) return;
+        varuviis = true;
+        return kaivitaHtml5();
+      }).catch(kaameraViga);
+    }
+
+    function kaameraViga(err) {
+      kaameraSees = false;
+      tsykliId++;
+      kaameraNupp.classList.remove('aktiivne');
+      raam.hidden = true;
+      var t = String(err && (err.name || err.message || err));
+      naitaTeadet(/NotAllowed|Permission/i.test(t)
+        ? 'Kaamera kasutamine on keelatud. Luba see brauseri seadetes (aadressiriba lukuikoon) või sisesta kood käsitsi.'
+        : 'Kaamerat ei õnnestunud käivitada: ' + t);
+    }
+
+    function kaivitaOmaKaamera(tsykkel) {
+      var valitud = valitudKaamera().id || automaatneKaamera();
+      return avaVoog(valitud).catch(function (err) {
+        // Valitud kaamerat pole enam (nt teine seade) – proovi automaatset tagakaamerat
+        if (!valitud || /NotAllowed|Permission/i.test(String(err && (err.name || err.message || err)))) throw err;
+        unustaAutomaatne();
+        return avaVoog('');
+      }).then(function (s) {
+        if (tsykkel !== tsykliId) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
+        voog = s;
+        var rada = s.getVideoTracks()[0];
+        // Pidev teravustamine, kus brauser seda lubab (iOS teeb seda niigi)
+        try { rada.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {}); } catch (e) { /* ignoreeri */ }
+        var el = konteiner.querySelector('#' + id);
+        el.innerHTML = '<video class="oma" playsinline muted autoplay></video><div class="sihik"></div>';
+        video = el.querySelector('video');
+        video.setAttribute('playsinline', ''); video.muted = true;
+        video.srcObject = s;
+        var mangi = video.play();
+        if (mangi && mangi.catch) mangi.catch(function () {});
+        // iPhone: kui kaamerat pole valitud, jäta meelde tavaline tagakaamera (vt automaatneKaamera)
+        if (!valitudKaamera().id && !automaatneKaamera()) leiaTavalineKaamera(rada);
+        loeKaadreid(tsykkel);
+      });
+    }
+
+    /** iPhone'il: leia tavaline tagakaamera, jäta meelde ja vajadusel käivita kaamera sellega uuesti. */
+    function leiaTavalineKaamera(rada) {
+      if (!onIos() || !navigator.mediaDevices.enumerateDevices) return;
+      navigator.mediaDevices.enumerateDevices().then(function (seadmed) {
+        var tavaline = valiTavalineKaamera(seadmed);
+        if (!tavaline) return;
+        try { localStorage.setItem(AUTO_VOTI, tavaline); } catch (e) { /* ignoreeri */ }
+        var praegu = rada.getSettings ? rada.getSettings().deviceId : '';
+        if (praegu !== tavaline && kaameraSees) {
+          peataKaamera().then(kaivitaKaamera);
+        }
+      }).catch(function () { /* ignoreeri */ });
+    }
+
+    function avaVoog(kaameraId) {
+      var v = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+      if (kaameraId) v.deviceId = { exact: kaameraId };
+      else v.facingMode = { ideal: 'environment' };
+      return navigator.mediaDevices.getUserMedia({ audio: false, video: v });
+    }
+
+    var louend = null, louendCtx = null;
+    var MAX_KYLG = 1440; // dekodeeritava pildi pikim külg (px); suurem pilt vähendatakse
+
+    /** Lõikab video nähtava osa (object-fit: cover) ja annab selle dekoodrile. */
+    function loeKaadreid(tsykkel) {
+      var hoivatud = false;
+      function jargmine() {
+        if (tsykkel !== tsykliId) return;
+        if (video && video.requestVideoFrameCallback) video.requestVideoFrameCallback(samm);
+        else setTimeout(samm, 40);
+      }
+      function samm() {
+        if (tsykkel !== tsykliId) return;
+        var vw = video.videoWidth, vh = video.videoHeight;
+        if (hoivatud || pausil || !vw || !vh || video.readyState < 2) return jargmine();
+        var ew = video.clientWidth || vw, eh = video.clientHeight || vh;
+        var mootkava = Math.max(ew / vw, eh / vh);          // object-fit: cover
+        var sw = Math.min(vw, ew / mootkava), sh = Math.min(vh, eh / mootkava);
+        var sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+        var k = Math.min(1, MAX_KYLG / Math.max(sw, sh));
+        var cw = Math.round(sw * k), ch = Math.round(sh * k);
+        if (!louend) { louend = document.createElement('canvas'); }
+        if (louend.width !== cw || louend.height !== ch) { louend.width = cw; louend.height = ch; louendCtx = null; }
+        louendCtx = louendCtx || louend.getContext('2d', { willReadFrequently: true });
+        louendCtx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
+        var pilt = louendCtx.getImageData(0, 0, cw, ch);
+        hoivatud = true;
+        window.ZXingWASM.readBarcodes(pilt, LUGEMISE_SEADED).then(function (tulem) {
+          hoivatud = false;
+          if (tsykkel !== tsykliId) return;
+          var leitud = tulem && tulem.filter(function (t) { return t.isValid && t.text; })[0];
+          if (leitud) tuvastatud(leitud.text, 'kaamera');
+          jargmine();
+        }, function () { hoivatud = false; jargmine(); });
+      }
+      jargmine();
+    }
+
+    /** Varuviis: html5-qrcode teek (aeglasem, loeb vähendatud pildilt). */
+    function kaivitaHtml5() {
+      if (typeof Html5Qrcode === 'undefined') { kaameraSees = false; kaameraNupp.classList.remove('aktiivne'); raam.hidden = true; naitaTeadet('Kaamera teek ei laadinud. Sisesta kood käsitsi.'); return Promise.resolve(); }
       var F = Html5QrcodeSupportedFormats;
       lugeja = lugeja || new Html5Qrcode(id, {
         verbose: false,
-        formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.QR_CODE],
+        formatsToSupport: [F.QR_CODE, F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39],
         experimentalFeatures: { useBarCodeDetectorIfSupported: true }
       });
-      kaameraSees = true;
-      kaameraNupp.classList.add('aktiivne');
       var seaded = {
         fps: 12,
-        // Lugemisala: lai ja madal riba – sobib nii vöötkoodile kui QR-ile
         qrbox: function (w, h) { return { width: Math.floor(w * 0.85), height: Math.floor(Math.min(h * 0.6, w * 0.5)) }; }
       };
       var kaivita = function (kaamera) {
@@ -165,26 +349,21 @@
       };
       var valitud = valitudKaamera().id;
       return kaivita(valitud || { facingMode: 'environment' }).catch(function (err) {
-        // Valitud kaamerat pole enam (nt teine seade) – proovi automaatset tagakaamerat
         if (!valitud || /NotAllowed|Permission/i.test(String(err && (err.name || err.message || err)))) throw err;
         return kaivita({ facingMode: 'environment' });
-      }).catch(function (err) {
-        kaameraSees = false;
-        kaameraNupp.classList.remove('aktiivne');
-        raam.hidden = true;
-        var t = String(err && (err.name || err.message || err));
-        naitaTeadet(/NotAllowed|Permission/i.test(t)
-          ? 'Kaamera kasutamine on keelatud. Luba see brauseri seadetes (aadressiriba lukuikoon) või sisesta kood käsitsi.'
-          : 'Kaamerat ei õnnestunud käivitada: ' + t);
       });
     }
 
     function peataKaamera() {
-      if (!kaameraSees || !lugeja) return Promise.resolve();
+      if (!kaameraSees) return Promise.resolve();
       kaameraSees = false;
+      tsykliId++;
       kaameraNupp.classList.remove('aktiivne');
       raam.hidden = true;
-      return lugeja.stop().catch(function () { /* juba peatatud */ });
+      if (voog) { voog.getTracks().forEach(function (t) { t.stop(); }); voog = null; }
+      if (video) { video.srcObject = null; video = null; konteiner.querySelector('#' + id).innerHTML = ''; }
+      if (varuviis && lugeja) return lugeja.stop().catch(function () { /* juba peatatud */ });
+      return Promise.resolve();
     }
 
     kaameraNupp.addEventListener('click', function () {
@@ -253,4 +432,6 @@
   LAO.valitudKaamera = valitudKaamera;
   LAO.valiKaamera = valiKaamera;
   LAO.onPuude = onPuude;
+  LAO.automaatneKaamera = automaatneKaamera;
+  LAO.unustaAutomaatne = unustaAutomaatne;
 })();

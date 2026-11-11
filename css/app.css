@@ -193,6 +193,11 @@ a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
 .skanner { background: var(--kaart); border-radius: var(--raadius); padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .kaamera-raam { border-radius: 8px; overflow: hidden; background: #000; margin-bottom: 10px; }
 .kaamera-raam video { width: 100% !important; display: block; }
+/* Oma kaameravaade (js/skanner.js): dekodeeritakse kogu nähtav ala, sihik on ainult juhiseks */
+.kaamera-raam > div { position: relative; }
+.kaamera-raam video.oma { aspect-ratio: 4 / 3; max-height: 50vh; object-fit: cover; }
+.kaamera-raam .sihik { position: absolute; left: 50%; top: 50%; width: 46%; aspect-ratio: 1; max-height: 80%; transform: translate(-50%, -50%);
+  border: 3px solid rgba(255,255,255,.85); border-radius: 12px; box-shadow: 0 0 0 2000px rgba(0,0,0,.15); pointer-events: none; }
 .kasitsi { display: flex; gap: 8px; }
 .kasitsi input { margin: 0; flex: 1; min-width: 0; }
 .kasitsi .nupp { min-height: 50px; padding: 0 16px; }
