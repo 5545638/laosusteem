@@ -577,6 +577,7 @@
     vaade.fn(param);
   }
 
+  window.addEventListener('hashchange', function (e) { LAO.eelmineAadress = e.oldURL; });
   window.addEventListener('hashchange', marsruut);
   // Esimene joonistamine alles siis, kui ka teised vaadete failid (nt js/tooted.js) on laetud
   // ja seadmesse salvestatud toodete nimekiri on mälus (IndexedDB, tavaliselt mõni ms).

@@ -278,7 +278,7 @@
     }
     var varuosa = t.tyyp === 'VARUOSA';
     sisu.innerHTML =
-      '<p><a href="#/tooted">← Tooted</a></p>' +
+      '<p><a href="#/tooted" id="tagasiNupp">← Tagasi</a></p>' +
       '<section class="kaart">' +
       '  <div class="pealkirjarida"><h1>' + esc(t.nimetus) + '</h1>' +
       '    <div>' + (t.arhiveeritud ? '<span class="silt silt-viga">Arhiveeritud</span> ' : '') +
@@ -291,7 +291,9 @@
       '<section class="kaart">' +
       '  <h2>Andmed</h2>' +
       '  <form id="tooteVorm">' +
-      '    <label>Nimetus *<input name="nimetus" required value="' + esc(t.nimetus) + '"></label>' +
+      (LAO.onNimeta(t) // skännimisel ilma nimeta lisatud – väli tühjaks, et saaks kohe kirjutada
+        ? '    <label>Nimetus * <span class="vaike">(praegu lisamata)</span><input name="nimetus" required placeholder="' + esc(t.nimetus) + '"></label>'
+        : '    <label>Nimetus *<input name="nimetus" required value="' + esc(t.nimetus) + '"></label>') +
       (varuosa ? '<label>Ühik<select name="yhik">' + LAO.YHIKUD.map(function (y) {
         return '<option' + (y === t.yhik ? ' selected' : '') + '>' + y + '</option>';
       }).join('') + '</select></label>' : '') +
@@ -349,6 +351,10 @@
       '  </div>' +
       '  <p class="vaike">Arhiveeritud toode kaob nimekirjadest ja skännimisel antakse hoiatus. Ajalugu jääb alles.</p>' +
       '</section>';
+
+    // Tagasi sinna, kust tuldi (LADU või TOOTED, koos filtritega)
+    var eel = String(LAO.eelmineAadress || '').split('#')[1] || '';
+    if (/^\/(ladu|tooted)/.test(eel)) $('#tagasiNupp').href = '#' + eel;
 
     // Andmete salvestamine
     var vorm = $('#tooteVorm');
