@@ -280,3 +280,21 @@ Sildiprinterit veel pole, seega prindi testid **„Salvesta PDF-ina”** (Save a
 - Lisaks läksid uuesti läbi etappide 4–6 brauseritestid (töö ilma võrguta, kaks telefoni, lukustatud kasutaja, konfliktid, sildid, PWA).
 - Leidsin ja parandasin veel ühe vea: roheline teade kattis 3 sekundiks ekraani alaosas olevaid nuppe (nt KINNITA), nii et vajutus ei läinud läbi. Nüüd läheb vajutus teatest läbi.
 - Päris Apps Scripti aegu ma mõõta ei saanud. Need näed arendusrežiimis.
+
+## Tööriistakomplektid (v24, Code.gs 1.7.0-komplekt)
+
+Eeldus: uus `Code.gs` on Apps Scripti kleebitud ja juurutatud uue versioonina (funktsiooni `seadista` pole vaja käivitada – veerg `komplekt_id` lisatakse lehele `Tooted` esimesel kasutamisel ise).
+
+| # | Tegevus | Oodatav tulemus |
+|---|---|---|
+| 1 | Ava akutrelli tootekaart (TOOTED või LADU kaudu) | Kaardil on jaotis **Komplekt** |
+| 2 | **+ Lisa uus osa**: nimi „Aku”, eksemplaride arv 2 | Tekivad „Aku #1” ja „Aku #2” oma T-koodidega, mõlemad on trelli osade nimekirjas |
+| 3 | **Skänni osa** ja skänni mõne olemasoleva tööriista (nt laadija) silt | Laadija lisandub osade nimekirja |
+| 4 | TÖÖRIIST: skänni aku silt | Aku kaardil on „Kuulub: Akutrell … T-…” koos trelli oleku ja riiuliga |
+| 5 | TÖÖRIIST: skänni trell | Kaardil on osade nimekiri olekutega; all linnukesed „Anna koos välja” |
+| 6 | Sisesta kellele ja vajuta ANNA VÄLJA | Trell ja linnukesega osad on VÄLJA ANTUD samale isikule; **Tühista** võtab kõik korraga tagasi |
+| 7 | Skänni väljas olev trell uuesti | Linnukesed „Tagasta koos” (samale isikule antud osad) → TAGASTA LATTU toob kõik lattu |
+| 8 | Anna välja ainult aku (skänni aku) | Trell jääb lattu; trelli kaardil on aku real „VÄLJA ANTUD” |
+| 9 | Osa kaardil **Eemalda komplektist** | Osa on jälle iseseisev tööriist |
+
+Automaattest: `node tests/test-komplekt.js`.

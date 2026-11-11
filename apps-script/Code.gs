@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 
 var SEADED = {
-  VERSIOON: '1.6.0-kiirus',
+  VERSIOON: '1.7.0-komplekt',
   SEANSI_KEHTIVUS_PAEVI: 30,      // Mitu päeva telefon sisselogimist meeles peab
   // Aegunud/lukustatud seansi rida hoitakse veel nii mitu päeva alles, et lukustatud
   // kasutaja telefonist hiljem saabuvad liikumised saaks tema nimel KONFLIKTIDE alla panna.
@@ -73,7 +73,9 @@ var ROLL = { ADMIN: 'ADMIN', LAOTOOTAJA: 'LAOTÖÖTAJA' };
 var SKEEM = {
   Tooted: [
     ['id', 's'], ['nimetus', 's'], ['tüüp', 's'], ['ühik', 's'], ['kategooria', 's'],
-    ['riiul_id', 's'], ['miinimumkogus', 'n'], ['arhiveeritud', 'b'], ['loodud', 'd']
+    ['riiul_id', 's'], ['miinimumkogus', 'n'], ['arhiveeritud', 'b'], ['loodud', 'd'],
+    // Tööriistakomplekt: osa (nt aku) juures on põhitööriista (nt akutrelli) id. Põhitööriistal tühi.
+    ['komplekt_id', 's']
   ],
   Koodid: [
     ['kood', 's'], ['toote_id', 's'], ['koodi_tüüp', 's']
@@ -857,6 +859,7 @@ function tAndmed_(data, kasutaja) {
       yhik: t['ühik'],
       kategooria: t.kategooria,
       riiul_id: t.riiul_id,
+      komplekt_id: t.komplekt_id || '',
       miinimumkogus: t.miinimumkogus === '' ? null : t.miinimumkogus,
       arhiveeritud: t.arhiveeritud,
       loodud: isoAeg_(t.loodud),
@@ -1148,8 +1151,50 @@ function tTootedMuuda_(data) {
   if (data.kategooria !== undefined) muutus.kategooria = String(data.kategooria || '').trim();
   if (data.riiul_id !== undefined) muutus.riiul_id = kontrolliRiiulId_(data.riiul_id);
   if (data.miinimumkogus !== undefined) muutus.miinimumkogus = kontrolliMiinimum_(data.miinimumkogus);
+  if (data.komplekt_id !== undefined) {
+    var tooted = {};
+    loeLeht_('Tooted').forEach(function (t) { tooted[t.id] = t; });
+    muutus.komplekt_id = kontrolliKomplekt_(tooted, data.id, muutus['tüüp'] || rida.obj['tüüp'], data.komplekt_id);
+    tagaVeerg_('Tooted', 'komplekt_id');
+  }
   uuendaRida_('Tooted', rida.rida, muutus);
   return true;
+}
+
+/**
+ * Tööriistakomplekt: kontrollib, kas toote (osa) saab siduda põhitööriistaga.
+ * tooted = { id: toote rida }. osaId võib olla tühi (uus toode). Tagastab põhitööriista id või ''.
+ * Komplekt on ühetasandiline: osa ei saa ise olla põhitööriist ja vastupidi.
+ */
+function kontrolliKomplekt_(tooted, osaId, osaTyyp, pohiId) {
+  pohiId = String(pohiId || '').trim();
+  if (!pohiId) return '';
+  var pohi = tooted[pohiId];
+  if (!pohi) throw new ApiViga_('Komplekti põhitööriista ei leitud.', 'VALE_SISEND');
+  if (pohiId === osaId) throw new ApiViga_('Tööriist ei saa kuuluda iseenda komplekti.', 'VALE_SISEND');
+  if (osaTyyp !== TYYP.TOORIIST || pohi['tüüp'] !== TYYP.TOORIIST) {
+    throw new ApiViga_('Komplekti saab teha ainult tööriistadest.', 'VALE_SISEND');
+  }
+  if (pohi.komplekt_id) {
+    throw new ApiViga_('„' + pohi.nimetus + '” on ise komplekti osa – vali komplekti põhitööriist.', 'VALE_SISEND');
+  }
+  if (osaId) {
+    for (var id in tooted) {
+      if (tooted[id].komplekt_id === osaId) {
+        throw new ApiViga_('Sellel tööriistal on endal komplekti osad – ta ei saa olla teise komplekti osa.', 'VALE_SISEND');
+      }
+    }
+  }
+  return pohiId;
+}
+
+/** Lisab lehele veeru, kui seda veel pole (vana tabel – „seadista” uuesti käivitamist pole vaja). */
+function tagaVeerg_(nimi, veerg) {
+  var sh = leht_(nimi);
+  if (veerg in paiseKaart_(sh)) return;
+  var nr = sh.getLastColumn() + 1;
+  sh.getRange(1, nr).setValue(veerg).setFontWeight('bold').setBackground('#e8eef7');
+  sh.getRange(2, nr, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('@');
 }
 
 /** Arhiveerib toote (või taastab arhiivist). Kustutamist pole – ajalugu jääb alles. */
@@ -1386,6 +1431,13 @@ function lisaToode_(ctx, data, kasutaja) {
     algsaldo = arv_(data.algsaldo, 'Algsaldo');
   }
 
+  var komplektId = '';
+  if (data.komplekt_id) {
+    if (kasutaja && kasutaja.roll !== ROLL.ADMIN) throw new ApiViga_('Komplekti saab muuta ainult admin.', 'POLE_OIGUST');
+    komplektId = kontrolliKomplekt_(ctx.tooted, '', tyyp, data.komplekt_id);
+    tagaVeerg_('Tooted', 'komplekt_id');
+  }
+
   var loodud = [];
   for (var i = 1; i <= eksemplare; i++) {
     var id = (i === 1 && data.id && /^[A-Za-z0-9-]{8,40}$/.test(data.id) && !ctx.tooted[data.id])
@@ -1397,6 +1449,7 @@ function lisaToode_(ctx, data, kasutaja) {
       'ühik': yhik,
       kategooria: String(data.kategooria || '').trim(),
       riiul_id: riiulId,
+      komplekt_id: komplektId,
       miinimumkogus: miinimum,
       arhiveeritud: false,
       loodud: new Date()

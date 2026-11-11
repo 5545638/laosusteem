@@ -200,6 +200,25 @@
     return salvestaLiikumised([{ id: LAO.uusId(), tyyp: 'TÜHISTUS', viide: id }]).then(function (t) { return t[0]; });
   }
 
+  /**
+   * Tühistab mitu liikumist korraga (komplekt: põhitööriist + osad). Saatmata liikumised
+   * eemaldatakse järjekorrast, saadetute TÜHISTUSED lähevad serverisse ühe pakina.
+   */
+  function tyhistaMitu(idd) {
+    var saatmata = [], saadetudIdd = [];
+    idd.forEach(function (id) {
+      var k = kirjed.filter(function (x) { return x.id === id; })[0];
+      (k && !saatmisel[id] ? saatmata : saadetudIdd).push(id);
+    });
+    return Promise.all(saatmata.map(kustuta)).then(function () {
+      LAO.rakendaOotel();
+      uuendaOlekuriba();
+      if (!saadetudIdd.length) return { ok: true };
+      return salvestaLiikumised(saadetudIdd.map(function (id) { return { id: LAO.uusId(), tyyp: 'TÜHISTUS', viide: id }; }))
+        .then(function () { return { ok: true }; });
+    });
+  }
+
   /** Viimati saadetud liikumine id järgi (või null) – et tühistust saaks seadmes kohe arvestada. */
   function saadetud(id) {
     try { return JSON.parse(localStorage.getItem(SAADETUD_VOTI) || '{}')[id] || null; } catch (e) { return null; }
@@ -473,6 +492,7 @@
     ootelArv: ootelArv,
     lisaToode: lisaToode,
     tyhista: tyhista,
+    tyhistaMitu: tyhistaMitu,
     saadetud: saadetud,
     synkroniseeri: synkroniseeri,
     maaraVanaVoti: maaraVanaVoti,

@@ -177,7 +177,7 @@
     var varuosa = (d.tyyp || 'VARUOSA') === 'VARUOSA';
     var t = {
       id: d.id, nimetus: d.nimetus, tyyp: d.tyyp || 'VARUOSA', yhik: varuosa ? (d.yhik || 'tk') : 'tk',
-      kategooria: d.kategooria || '', riiul_id: d.riiul_id || '',
+      kategooria: d.kategooria || '', riiul_id: d.riiul_id || '', komplekt_id: d.komplekt_id || '',
       miinimumkogus: varuosa && d.miinimumkogus !== '' && d.miinimumkogus !== undefined ? Number(String(d.miinimumkogus).replace(',', '.')) : null,
       arhiveeritud: false, loodud: new Date().toISOString(),
       koodid: d.kood ? [{ kood: d.kood, tyyp: '' }] : [],
@@ -234,6 +234,18 @@
   function toode(id) {
     for (var i = 0; i < andmed.tooted.length; i++) if (andmed.tooted[i].id === id) return andmed.tooted[i];
     return null;
+  }
+
+  /** Tööriistakomplekt: põhitööriist, mille juurde see osa (nt aku) kuulub – või null. */
+  function komplektiPohi(t) {
+    return t && t.komplekt_id ? toode(t.komplekt_id) : null;
+  }
+
+  /** Tööriistakomplekt: selle tööriista juurde kuuluvad osad (arhiveerituid ei näidata). */
+  function komplektiOsad(t) {
+    if (!t || t.tyyp !== 'TÖÖRIIST') return [];
+    return andmed.tooted.filter(function (o) { return o.komplekt_id === t.id && !o.arhiveeritud; })
+      .sort(function (a, b) { return a.nimetus.localeCompare(b.nimetus, 'et', { numeric: true }); });
   }
 
   /**
@@ -354,6 +366,9 @@
   LAO.riiul = riiul;
   LAO.toode = toode;
   LAO.leiaKoodiga = leiaKoodiga;
+  LAO.komplektiPohi = komplektiPohi;
+  LAO.komplektiOsad = komplektiOsad;
+  LAO.esimeneKood = function (t) { return t && t.koodid && t.koodid[0] ? t.koodid[0].kood : ''; };
   LAO.tyypNimi = function (t) { return TYYBI_NIMI[t] || t; };
   LAO.allMiinimumi = allMiinimumi;
   LAO.seisHtml = seisHtml;
