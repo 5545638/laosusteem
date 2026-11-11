@@ -440,7 +440,7 @@
       // Suurtähed ja numbrid on ~0,716 fondi suurusest – paigutame need vertikaalselt keskele
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(naidatavKood, px + Math.max(0, (pw - lw) / 2), Math.round((H + suur * 0.716) / 2));
-      return valmis(c);
+      return valmis(lindile(c, pohi));
     }
     // Tootesilt: vöötkood ~75% QR-i kõrgusest, all kood tekstina; plokk keskel
     var m = tooteMoodud(s.kood, H / mm, p, vz);
@@ -452,7 +452,22 @@
     for (var i = 0; i < bitid.length; i++) if (bitid[i] === '1') ctx.fillRect(px + (10 + i) * moodul, y, moodul, ribaH);
     ctx.font = 'bold ' + kf + 'px ' + MONO; ctx.textBaseline = 'top';
     ctx.fillText(s.kood, px + 10 * moodul, y + ribaH + Math.round(kf * 0.1));
-    return valmis(c);
+    return valmis(lindile(c, pohi));
+  }
+
+  /**
+   * iPrint&Label paneb pildi laiuse üle lindi (laia pildi kahandab lindi laiusele, nii tuli
+   * 50 mm silt ~5 mm QR-iga risti lindile). Lindipõhja pilt pööratakse seepärast 90°:
+   * pildi laius = prinditav lindi laius, kõrgus = sildi pikkus.
+   */
+  function lindile(c, pohi) {
+    if (!autoPikkus(pohi) || c.width <= c.height) return c;
+    var r = document.createElement('canvas');
+    r.width = c.height; r.height = c.width;
+    var ctx = r.getContext('2d');
+    ctx.translate(r.width, 0); ctx.rotate(Math.PI / 2);
+    ctx.drawImage(c, 0, 0);
+    return r;
   }
 
   function valmis(c) {
