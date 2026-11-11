@@ -224,7 +224,7 @@
     { pealkiri: 'SISSE', kirjeldus: 'Kauba vastuvõtt', href: '#/sisse', etapp: 3 },
     { pealkiri: 'VÄLJA', kirjeldus: 'Kauba väljastamine', href: '#/valja', etapp: 3 },
     { pealkiri: 'TÖÖRIIST', kirjeldus: 'Välja / tagasi', href: '#/tooriist', etapp: 3 },
-    { pealkiri: 'ÜMBER­PAIGUTUS', kirjeldus: 'Toode uuele riiulile', href: '#/paiguta', etapp: 3 },
+    { pealkiri: 'PAIGUTA', kirjeldus: 'Toode → riiul (ka uus toode)', href: '#/paiguta', etapp: 3 },
     { pealkiri: 'LADU', kirjeldus: 'Saldod ja otsing', href: '#/ladu', etapp: 6 },
     { pealkiri: 'VÄLJAS OLEVAD', kirjeldus: 'Tööriistad väljas', href: '#/valjas', etapp: 6 },
     { pealkiri: 'AJALUGU', kirjeldus: 'Kõik liikumised', href: '#/ajalugu', etapp: 6 },
@@ -254,6 +254,13 @@
       ? '<div class="kaart-teade hoiatus avalehe-teade">⚠ <b>' + minu.length + ' sinu liikumist ootab admini ülevaatust.</b> ' +
         'Vajuta ülal olekuribale, et näha üksikasju.</div>'
       : '';
+    // Adminile: skännimisel ilma nimeta lisatud tooted
+    var nimeta = admin && LAO.andmed && LAO.andmed.tooted
+      ? LAO.andmed.tooted.filter(function (t) { return !t.arhiveeritud && LAO.onNimeta(t); }).length : 0;
+    if (nimeta) {
+      hoiatus += '<a class="kaart-teade info avalehe-teade" href="#/tooted/nimeta">✎ <b>' + nimeta + ' tootel' +
+        ' on nimi lisamata.</b> Vajuta, et nimed lisada.</a>';
+    }
     sisu.innerHTML = '<section>' + hoiatus + '<div class="paanid">' + nupud + '</div></section>';
     // Värskenda andmed (ja konfliktide arvud) taustal; muutuse korral joonista uuesti
     if (!varske && navigator.onLine && LAO.laeAndmed) {
@@ -391,7 +398,7 @@
   // VAADE: SEADED
   // -------------------------------------------------------------------------
 
-  var RAKENDUSE_VERSIOON = 'v21'; // sama number mis ?v= failis index.html
+  var RAKENDUSE_VERSIOON = 'v23'; // sama number mis ?v= failis index.html
 
   function vaadeSeaded() {
     var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';

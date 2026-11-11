@@ -14,13 +14,14 @@
   var sisu = document.getElementById('sisu');
 
   // Filtrid jäävad meelde, kui vahepeal tootekaarti vaatad
-  var filter = { otsing: '', tyyp: '', kategooria: '', riiul: '', arhiiv: false, madal: false };
+  var filter = { otsing: '', tyyp: '', kategooria: '', riiul: '', arhiiv: false, madal: false, nimeta: false };
 
   // -------------------------------------------------------------------------
   // TOODETE NIMEKIRI
   // -------------------------------------------------------------------------
 
-  function vaadeTooted() {
+  function vaadeTooted(param) {
+    if (param === 'nimeta') filter.nimeta = true; // avalehe teatest „N toodet ilma nimeta”
     sisu.innerHTML =
       '<section class="kaart">' +
       '  <div class="pealkirjarida"><h1>Tooted</h1>' +
@@ -33,6 +34,7 @@
       '    <select id="fKategooria"></select>' +
       '    <select id="fRiiul"></select>' +
       '    <label class="linnuke"><input id="fMadal" type="checkbox"> Alla miinimumi</label>' +
+      '    <label class="linnuke"><input id="fNimeta" type="checkbox"> Nimi lisamata</label>' +
       '    <label class="linnuke"><input id="fArhiiv" type="checkbox"> Näita arhiveerituid</label>' +
       '  </div>' +
       '  <p id="tooteArv" class="vaike"></p>' +
@@ -42,6 +44,7 @@
     $('#lisaToode').addEventListener('click', function () { avaLisaToode({}, function () { joonistaTabel(); }); });
     $('#fTyyp').value = filter.tyyp;
     $('#fMadal').checked = filter.madal;
+    $('#fNimeta').checked = filter.nimeta;
     $('#fArhiiv').checked = filter.arhiiv;
 
     var taimer;
@@ -53,6 +56,7 @@
       $(p[0]).addEventListener('change', function (e) { filter[p[1]] = e.target.value; joonistaTabel(); });
     });
     $('#fMadal').addEventListener('change', function (e) { filter.madal = e.target.checked; joonistaTabel(); });
+    $('#fNimeta').addEventListener('change', function (e) { filter.nimeta = e.target.checked; joonistaTabel(); });
     $('#fArhiiv').addEventListener('change', function (e) { filter.arhiiv = e.target.checked; joonistaTabel(); });
 
     // Näita kohe seadmes olevaid andmeid, siis uuenda serverist
@@ -82,6 +86,7 @@
       if (filter.kategooria && t.kategooria !== filter.kategooria) return false;
       if (filter.riiul && t.riiul_id !== filter.riiul) return false;
       if (filter.madal && !LAO.allMiinimumi(t)) return false;
+      if (filter.nimeta && !LAO.onNimeta(t)) return false;
       if (otsing) {
         var tekst = (t.nimetus + ' ' + t.kategooria + ' ' + t.koodid.map(function (k) { return k.kood; }).join(' ')).toLowerCase();
         if (tekst.indexOf(otsing) < 0) return false;
@@ -137,7 +142,7 @@
     eel = eel || {};
     var kohe = !!(valikud && valikud.kohe);
     var admin = LAO.onAdmin();
-    var d = modaalHtml(eel, admin);
+    var d = modaalHtml(eel, admin, kohe && !!eel.kood);
     var dialog = LAO.modaal('Lisa toode', d, function (v) {
       var tyyp = v.tyyp.value;
       var data = {
@@ -152,6 +157,9 @@
         algsaldo: admin && tyyp === 'VARUOSA' ? v.algsaldo.value : '',
         eksemplare: tyyp === 'TÖÖRIIST' && !v.kood.value.trim() ? v.eksemplare.value : 1
       };
+      // Skännimisel võib nime jätta tühjaks – toode saab ajutise nime, päris nime lisab admin hiljem
+      if (!data.nimetus && kohe && data.kood) data.nimetus = LAO.nimetaNimi(data.kood);
+      if (!data.nimetus) { v.nimetus.focus(); return Promise.reject(new Error('Nimetus on kohustuslik.')); }
       // Skännimisel (kood olemas, üks eksemplar) ei oodata serverit – toode läheb järjekorda
       var seadmesse = !navigator.onLine || (kohe && data.kood && Number(data.eksemplare) <= 1);
       var paring = !seadmesse ? API.kutsu('tooted.lisa', data).catch(function (err) {
@@ -213,13 +221,15 @@
     return LAO.jarjekord.lisaToode(data);
   }
 
-  function modaalHtml(eel, admin) {
+  function modaalHtml(eel, admin, nimiValikuline) {
     var tyyp = eel.tyyp || 'VARUOSA';
     return '<form autocomplete="off">' +
       '<label>Kood <span class="vaike">(skänni või sisesta; tühjaks jättes luuakse sisekood)</span>' +
       '  <input name="kood" value="' + esc(eel.kood || '') + '" autocapitalize="characters"></label>' +
       '<label class="linnuke ainult-kood"><input type="checkbox" name="lisaSisekood"> Lisa ka meie sisekood (nt kui tootja kood on halvasti loetav)</label>' +
-      '<label>Nimetus *<input name="nimetus" required value="' + esc(eel.nimetus || '') + '"></label>' +
+      (nimiValikuline
+        ? '<label>Nimetus <span class="vaike">(võid jätta tühjaks ja lisada hiljem)</span><input name="nimetus" value="' + esc(eel.nimetus || '') + '"></label>'
+        : '<label>Nimetus *<input name="nimetus" required value="' + esc(eel.nimetus || '') + '"></label>') +
       '<div class="valjarida"><span class="sildike">Tüüp</span><div class="segment">' +
       '  <label><input type="radio" name="tyyp" value="VARUOSA"' + (tyyp === 'VARUOSA' ? ' checked' : '') + '><span>Varuosa</span></label>' +
       '  <label><input type="radio" name="tyyp" value="TÖÖRIIST"' + (tyyp === 'TÖÖRIIST' ? ' checked' : '') + '><span>Tööriist</span></label>' +

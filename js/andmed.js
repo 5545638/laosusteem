@@ -361,5 +361,9 @@
   LAO.unikaalsed = unikaalsed;
   LAO.riiuliValikud = riiuliValikud;
   LAO.YHIKUD = ['tk', 'm', 'l', 'kg', 'pakk'];
+  // Skännimisel ilma nimeta lisatud toode saab ajutise nime „(nimeta) <kood>” – nime lisab admin hiljem (TOOTED → Nimeta)
+  LAO.NIMETA = '(nimeta)';
+  LAO.nimetaNimi = function (kood) { return LAO.NIMETA + ' ' + String(kood || '').trim(); };
+  LAO.onNimeta = function (t) { return !!t && String(t.nimetus || '').indexOf(LAO.NIMETA) === 0; };
   LAO.KOODI_TYYBID = ['EAN13', 'EAN8', 'UPC', 'CODE128', 'CODE39', 'QR', 'SISEKOOD'];
 })();

@@ -4,7 +4,8 @@
  *   #/sisse      – kauba vastuvõtt (varuosa kogus juurde)
  *   #/valja      – kauba väljastamine (kogus maha)
  *   #/tooriist   – tööriista väljaandmine ja tagastamine
- *   #/paiguta    – toote ümberpaigutamine: skänni toode → skänni uus riiul
+ *   #/paiguta    – toote paigutamine: skänni toode → kohe palutakse riiul. Uus (tundmatu)
+ *                  kood luuakse ilma nimeta ja seotakse riiuliga; nime lisab admin hiljem.
  *
  * Kõigis vaadetes:
  *   - tundmatu kood → avaneb kiirlisamise vorm (kood eeltäidetud), pärast
@@ -22,12 +23,12 @@
     sisse: { pealkiri: 'SISSE', klass: 'r-sisse', vihje: 'Skänni vastuvõetav toode' },
     valja: { pealkiri: 'VÄLJA', klass: 'r-valja', vihje: 'Skänni väljastatav toode' },
     tooriist: { pealkiri: 'TÖÖRIIST', klass: 'r-tooriist', vihje: 'Skänni tööriist' },
-    paiguta: { pealkiri: 'ÜMBERPAIGUTUS', klass: 'r-paiguta', vihje: 'Skänni toode, siis uus riiul' }
+    paiguta: { pealkiri: 'PAIGUTA', klass: 'r-paiguta', vihje: 'Skänni toode, siis riiul' }
   };
 
   var reziim = null;     // 'sisse' | 'valja' | 'tooriist' | 'paiguta'
   var skanner = null;
-  var paigutatav = null; // ümberpaigutuse 1. samm: valitud toode
+  var paigutatav = null; // paigutamise 1. samm: valitud toode või { uus: true, kood, tyyp } (tundmatu kood)
 
   // -------------------------------------------------------------------------
   // VAATE ÜLESEHITUS
@@ -78,6 +79,7 @@
     ajad = { otsing: performance.now() - t0 };
     API.mootmine('otsing', ajad.otsing);
     if (leitud) return kasitle(leitud, kood, aeg);
+    if (reziim === 'paiguta') return uusPaigutatav(kood, aeg);
     tundmatu(kood, aeg);
   }
 
@@ -159,6 +161,7 @@
       '<div class="toote-info"><code>' + esc(t.koodid[0] ? t.koodid[0].kood : '') + '</code>' +
       (r ? ' · Riiul <b>' + esc(r.kood) + '</b>' : '') + '</div>' +
       '<div class="toote-seis">' + (t.tyyp === 'VARUOSA' ? 'Saldo: ' : 'Olek: ') + LAO.seisHtml(t) + '</div>' +
+      (LAO.onNimeta(t) ? '<div class="vaike">Nimi on lisamata' + (LAO.onAdmin() ? ' – <a href="#/toode/' + encodeURIComponent(t.id) + '">lisa nimi</a>' : '') + '</div>' : '') +
       (t.arhiveeritud ? '<div class="kaart-teade viga">Toode on arhiveeritud – liikumine märgitakse adminile ülevaatamiseks.</div>' : '') +
       '</div>';
   }
@@ -357,28 +360,89 @@
   // ÜMBERPAIGUTUS
   // -------------------------------------------------------------------------
 
-  function valiPaigutatav(t) {
-    paigutatav = t;
-    var r = LAO.riiul(t.riiul_id);
-    $('#toiming').innerHTML = tooteKaart(t) +
-      '<div class="kaart-teade info"><b>Nüüd skänni uue riiuli silt</b> või vali nimekirjast.' +
-      '<p>Praegu: ' + esc(r ? r.kood : 'riiul määramata') + '</p>' +
-      '<select id="uusRiiul">' + LAO.riiuliValikud('').replace('– pole määratud –', '– vali riiul –') + '</select>' +
+  /** Riiuli valik nimekirjast (kui silti pole käepärast) + Katkesta. */
+  function riiuliValikHtml(nupuTekst) {
+    return '<select id="uusRiiul">' + LAO.riiuliValikud('').replace('– pole määratud –', '– või vali riiul –') + '</select>' +
       '<div class="nupurida suured-nupud"><button class="nupp nupp-suur" id="loobu">Katkesta</button>' +
-      '<button class="nupp nupp-suur nupp-pohi" id="paigutaNupp">Paiguta</button></div></div>';
+      '<button class="nupp nupp-suur nupp-pohi" id="paigutaNupp">' + esc(nupuTekst) + '</button></div>';
+  }
+
+  function seoRiiuliValik() {
     $('#loobu').addEventListener('click', function () { paigutatav = null; valmis(); });
     $('#paigutaNupp').addEventListener('click', function () {
       var r2 = LAO.riiul($('#uusRiiul').value);
       if (!r2) { teade('Vali riiul või skänni riiuli silt.', 'viga'); return; }
       paigutaRiiulile(r2);
     });
+  }
+
+  function valiPaigutatav(t) {
+    paigutatav = t;
+    var r = LAO.riiul(t.riiul_id);
+    $('#toiming').innerHTML = tooteKaart(t) +
+      '<div class="kaart-teade info"><b>Nüüd skänni riiuli silt</b>' +
+      '<p>Praegu: ' + esc(r ? r.kood : 'riiul määramata') + '</p>' +
+      riiuliValikHtml('Paiguta') + '</div>';
+    seoRiiuliValik();
     skanner.paus(false); // ootame riiuli skännimist
+  }
+
+  /**
+   * Tundmatu kood PAIGUTA-režiimis: nime ei küsita, kohe palutakse riiul.
+   * Toode luuakse riiuli skännimisel ajutise nimega „(nimeta) <kood>”.
+   */
+  function uusPaigutatav(kood, aeg) {
+    LAO.piiks('hoiatus');
+    var minu = skanniNr;
+    var tyyp = (paigutatav && paigutatav.uus && paigutatav.tyyp) || 'VARUOSA'; // jäta eelmine valik meelde
+    paigutatav = { uus: true, kood: kood, tyyp: tyyp };
+    $('#toiming').innerHTML =
+      '<div class="kaart-teade hoiatus"><b>Uus kood:</b> <code>' + esc(kood) + '</code>' +
+      '<p>Toode lisatakse ilma nimeta – nime saad lisada hiljem.</p>' +
+      '<div class="segment" id="uusTyyp">' +
+      '  <label><input type="radio" name="uusTyyp" value="VARUOSA"' + (tyyp === 'VARUOSA' ? ' checked' : '') + '><span>Varuosa</span></label>' +
+      '  <label><input type="radio" name="uusTyyp" value="TÖÖRIIST"' + (tyyp === 'TÖÖRIIST' ? ' checked' : '') + '><span>Tööriist</span></label>' +
+      '</div></div>' +
+      '<div class="kaart-teade info"><b>Nüüd skänni riiuli silt</b>' +
+      riiuliValikHtml('Lisa riiulile') +
+      '<div class="nupurida nupurida-vasak"><button class="nupp nupp-vaike" id="nimiKohe">Lisa nimi kohe</button></div></div>';
+    seoRiiuliValik();
+    Array.prototype.forEach.call(document.querySelectorAll('[name=uusTyyp]'), function (r) {
+      r.addEventListener('change', function () { if (paigutatav && paigutatav.uus) paigutatav.tyyp = r.value; });
+    });
+    $('#nimiKohe').addEventListener('click', function () {
+      var p = paigutatav;
+      skanner.paus(true);
+      var salvestatud = false;
+      var aken = LAO.avaLisaToode({ kood: kood, tyyp: p ? p.tyyp : 'VARUOSA' }, function (loodud) {
+        salvestatud = true;
+        var t = LAO.toode(loodud[0].id);
+        if (!t) { paigutatav = null; return valmis(); }
+        var r = LAO.riiul(t.riiul_id);
+        if (r) { // riiul valiti juba vormis
+          paigutatav = null;
+          naitaTulemust('Uus toode ' + t.nimetus + ' → riiul ' + r.kood, { ok: true }, { id: t.id }, true);
+          return valmis();
+        }
+        valiPaigutatav(t);
+      }, { kohe: true });
+      aken.addEventListener('close', function () {
+        if (!salvestatud && minu === skanniNr) skanner.paus(false); // tagasi riiuli ootamisse
+      });
+    });
+    skanner.paus(false); // ootame riiuli skännimist (või uut tootekoodi)
   }
 
   function paigutaRiiulile(riiul) {
     var t = paigutatav;
     if (!t) { teade('Skänni kõigepealt toode, siis riiul.', 'viga'); LAO.piiks('viga'); return; }
-    if (t.riiul_id === riiul.id) { teade('Toode on juba riiulil ' + riiul.kood + '.'); return; }
+    if (t.uus) return lisaUusRiiulile(t, riiul);
+    if (t.riiul_id === riiul.id) {
+      // Juba õigel kohal – kinnita ja oota järgmist toodet
+      paigutatav = null;
+      naitaTulemust(t.nimetus + ' on juba riiulil ' + riiul.kood + '.', { ok: true }, { id: null }, true);
+      return valmis();
+    }
     skanner.paus(true);
     var vana = LAO.riiul(t.riiul_id);
     salvesta(null, {
@@ -387,6 +451,27 @@
       return t.nimetus + ': ' + (vana ? vana.kood : '(riiulita)') + ' → ' + riiul.kood;
     }, true);
     paigutatav = null;
+  }
+
+  /** Uus toode ajutise nimega otse riiulile – seadmesse kohe, serverisse taustal (vt js/jarjekord.js). */
+  function lisaUusRiiulile(p, riiul) {
+    skanner.paus(true);
+    paigutatav = null;
+    if (LAO.leiaKoodiga(p.kood)) { // keegi lisas vahepeal (taustauuendus) – paiguta olemasolev
+      var leitud = LAO.leiaKoodiga(p.kood);
+      if (leitud.toode) { paigutatav = leitud.toode; return paigutaRiiulile(riiul); }
+    }
+    LAO.jarjekord.lisaToode({
+      kood: p.kood, nimetus: LAO.nimetaNimi(p.kood), tyyp: p.tyyp, yhik: 'tk',
+      kategooria: '', riiul_id: riiul.id, miinimumkogus: ''
+    }).then(function (loodud) {
+      naitaTulemust('Uus toode ' + p.kood + ' → riiul ' + riiul.kood + ' (nimi lisamata)', { ok: true }, { id: loodud[0].id }, true);
+      valmis();
+    }).catch(function (err) {
+      LAO.piiks('viga');
+      teade(err.message, 'viga');
+      valmis();
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -425,11 +510,11 @@
   /** Roheline teade viimase toimingu kohta + saatmise olek + Tühista-nupp. */
   function naitaTulemust(tekst, r, liikumine, eiTyhista) {
     LAO.piiks('ok');
-    naidatav = liikumine.id;
+    naidatav = liikumine.id; // null = midagi ei salvestatud (nt toode oli juba õigel riiulil)
     $('#tulemus').innerHTML =
       '<div class="tulemus tulemus-ok">' +
       '<div class="tulemus-tekst">✓ ' + esc(tekst) +
-      '<div class="vaike saatmise-olek">' + (navigator.onLine ? 'Salvestatud, saadan serverisse…' : 'Salvestatud seadmesse – saadetakse, kui internet tagasi tuleb.') + '</div>' +
+      (liikumine.id === null ? '' : '<div class="vaike saatmise-olek">' + (navigator.onLine ? 'Salvestatud, saadan serverisse…' : 'Salvestatud seadmesse – saadetakse, kui internet tagasi tuleb.') + '</div>') +
       (API.arendus() ? '<div class="vaike ajarida">⏱ otsing ' + LAO.ajaTekst(ajad.otsing || 0) + ' · salvestus seadmesse ' + LAO.ajaTekst(ajad.salvestus || 0) +
         ' · server <span class="serveriaeg">…</span></div>' : '') + '</div>' +
       (eiTyhista ? '' : '<button class="nupp nupp-vaike" id="tyhista">Tühista</button>') +
@@ -453,6 +538,7 @@
     var kast = document.querySelector('#tulemus .tulemus');
     if (!r || !kast) return;
     var olek = kast.querySelector('.saatmise-olek');
+    if (!olek) return;
     if (!r.ok) {
       kast.className = 'tulemus tulemus-hoiatus';
       olek.innerHTML = '<b>Server ei võtnud vastu:</b> ' + esc(r.viga);

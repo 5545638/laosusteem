@@ -85,7 +85,7 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 1. Ühenda GitHubis pull request (**Merge pull request → Confirm merge**).
 2. Kleebi uus `apps-script/Code.gs` Apps Scripti ja tee **Deploy → Manage deployments → ✎ → Version: New version → Deploy**.
 3. **Seaded → Testi ühendust** peab näitama versiooni **1.2.0-etapp3**.
-4. Kui avalehel pole paani ÜMBERPAIGUTUS, värskenda lehte (telefonis sulge vaheleht ja ava uuesti, arvutis Cmd+Shift+R).
+4. Kui avalehel pole paani PAIGUTA, värskenda lehte (telefonis sulge vaheleht ja ava uuesti, arvutis Cmd+Shift+R).
 5. Testimiseks on vaja mõnda toodet koos vöötkoodiga (nt tootja EAN karbil) ja mõnda tööriista. Sobivad ka etapis 2 lisatud tooted. Kui sildiprinterit veel pole, ava tootekaart arvutis ja skänni telefoniga koodi otse ekraanilt. Sisekoodi (nt T-00001) saab sisestada ka käsitsi.
 
 ### Testid telefonis
@@ -105,7 +105,8 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 | 11 | Anna sama tööriist välja kahest telefonist korraga (või teine kasutaja annab juba väljas oleva välja) | Teine väljaandmine salvestatakse, aga märgitakse konfliktiks (kollane teade) |
 | 12 | **SISSE** → skänni kood, mida süsteemis pole | „Tundmatu kood” ja nupp **+ Lisa uus toode**. Vormis on kood eeltäidetud. Riiuli saab valida nimekirjast või nupuga **📷 Skänni riiuli silt** |
 | 13 | Salvesta uus toode | Avaneb kohe sama toote koguse vorm. Kinnita SISSE |
-| 14 | **ÜMBERPAIGUTUS** → skänni toode → skänni teise riiuli silt | „✓ …: R-A01 → R-A02”. Arvutis on TOOTED vaates riiul muutunud |
+| 14 | **PAIGUTA** → skänni toode → skänni teise riiuli silt | „✓ …: R-A01 → R-A02”. Arvutis on TOOTED vaates riiul muutunud |
+| 14b | **PAIGUTA** → skänni tundmatu kood → kohe skänni riiuli silt | „✓ Uus toode … → riiul … (nimi lisamata)”. Avalehel adminile teade „N tootel on nimi lisamata” → vajuta, lisa nimed |
 | 15 | Lülita kaamera nupuga 📷 välja ja sulge rakendus. Ava uuesti | Kaamera jääb välja lülitatuks, kuni lülitad selle ise sisse |
 | 16 | Proovi töökinnastega | Kõik nupud peaksid olema piisavalt suured |
 

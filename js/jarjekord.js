@@ -276,14 +276,16 @@
       return API.kutsu('tooted.lisa', Object.assign({}, k.andmed, { vorguta: true }), { token: token }).then(function (vastus) {
         saadetudArv++;
         var r = vastus[0];
-        if (r.yhendatud) return seoOlemasolevaga(k, r);
+        var teata = function () { document.dispatchEvent(new CustomEvent('lao:saadetud', { detail: [{ id: k.id, ok: true }] })); };
+        if (r.yhendatud) return seoOlemasolevaga(k, r).then(teata);
         var t = LAO.toode(k.andmed.id);
         if (t) { t.ootel = false; t.koodid = r.koodid; }
-        return kustuta(k.id);
+        return kustuta(k.id).then(teata);
       }, function (err) {
         if (AJUTISED_VEAD.indexOf(err.kood) >= 0 || err.kood === 'SEANSS_KEHTETU') return viga(err);
         // Toodet ei saa lisada (nt vigane sisend) → märgi see ja temaga seotud liikumised vigaseks
         return margiVigaseks(k, err.message).then(function () {
+          document.dispatchEvent(new CustomEvent('lao:saadetud', { detail: [{ id: k.id, ok: false, viga: err.message }] }));
           return jada(kirjed.filter(function (x) { return x.liik === 'liikumine' && x.andmed.toote_id === k.andmed.id; }), function (x) {
             return margiVigaseks(x, 'Toote "' + k.nimetus + '" lisamine ebaõnnestus');
           });

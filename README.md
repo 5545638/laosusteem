@@ -21,7 +21,7 @@ Esipaneel on staatiline veebileht (GitHub Pages), taustasüsteem on Google Apps 
 | `js/riiulid.js` | RIIULID: haldus ja hulgilisamine |
 | `js/import.js` | CSV-import |
 | `js/skanner.js` | Skänner: kaamera, USB-skänner, käsitsi sisestus, heli ja vibratsioon |
-| `js/skannimine.js` | SISSE, VÄLJA, TÖÖRIIST, ÜMBERPAIGUTUS (telefoni vaated) |
+| `js/skannimine.js` | SISSE, VÄLJA, TÖÖRIIST, PAIGUTA (telefoni vaated) |
 | `js/sildid.js` | SILDID: sildipõhjad, vöötkoodid/QR ja printimine (rull ja A4) |
 | `js/ulevaated.js` | LADU, VÄLJAS OLEVAD, AJALUGU ja CSV-eksport |
 | `js/konfliktid.js` | KONFLIKTID: ülevaatamist vajavate liikumiste kinnitamine, parandamine ja tühistamine (admin) |

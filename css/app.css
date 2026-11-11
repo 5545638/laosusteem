@@ -253,6 +253,7 @@ a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
 .arvumark { display: inline-block; min-width: 24px; padding: 0 6px; border-radius: 12px; background: var(--viga); color: #fff; font-size: 14px; text-align: center; vertical-align: middle; }
 .paan-hoiatus { border-color: var(--viga); }
 .avalehe-teade { margin-bottom: 12px; }
+a.avalehe-teade { display: block; text-decoration: none; }
 .tabel.konfliktid td { vertical-align: top; }
 .tabel.konfliktid .tegevused .nupp { margin: 2px; }
 
