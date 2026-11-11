@@ -381,8 +381,38 @@
   /** iPhone'i avakuva-äpp: window.print() ei tee seal midagi (iOS piirang). */
   function avakuvaIphone() { return window.navigator.standalone === true; }
 
-  function prindi(sildid, pohi, algus) {
+  /** Lindisildid ühe lehena üksteise järel (printer lõikab korra, tühi algus korra). */
+  function ribaPikkus(sildid, pohi) {
+    return Math.round(sildid.reduce(function (m, s) { return m + pohiSildile(s, pohi).laius_mm; }, 0) * 10) / 10;
+  }
+  function ribaHtml(sildid, pohi) {
+    var mark = 'position:absolute;left:0;width:0.3mm;height:1.5mm;background:#000;';
+    return '<div class="rull-leht riba-leht" style="display:flex;width:' + ribaPikkus(sildid, pohi) + 'mm;height:' + pohi.korgus_mm + 'mm">' +
+      sildid.map(function (s, i) {
+        return '<div style="position:relative;flex:none">' + sildiHtml(s, pohi, null) +
+          (i ? '<i style="' + mark + 'top:0"></i><i style="' + mark + 'bottom:0"></i>' : '') + '</div>';
+      }).join('') + '</div>';
+  }
+  function saabRibana(sildid, pohi) { return autoPikkus(pohi) && pohi.paigutus !== 'A4' && !poorata(pohi) && sildid.length > 1; }
+
+  function prindi(sildid, pohi, algus, viis) {
     if (!sildid.length) { teade('Vali vähemalt üks silt.', 'viga'); return; }
+    if (!viis && saabRibana(sildid, pohi) && !avakuvaIphone()) {
+      var L = ribaPikkus(sildid, pohi);
+      LAO.modaal('Kuidas printida?', '<form><input type="hidden" name="viis" value="riba">' +
+        '<p><b>Üks riba</b> – kõik ' + sildid.length + ' silti ühes tükis, tühi algus ainult korra; lõikad kääridega (lõikekohad servades kriipsuga). ' +
+        'Paberi suurus: <b>' + pohi.korgus_mm + ' × ' + L + ' mm</b> (Macis Manage Custom Sizes: Width ' + L + ' mm, Height ' + pohi.korgus_mm + ' mm, veerised 0).</p>' +
+        '<p><b>Eraldi sildid</b> – printer lõikab iga sildi ise, aga iga sildi ette jääb ~2,5 cm tühja linti.</p>' +
+        '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
+        '<button type="submit" class="nupp" data-viis="eraldi">Eraldi sildid</button>' +
+        '<button type="submit" class="nupp nupp-pohi" data-viis="riba">Üks riba</button></div></form>',
+        function (vorm) { var v = vorm.viis.value; setTimeout(function () { prindi(sildid, pohi, algus, v); }, 100); return Promise.resolve(); });
+      Array.prototype.forEach.call(document.querySelectorAll('dialog [data-viis]'), function (b) {
+        b.addEventListener('click', function () { b.form.viis.value = b.dataset.viis; });
+      });
+      return;
+    }
+    var riba = viis === 'riba' && saabRibana(sildid, pohi);
     if (avakuvaIphone()) {
       if (pohi.paigutus === 'A4') { teade('Avakuva-äpist iPhone printida ei luba. A4 lehe jaoks ava laosüsteem Safaris või arvutis.', 'viga'); return; }
       teade('Avakuva-äpist iPhone printida ei luba – jagan sildi pildina (vali printeri äpp või „Salvesta pilt”).');
@@ -391,11 +421,12 @@
     }
     var ala = document.getElementById('prindiala');
     if (!ala) { ala = document.createElement('div'); ala.id = 'prindiala'; document.body.appendChild(ala); }
-    ala.innerHTML = lehtedeHtml(sildid, pohi, algus, null, true);
+    ala.innerHTML = riba ? ribaHtml(sildid, pohi) : lehtedeHtml(sildid, pohi, algus, null, true);
     var stiil = document.getElementById('prindiStiil');
     if (!stiil) { stiil = document.createElement('style'); stiil.id = 'prindiStiil'; document.head.appendChild(stiil); }
     // Täpne lehe suurus: rullil = üks silt, A4 = A4 leht. Veerised 0 – sildi veerised on sildi sees.
     if (pohi.paigutus === 'A4') stiil.textContent = '@page { size: 210mm 297mm; margin: 0; }';
+    else if (riba) stiil.textContent = lehereegel(Object.assign({}, pohi, { laius_mm: ribaPikkus(sildid, pohi) }));
     else if (!autoPikkus(pohi)) stiil.textContent = lehereegel(pohi);
     else stiil.textContent = lehereegel(Object.assign({}, pohi, { laius_mm: paberiPikkus(sildid, pohi) }));
     document.body.classList.add('prindib');
