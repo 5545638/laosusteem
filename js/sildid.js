@@ -9,7 +9,7 @@
  *
  * Sildipõhjad: neli vaikimisi põhja (VAIKIMISI_POHJAD) + admini enda salvestatud
  * põhjad (tabeli leht Sildipõhjad). Paigutused:
- *   TOODE – QR vasakul, paremal nimetus, vöötkood, kood ja riiul
+ *   TOODE – QR vasakul, paremal kood suurelt (seadega vootkood: vöötkood + kood)
  *   RIIUL – suur riiulikood ja QR (riiulisildil vöötkoodi pole – telefon loeb QR-i kindlamalt)
  *   VAIKE – ainult QR ja kood tekstina (väikesed tööriistad)
  *   A4    – kleebiseleht (vaikimisi 3×8 kleebist 70×37 mm); toode nagu TOODE,
@@ -24,6 +24,7 @@
  *   nimi_pt = 0 / riiul_pt = 0 – rida jäetakse välja; nimi_ridu – nimetuse ridu (1–2)
  *   auto_pikkus – sildi pikkus = sisu laius + 2 × veeris_mm (laius_mm on siis ainult varuväärtus)
  *   max_pikkus_mm – pikkuse ülempiir: otsad lühenevad (min 2 mm), seejärel kahaneb kiri/vöötkood
+ *   vootkood    – tootesildile ka vöötkood (nt 1D-laserskanneri jaoks); vaikimisi ainult QR + kood
  *   poora       – prindi 90° pööratult (kui draiver ootab lehte, mille laius = lindi laius)
  */
 (function () {
@@ -167,8 +168,8 @@
     }
 
     var ribaMm = Number(p.ribakood_mm) || 8;
-    // Riiulisilt: ainult QR ja suur riiulikood (telefon loeb QR-i kindlamalt kui vöötkoodi)
-    if (s.liik === 'riiul' && paigutus === 'TOODE') return riiuliQrHtml(s, pohi, stiil, sisuW, sisuH, naidatavKood);
+    // Ainult QR ja suur kood (telefon loeb QR-i kindlamalt kui vöötkoodi); riiulisildil alati
+    if (ainultQr(s, pohi) && paigutus === 'TOODE') return riiuliQrHtml(s, pohi, stiil, sisuW, sisuH, naidatavKood);
     if (paigutus === 'RIIUL') {
       // Kood nii suurelt kui laiusele mahub (kuni 30% sildi kõrgusest)
       var kirjaPt = Math.min(sisuW / (naidatavKood.length * 0.62), sisuH * 0.3) * 2.835;
@@ -192,6 +193,11 @@
       '</div></div>';
   }
 
+  function ainultQr(s, pohi) {
+    var x = (pohi.seaded || {}).vootkood;
+    return s.liik === 'riiul' || !(x === true || x === 1 || x === '1');
+  }
+
   function autoPikkus(pohi) { var x = (pohi.seaded || {}).auto_pikkus; return x === true || x === 1 || x === '1'; }
 
   /**
@@ -204,8 +210,8 @@
     var vy = p.veeris_y_mm === undefined || p.veeris_y_mm === '' ? v : Number(p.veeris_y_mm) || 0;
     var sisuH = pohi.korgus_mm - 2 * vy, sisu;
     if (pohi.paigutus === 'VAIKE') sisu = sisuH;
-    else if (s.liik === 'riiul') {
-      var kood = s.kood.replace(/^R-/, '');
+    else if (ainultQr(s, pohi)) {
+      var kood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
       sisu = sisuH + qrVahe(pohi) + kood.length * 0.62 * riiuliKiri(pohi, sisuH, null, kood.length);
     } else {
       var m = tooteMoodud(s.kood, sisuH, p, qrVeeris(pohi));
@@ -422,8 +428,8 @@
     var px = x0 + H + vahe, pw = Math.round(sisuW * mm) - H - vahe;
     var naidatavKood = s.liik === 'riiul' ? s.kood.replace(/^R-/, '') : s.kood;
     var SANS = 'Arial, Helvetica, sans-serif', MONO = 'Menlo, Consolas, "DejaVu Sans Mono", monospace';
-    if (s.liik === 'riiul') {
-      // Riiulisilt: ainult QR ja suur riiulikood
+    if (ainultQr(s, pohi)) {
+      // Ainult QR ja suur kood (riiulisilt alati, tootesilt kui põhjas pole vöötkoodi)
       var suur = Math.round(riiuliKiri(pohi, H, null, 1));
       ctx.font = 'bold ' + suur + 'px ' + SANS;
       var lw = ctx.measureText(naidatavKood).width;
@@ -711,6 +717,7 @@
       '<div class="valjarida2">' + vali('nimi_pt', 'Nimetuse font (pt)', p.nimi_pt, '0 = peida') + vali('nimi_ridu', 'Nimetuse ridu', p.nimi_ridu, '1–2') + '</div>' +
       '<div class="valjarida2">' + vali('kood_pt', 'Koodi font (pt)', p.kood_pt) + vali('riiul_pt', 'Riiuli/tsooni font (pt)', p.riiul_pt, '0 = peida') + '</div>' +
       '<label class="linnuke"><input type="checkbox" name="auto_pikkus"' + (autoPikkus(pohi) ? ' checked' : '') + '> Pikkus sisu järgi <span class="vaike">(lint: Laius on siis ainult varuväärtus, Veeris = tühi ots mõlemas otsas)</span></label>' +
+      '<label class="linnuke"><input type="checkbox" name="vootkood"' + (p.vootkood ? ' checked' : '') + '> Tootesildil ka vöötkood <span class="vaike">(vaja ainult QR-i mittelugeva skanneri jaoks; muidu QR ja kood)</span></label>' +
       '<label class="linnuke"><input type="checkbox" name="poora"' + (poorata(pohi) ? ' checked' : '') + '> Prindi 90° pööratult <span class="vaike">(kui silt tuleb lindile risti või kärbitult)</span></label>' +
       '<fieldset class="ainult-a4"><legend>A4 leht</legend>' +
       '<div class="valjarida2">' + vali('veerge', 'Veerge', p.veerge || 3) + vali('ridu', 'Ridu', p.ridu || 8) + '</div>' +
@@ -725,6 +732,7 @@
           if (x !== '') arvud[n] = Number(x);
         });
         if (v.poora.checked) arvud.poora = true;
+        if (v.vootkood.checked) arvud.vootkood = true;
         if (v.auto_pikkus.checked) arvud.auto_pikkus = true;
         return API.kutsu('sildipohjad.salvesta', {
           id: oma ? pohi.id : undefined,

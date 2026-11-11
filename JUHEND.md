@@ -201,14 +201,14 @@ Sildid prinditakse otse brauserist (**SILDID** või tootekaardil **🖨 Prindi s
 
 | Põhi | Suurus | Milleks |
 |---|---|---|
-| Tootesilt | 62 × 29 mm rull | Varuosad ja tööriistad: QR, vöötkood (~75% QR-i kõrgusest) ja kood |
+| Tootesilt | 62 × 29 mm rull | Varuosad ja tööriistad: QR ja kood |
 | Riiulisilt | 62 × 100 mm rull | Riiulid: suur riiulikood ja QR |
 | Väike tööriistasilt | 29 × 29 mm lint | Väikesed tööriistad: QR ja kood |
 | A4 kleebiseleht 3×8 | 70 × 37 mm kleebised | Tavalise printeriga kleebiselehele |
 | A4 kleebiseleht 4×10 | 48,5 × 25,4 mm kleebised | Tavalise printeriga kleebiselehele |
-| P-touch lint 12 mm | pikkus sisu järgi × 12 mm | QR, vöötkood ja kood |
-| P-touch lint 18 mm | pikkus sisu järgi × 18 mm | QR, vöötkood ja kood |
-| P-touch lint 24 mm | pikkus sisu järgi × 24 mm | QR, vöötkood ja kood |
+| P-touch lint 12 mm | pikkus sisu järgi × 12 mm | QR ja kood |
+| P-touch lint 18 mm | pikkus sisu järgi × 18 mm | QR ja kood |
+| P-touch lint 24 mm | pikkus sisu järgi × 24 mm | QR ja kood |
 
 Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / salvesta oma põhjana**, muuda mõõdud ja salvesta. Oma põhjad on kõigil arvutitel kasutada.
 
@@ -235,13 +235,13 @@ Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / sal
 3. Kui silt tuleb lindile risti, kärbitult või väga väikesena, vali põhi → **Muuda / salvesta oma põhjana** → linnuta **Prindi 90° pööratult** → salvesta ja proovi uuesti.
 4. Lindi servadele printpea ei ulatu: 24 mm lindil prinditakse ~18 mm, 18 mm lindil ~14 mm ja 12 mm lindil ~9 mm kõrgune ala. Kui sisu lõikub üles- või allapoolt, suurenda oma põhjas **Üla/alaveeris**. Sildi pikkust muudad väljal **Laius**.
 5. **iPhone'ist:** AirPrint ei oska lindi suurust valida, seega kasuta nuppu **📤 Jaga pildina** (SILDID-vaates või toote/riiuli „Prindi silt” aknas). Telefon teeb sildist pildi ja avab jagamismenüü: vali **iPrint&Label** (Brotheri äpp) või **Salvesta pilt** ning prindi pilt äpist (äpis vali lindi laius ja koopiate arv). Iga kood tuleb üks kord.
-6. Vöötkoodi joon on lindipõhjades 0,282 mm (2 printeri punkti), nii et kood tuleb terav. Väga pikk kood ei mahu sellisena ära ja venitatakse sildi laiuseks.
+6. Kui lülitad põhjas vöötkoodi sisse, on selle joon lindipõhjades 0,282 mm (2 printeri punkti), nii et kood tuleb terav. Väga pikk kood ei mahu sellisena ära ja surutakse sildi laiuseks.
 
-**Lindisildi pikkus:** P-touchi lindipõhjadel arvutatakse pikkus iga sildi sisu järgi, otstesse jääb 10 mm (põhjas väli **Veeris**). QR ja riiulikood on kogu prinditava kõrgusega (24 mm lindil ~18 mm). Printimisel on ühe korraga prinditavad sildid kõik sama pikad (pikima järgi, lühem sisu keskel). Rakendus näitab eelvaate all, millise paberisuurusega printida (nt **24 × 107 mm**) – Macis tee see kord kohandatud suuruseks (Prindi süsteemidialoogi abil → Paper Size → Manage Custom Sizes, veerised 0). „Jaga pildina” teeb pildi alati õige pikkusega.
+**Lindisildi pikkus:** P-touchi lindipõhjadel arvutatakse pikkus iga sildi sisu järgi, otstesse jääb 10 mm (põhjas väli **Veeris**). Silt on kõige rohkem 50 mm pikk (väli **Max pikkus**): kui sisu ei mahu, jäävad otsad lühemaks (vähemalt 2 mm) ja kood kirjutatakse väiksemalt. QR ja riiulikood on kogu prinditava kõrgusega (24 mm lindil ~18 mm). Printimisel on ühe korraga prinditavad sildid kõik sama pikad (pikima järgi, lühem sisu keskel). Rakendus näitab eelvaate all, millise paberisuurusega printida (nt **24 × 50 mm**) – Macis tee see kord kohandatud suuruseks (Prindi süsteemidialoogi abil → Paper Size → Manage Custom Sizes, veerised 0). „Jaga pildina” teeb pildi alati õige pikkusega.
 
-**Tootesildid:** QR-kood vasakul, paremal vöötkood (umbes 75% QR-koodi kõrgusest) ja kood tekstina. Toote nime sildil pole.
+**Tootesildid:** QR-kood vasakul, paremal kood suurelt. Toote nime ega vöötkoodi sildil pole – telefon loeb QR-i, kus on sama kood. Kui kasutad skannerit, mis QR-i ei loe (nt odav USB-laserskanner), vali põhi → **Muuda / salvesta oma põhjana** → linnuta **Tootesildil ka vöötkood**. Siis tuleb QR-i kõrvale vöötkood (umbes 75% QR-koodi kõrgusest) ja kood tekstina.
 
-**Riiulisildid:** igal põhjal (lint, rull, A4) on riiulisildil ainult QR-kood ja suur riiulikood, vöötkoodi pole. Telefon loeb väikesel sildil QR-i kindlamalt.
+**Riiulisildid:** igal põhjal (lint, rull, A4) on riiulisildil ainult QR-kood ja suur riiulikood, vöötkoodi pole.
 
 **Vöötkoodi loetavus:** kui rakendus hoiatab, et vöötkood on liiga tihe (pikk kood väikesel sildil), kasuta suuremat silti või lühemat (sise)koodi. QR-kood loeb alati.
 
