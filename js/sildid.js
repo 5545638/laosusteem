@@ -317,6 +317,9 @@
 
   /** Pikima sildi pikkus (mm) – sellise paberisuurusega tuleb printida. */
   function paberiPikkus(sildid, pohi) {
+    // Ülempiiriga lindipõhjal alati max pikkus – Macis piisab ühest paberisuurusest lindi kohta
+    var max = Number((pohi.seaded || {}).max_pikkus_mm) || 0;
+    if (autoPikkus(pohi) && max && pohi.paigutus !== 'A4') return max;
     return sildid.reduce(function (m, s) { return Math.max(m, pohiSildile(s, pohi).laius_mm); }, 0) || pohi.laius_mm;
   }
 
