@@ -202,7 +202,7 @@ Sildid prinditakse otse brauserist (**SILDID** või tootekaardil **🖨 Prindi s
 | Põhi | Suurus | Milleks |
 |---|---|---|
 | Tootesilt | 62 × 29 mm rull | Varuosad ja tööriistad: QR, nimetus, vöötkood, kood, riiul |
-| Riiulisilt | 62 × 100 mm rull | Riiulid: suur riiulikood, QR, vöötkood, tsoon |
+| Riiulisilt | 62 × 100 mm rull | Riiulid: suur riiulikood ja QR |
 | Väike tööriistasilt | 29 × 29 mm lint | Väikesed tööriistad: QR ja kood |
 | A4 kleebiseleht 3×8 | 70 × 37 mm kleebised | Tavalise printeriga kleebiselehele |
 | A4 kleebiseleht 4×10 | 48,5 × 25,4 mm kleebised | Tavalise printeriga kleebiselehele |
@@ -236,6 +236,8 @@ Kui sinu rull või leht on teise suurusega, vali sarnane põhi → **Muuda / sal
 4. Lindi servadele printpea ei ulatu: 24 mm lindil prinditakse ~18 mm, 18 mm lindil ~14 mm ja 12 mm lindil ~9 mm kõrgune ala. Kui sisu lõikub üles- või allapoolt, suurenda oma põhjas **Üla/alaveeris**. Sildi pikkust muudad väljal **Laius**.
 5. **iPhone'ist:** AirPrint ei oska lindi suurust valida, seega kasuta nuppu **📤 Jaga pildina** (SILDID-vaates või toote/riiuli „Prindi silt” aknas). Telefon teeb sildist pildi ja avab jagamismenüü: vali **iPrint&Label** (Brotheri äpp) või **Salvesta pilt** ning prindi pilt äpist (äpis vali lindi laius ja koopiate arv). Iga kood tuleb üks kord.
 6. Vöötkoodi joon on lindipõhjades 0,282 mm (2 printeri punkti), nii et kood tuleb terav. Väga pikk kood ei mahu sellisena ära ja venitatakse sildi laiuseks.
+
+**Riiulisildid:** igal põhjal (lint, rull, A4) on riiulisildil ainult QR-kood ja suur riiulikood, vöötkoodi pole. Telefon loeb väikesel sildil QR-i kindlamalt.
 
 **Vöötkoodi loetavus:** kui rakendus hoiatab, et vöötkood on liiga tihe (pikk kood väikesel sildil), kasuta suuremat silti või lühemat (sise)koodi. QR-kood loeb alati.
 
