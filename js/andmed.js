@@ -253,7 +253,7 @@
    * Kasutatakse skännimisel (etapp 3) ja dubleeritud koodide kontrollimisel.
    */
   function leiaKoodiga(kood) {
-    var n = String(kood || '').trim().toUpperCase();
+    var n = puhastaKood(kood).toUpperCase();
     if (!n) return null;
     var leitud = leiaTapne(n);
     if (leitud) return leitud;
@@ -261,6 +261,30 @@
     if (/^\d{12}$/.test(n)) return leiaTapne('0' + n);
     if (/^0\d{12}$/.test(n)) return leiaTapne(n.slice(1));
     return null;
+  }
+
+  /**
+   * Tehase QR-koodis on tühikud ja püstkriipsud, nt "| 4523 85 0C 00000589 K2025 | M12-18FC".
+   * Iga tühikute/püstkriipsude/juhtmärkide jada → üks sidekriips: "4523-85-0C-00000589-K2025-M12-18FC".
+   * Sama reegel on serveris (puhastaKood_ failis Code.gs) – hoia need ühesugused.
+   */
+  function puhastaKood(kood) {
+    return String(kood || '').replace(/[\s|\u0000-\u001f\u007f]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+
+  /**
+   * Tehase QR-koodist mudel (nimetuse eeltäitmiseks): püstkriipsuga eraldatud viimane osa,
+   * milles pole tühikuid ja on nii tähti kui numbreid, nt "| 4523 85 0C … | M12-18FC" → "M12-18FC".
+   */
+  function tehaseMudel(toores) {
+    var s = String(toores || '');
+    if (s.indexOf('|') < 0) return '';
+    var osad = s.split('|').map(function (o) { return o.trim(); }).filter(Boolean);
+    for (var i = osad.length - 1; i >= 0; i--) {
+      var o = osad[i];
+      if (/^[A-Za-z0-9][A-Za-z0-9.\/-]{1,39}$/.test(o) && /[A-Za-z]/.test(o) && /\d/.test(o)) return o;
+    }
+    return '';
   }
 
   var koodiIndeks = null; // kood (suurtähtedega) → { toode } / { riiul }; luuakse uuesti pärast andmete muutust
@@ -366,6 +390,8 @@
   LAO.riiul = riiul;
   LAO.toode = toode;
   LAO.leiaKoodiga = leiaKoodiga;
+  LAO.puhastaKood = puhastaKood;
+  LAO.tehaseMudel = tehaseMudel;
   LAO.komplektiPohi = komplektiPohi;
   LAO.komplektiOsad = komplektiOsad;
   LAO.esimeneKood = function (t) { return t && t.koodid && t.koodid[0] ? t.koodid[0].kood : ''; };

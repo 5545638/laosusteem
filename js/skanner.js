@@ -118,13 +118,13 @@
     var pausil = false;
     var viimane = { kood: null, aeg: 0 };
 
-    function tuvastatud(kood, allikas) {
-      kood = String(kood || '').trim();
+    function tuvastatud(toores, allikas) {
+      var kood = LAO.puhastaKood(toores); // tehase QR: tühikud ja | → sidekriips
       if (!kood || pausil) return;
       var nuud = Date.now();
       if (allikas === 'kaamera' && kood === viimane.kood && nuud - viimane.aeg < KORDUSE_VAHE_MS) return;
       viimane = { kood: kood, aeg: nuud };
-      kuiKood(kood, new Date());
+      kuiKood(kood, new Date(), String(toores));
     }
 
     vorm.addEventListener('submit', function (e) {

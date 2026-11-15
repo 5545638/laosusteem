@@ -105,7 +105,7 @@ test('vigane sisend', () => {
   assert.strictEqual(A('tooted.lisa', { nimetus: 'X', yhik: 'tonn' }).code, 'VALE_SISEND');
   assert.strictEqual(A('tooted.lisa', { nimetus: 'X', miinimumkogus: -1 }).code, 'VALE_SISEND');
   assert.strictEqual(A('tooted.lisa', { nimetus: 'X', riiul_id: 'pole' }).code, 'VALE_SISEND');
-  assert.strictEqual(A('tooted.lisa', { nimetus: 'X', kood: 'A B' }).code, 'VALE_SISEND');
+  // tühikud koodis on lubatud (tehase QR) – need asendatakse sidekriipsuga, vt test-tehasekood.js
 });
 test('laotöötaja saab kiirlisada, aga mitte algsaldot ega muuta', () => {
   assert(A('tooted.lisa', { nimetus: 'Kiirlisatud', tyyp: 'VARUOSA', kood: 'TOOTJA-XYZ' }, mati).ok);

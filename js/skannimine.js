@@ -72,15 +72,16 @@
   var skanniNr = 0; // iga skänn suurendab – taustal saabunud vastus teab, kas see käib veel praeguse kohta
 
   /** Otsing ainult seadme nimekirjast – serverit ei oodata. */
-  function kuiKood(kood, aeg) {
+  function kuiKood(kood, aeg, toores) {
+    kood = LAO.puhastaKood(kood);
     skanniNr++;
     var t0 = performance.now();
     var leitud = LAO.leiaKoodiga(kood);
     ajad = { otsing: performance.now() - t0 };
     API.mootmine('otsing', ajad.otsing);
     if (leitud) return kasitle(leitud, kood, aeg);
-    if (reziim === 'paiguta') return uusPaigutatav(kood, aeg);
-    tundmatu(kood, aeg);
+    if (reziim === 'paiguta') return uusPaigutatav(kood, aeg, toores);
+    tundmatu(kood, aeg, toores);
   }
 
   function kasitle(leitud, kood, aeg) {
@@ -104,7 +105,7 @@
    * Taustal kontrollitakse serverist, kas keegi on selle koodi vahepeal lisanud – kui jah,
    * suletakse vorm ja jätkatakse olemasoleva tootega.
    */
-  function tundmatu(kood, aeg) {
+  function tundmatu(kood, aeg, toores) {
     LAO.piiks('hoiatus');
     skanner.paus(true);
     var aken = null, salvestatud = false, minu = skanniNr;
@@ -115,7 +116,7 @@
       '<button class="nupp nupp-suur" id="loobu">Loobu</button></div></div>';
     $('#loobu').addEventListener('click', function () { if (aken) aken.close(); valmis(); });
     function avaVorm() {
-      aken = LAO.avaLisaToode({ kood: kood, tyyp: reziim === 'tooriist' ? 'TÖÖRIIST' : 'VARUOSA' }, function (loodud) {
+      aken = LAO.avaLisaToode({ kood: kood, mudel: LAO.tehaseMudel(toores), tyyp: reziim === 'tooriist' ? 'TÖÖRIIST' : 'VARUOSA' }, function (loodud) {
         salvestatud = true;
         var t = LAO.toode(loodud[0].id);
         if (t) kasitle({ toode: t }, kood, aeg); else valmis();
@@ -439,11 +440,11 @@
    * Tundmatu kood PAIGUTA-režiimis: nime ei küsita, kohe palutakse riiul.
    * Toode luuakse riiuli skännimisel ajutise nimega „(nimeta) <kood>”.
    */
-  function uusPaigutatav(kood, aeg) {
+  function uusPaigutatav(kood, aeg, toores) {
     LAO.piiks('hoiatus');
     var minu = skanniNr;
     var tyyp = (paigutatav && paigutatav.uus && paigutatav.tyyp) || 'VARUOSA'; // jäta eelmine valik meelde
-    paigutatav = { uus: true, kood: kood, tyyp: tyyp };
+    paigutatav = { uus: true, kood: kood, tyyp: tyyp, mudel: LAO.tehaseMudel(toores) };
     $('#toiming').innerHTML =
       '<div class="kaart-teade hoiatus"><b>Uus kood:</b> <code>' + esc(kood) + '</code>' +
       '<p>Toode lisatakse ilma nimeta – nime saad lisada hiljem.</p>' +
@@ -462,7 +463,7 @@
       var p = paigutatav;
       skanner.paus(true);
       var salvestatud = false;
-      var aken = LAO.avaLisaToode({ kood: kood, tyyp: p ? p.tyyp : 'VARUOSA' }, function (loodud) {
+      var aken = LAO.avaLisaToode({ kood: kood, mudel: p ? p.mudel : '', tyyp: p ? p.tyyp : 'VARUOSA' }, function (loodud) {
         salvestatud = true;
         var t = LAO.toode(loodud[0].id);
         if (!t) { paigutatav = null; return valmis(); }
@@ -510,7 +511,7 @@
       if (leitud.toode) { paigutatav = leitud.toode; return paigutaRiiulile(riiul); }
     }
     LAO.jarjekord.lisaToode({
-      kood: p.kood, nimetus: LAO.nimetaNimi(p.kood), tyyp: p.tyyp, yhik: 'tk',
+      kood: p.kood, nimetus: LAO.nimetaNimi(p.mudel || p.kood), tyyp: p.tyyp, yhik: 'tk',
       kategooria: '', riiul_id: riiul.id, miinimumkogus: ''
     }).then(function (loodud) {
       naitaTulemust('Uus toode ' + p.kood + ' → riiul ' + riiul.kood + ' (nimi lisamata)', { ok: true }, { id: loodud[0].id }, true);

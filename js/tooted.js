@@ -156,7 +156,7 @@
     var dialog = LAO.modaal(eel.komplekt_id ? 'Lisa komplekti uus osa' : 'Lisa toode', d, function (v) {
       var tyyp = v.tyyp.value;
       var data = {
-        kood: v.kood.value.trim(),
+        kood: LAO.puhastaKood(v.kood.value),
         lisaSisekood: v.lisaSisekood.checked,
         nimetus: v.nimetus.value.trim(),
         tyyp: tyyp,
@@ -219,7 +219,10 @@
         else teade('See pole riiuli kood: ' + kood, 'viga');
       });
     });
+    // Tehase QR-koodist leitud mudel (nt M12-18FC) → nimetuse eeltäide; kursor algusesse („Laadija M12-18FC”)
+    if (eel.mudel && !vorm.nimetus.value) vorm.nimetus.value = eel.mudel;
     (eel.kood ? vorm.nimetus : vorm.kood).focus();
+    if (eel.mudel && eel.kood) try { vorm.nimetus.setSelectionRange(0, 0); } catch (e) { /* vana brauser */ }
     return dialog;
   }
 
@@ -377,8 +380,8 @@
     var kv = $('#koodiVorm');
     kv.addEventListener('submit', function (e) {
       e.preventDefault();
-      if (!kv.kood.value.trim()) { $('#koodiViga').textContent = 'Sisesta kood või vajuta „Genereeri sisekood”.'; return; }
-      lisaKood(t.id, kv.kood.value.trim(), kv.koodiTyyp.value);
+      if (!LAO.puhastaKood(kv.kood.value)) { $('#koodiViga').textContent = 'Sisesta kood või vajuta „Genereeri sisekood”.'; return; }
+      lisaKood(t.id, LAO.puhastaKood(kv.kood.value), kv.koodiTyyp.value);
     });
     $('#genereeri').addEventListener('click', function () { lisaKood(t.id, '', ''); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-eemalda]'), function (b) {
@@ -498,7 +501,7 @@
         $('#osaViga').textContent = err.message;
       });
     }
-    ov.addEventListener('submit', function (e) { e.preventDefault(); lisaOsaKoodiga(ov.kood.value.trim()); });
+    ov.addEventListener('submit', function (e) { e.preventDefault(); lisaOsaKoodiga(LAO.puhastaKood(ov.kood.value)); });
     $('#osaSkanni').addEventListener('click', function () {
       LAO.skanniUksKood('Skänni komplekti osa silt').then(function (kood) { if (kood) lisaOsaKoodiga(kood); });
     });

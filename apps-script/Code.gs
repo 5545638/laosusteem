@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 
 var SEADED = {
-  VERSIOON: '1.7.0-komplekt',
+  VERSIOON: '1.7.1-tehasekood',
   SEANSI_KEHTIVUS_PAEVI: 30,      // Mitu päeva telefon sisselogimist meeles peab
   // Aegunud/lukustatud seansi rida hoitakse veel nii mitu päeva alles, et lukustatud
   // kasutaja telefonist hiljem saabuvad liikumised saaks tema nimel KONFLIKTIDE alla panna.
@@ -1116,7 +1116,7 @@ function tTootedLisa_(data, kasutaja) {
   if (kasutaja.lukustatud && !data.vorguta) throw new ApiViga_('Kasutaja on lukustatud. Pöördu admini poole.', 'SEANSS_KEHTETU');
   var ctx = looKontekst_();
   if (data.id && ctx.tooted[data.id]) return [tooteKokkuvote_(ctx, data.id, { duplikaat: true })];
-  var kood = String(data.kood || '').trim();
+  var kood = puhastaKood_(data.kood);
   var omanik = data.vorguta && kood ? ctx.koodiOmanik(kood) : null;
   if (omanik && omanik.toode) return [tooteKokkuvote_(ctx, omanik.toode, { yhendatud: true })];
   var tulemus = lisaToode_(ctx, data, kasutaja);
@@ -1419,7 +1419,7 @@ function lisaToode_(ctx, data, kasutaja) {
   var miinimum = tyyp === TYYP.VARUOSA ? kontrolliMiinimum_(data.miinimumkogus) : '';
   var eksemplare = tyyp === TYYP.TOORIIST && data.eksemplare ? taisarv_(data.eksemplare, 'Eksemplaride arv') : 1;
   if (eksemplare < 1 || eksemplare > 100) throw new ApiViga_('Eksemplaride arv peab olema 1–100.', 'VALE_SISEND');
-  var kood = String(data.kood || '').trim();
+  var kood = puhastaKood_(data.kood);
   if (kood && eksemplare > 1) {
     throw new ApiViga_('Mitme eksemplari korral saab iga eksemplar oma T-koodi. Tootja koodi saab lisada ühe eksemplari kaardil.', 'VALE_SISEND');
   }
@@ -1479,14 +1479,13 @@ function lisaToode_(ctx, data, kasutaja) {
  * vastavalt toote tüübile (V-00001 varuosale, T-00001 tööriistale).
  */
 function lisaKood_(ctx, tooteId, tooteTyyp, kood, koodiTyyp) {
-  kood = String(kood || '').trim();
+  kood = puhastaKood_(kood);
   if (!kood) {
     var loendur = tooteTyyp === TYYP.TOORIIST ? 'TÖÖRIIST' : 'VARUOSA';
     var eesliide = tooteTyyp === TYYP.TOORIIST ? 'T-' : 'V-';
     do { kood = eesliide + taida_(ctx.jargmine(loendur), SEADED.SISEKOODI_NUMBRI_KOHTI); } while (ctx.koodiOmanik(kood));
     koodiTyyp = 'SISEKOOD';
   } else {
-    if (/\s/.test(kood)) throw new ApiViga_('Kood ei tohi sisaldada tühikuid.', 'VALE_SISEND');
     if (ctx.koodiOmanik(kood)) throw new ApiViga_('Kood ' + kood + ' on juba kasutusel.', 'DUPLIKAAT');
     if (!koodiTyyp) koodiTyyp = tuvastaKoodiTyyp_(kood);
     if (KOODI_TYYBID.indexOf(koodiTyyp) < 0) throw new ApiViga_('Tundmatu koodi tüüp: ' + koodiTyyp, 'VALE_SISEND');
@@ -1530,9 +1529,19 @@ function normRiiuliKood_(kood) {
   return k.indexOf('R-') === 0 ? k : 'R-' + k;
 }
 
-/** Koodide võrdlemiseks: tühikud eemaldatud, suurtähed. */
+/** Koodide võrdlemiseks: puhastatud (vt puhastaKood_), suurtähed. */
 function normKood_(kood) {
-  return String(kood || '').trim().toUpperCase();
+  return puhastaKood_(kood).toUpperCase();
+}
+
+/**
+ * Tehase QR-koodid sisaldavad tühikuid ja püstkriipse, nt
+ * "| 4523 85 0C 00000589 K2025 | M12-18FC". Iga tühikute/püstkriipsude/juhtmärkide
+ * jada asendatakse ühe sidekriipsuga: "4523-85-0C-00000589-K2025-M12-18FC".
+ * Sama reegel on esipaneelil (LAO.puhastaKood failis js/andmed.js) – hoia need ühesugused.
+ */
+function puhastaKood_(kood) {
+  return String(kood || '').replace(/[\s|\u0000-\u001f\u007f]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 /**
