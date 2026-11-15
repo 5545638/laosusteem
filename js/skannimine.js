@@ -44,11 +44,12 @@
         '  <div class="reziimi-riba"><a href="#/avaleht" class="tagasi" aria-label="Tagasi">←</a><b>' + R.pealkiri + '</b></div>' +
         '  <div id="skanner"></div>' +
         '  <div id="tulemus"></div>' +
-        '  <div id="toiming"><p class="juhis">' + esc(R.vihje) + '</p></div>' +
+        '  <div id="toiming"></div>' +
         '</section>';
       skanner = LAO.looSkanner($('#skanner'), kuiKood, { vihje: R.vihje });
       LAO.aktiivneSkanner = skanner;
       LAO.kuiLahkud = function () { skanner.peata(); LAO.aktiivneSkanner = null; };
+      naitaJuhis();
 
       // Värskenda nimekirja taustal (nimetused ja saldod on kohe seadmest olemas)
       LAO.taustaUuendus(); // kui viimasest laadimisest on üle minuti
@@ -59,9 +60,90 @@
 
   /** Lähtestab toimingu ala ja jätkab skännimist. */
   function valmis(juhis) {
-    $('#toiming').innerHTML = '<p class="juhis">' + esc(juhis || REZIIMID[reziim].vihje) + '</p>';
+    naitaJuhis(juhis);
     skanner.paus(false);
     skanner.fookus();
+  }
+
+  /** Juhis + nupp „Otsi nime järgi” (väljastamine/tagastus ilma skännimata). */
+  function naitaJuhis(juhis) {
+    $('#toiming').innerHTML = '<p class="juhis">' + esc(juhis || REZIIMID[reziim].vihje) + '</p>' +
+      '<div class="nupurida"><button type="button" class="nupp nupp-suur otsi-nupp" id="otsiNupp">🔍 Otsi nime järgi</button></div>';
+    $('#otsiNupp').addEventListener('click', function () { naitaOtsing(''); });
+  }
+
+  // -------------------------------------------------------------------------
+  // OTSING ILMA SKÄNNIMATA
+  // -------------------------------------------------------------------------
+
+  var OTSINGU_MAX = 40;
+
+  /** Seadme nimekirjast tooted, mis sobivad praegusesse vaatesse (TÖÖRIIST → tööriistad, SISSE/VÄLJA → varuosad). */
+  function otsiTooteid(paring) {
+    var sonad = String(paring || '').toLowerCase().split(/\s+/).filter(Boolean);
+    return LAO.andmed.tooted.filter(function (t) {
+      if (t.arhiveeritud) return false;
+      if (reziim === 'tooriist' && t.tyyp !== 'TÖÖRIIST') return false;
+      if ((reziim === 'sisse' || reziim === 'valja') && t.tyyp === 'TÖÖRIIST') return false;
+      if (!sonad.length) return true;
+      var pohi = LAO.komplektiPohi(t), r = LAO.riiul(t.riiul_id);
+      var tekst = (t.nimetus + ' ' + (t.kategooria || '') + ' ' + t.koodid.map(function (k) { return k.kood; }).join(' ') +
+        (pohi ? ' ' + pohi.nimetus : '') + (r ? ' ' + r.kood : '') + (t.kellele ? ' ' + t.kellele : '')).toLowerCase();
+      return sonad.every(function (s) { return tekst.indexOf(s) >= 0; });
+    }).sort(function (a, b) { return a.nimetus.localeCompare(b.nimetus, 'et', { numeric: true }); });
+  }
+
+  /** Otsingulahter + nimekiri; valik viib sama vormini nagu skännimine. Skänner jääb tööle. */
+  function naitaOtsing(algus, uus) {
+    var tooriist = reziim === 'tooriist';
+    $('#toiming').innerHTML =
+      '<form id="otsinguVorm" class="otsing" autocomplete="off">' +
+      '  <input type="search" name="q" placeholder="Nimi, kood, kategooria või riiul' + (tooriist ? ' (ka kellel väljas)' : '') + '" enterkeyhint="search">' +
+      '</form>' +
+      '<p class="vaike" id="otsinguArv"></p>' +
+      '<div class="valiknimekiri" id="otsinguTulemus"></div>' +
+      '<div class="nupurida nupurida-vasak"><button type="button" class="nupp nupp-suur" id="loobu">Tagasi</button>' +
+      (uus ? '<button type="button" class="nupp nupp-suur" id="uusKood">+ Lisa uus kood ' + esc(uus.kood) + '</button>' : '') + '</div>';
+    if (uus) $('#uusKood').addEventListener('click', function () {
+      if (reziim === 'paiguta') uusPaigutatav(uus.kood, uus.aeg, uus.toores); else tundmatu(uus.kood, uus.aeg, uus.toores);
+    });
+    var vorm = $('#otsinguVorm'), sisend = vorm.q;
+    sisend.value = algus || '';
+    var list = [];
+    function joonista() {
+      list = otsiTooteid(sisend.value);
+      var naita = list.slice(0, OTSINGU_MAX);
+      $('#otsinguArv').textContent = !list.length ? 'Ühtegi ' + (tooriist ? 'tööriista' : 'toodet') + ' ei leitud.' :
+        list.length > naita.length ? 'Leiti ' + list.length + ', näidatakse ' + naita.length + ' – kitsenda otsingut.' :
+        (sisend.value.trim() ? 'Leiti ' + list.length + '.' : 'Vali nimekirjast või kirjuta otsingusse.');
+      $('#otsinguTulemus').innerHTML = naita.map(function (t) {
+        var r = LAO.riiul(t.riiul_id), pohi = LAO.komplektiPohi(t);
+        return '<button type="button" class="valik" data-id="' + esc(t.id) + '"><span>' + esc(t.nimetus) +
+          '<span class="vaike valik-info"><code>' + esc(LAO.esimeneKood(t)) + '</code>' + (r ? ' · ' + esc(r.kood) : '') +
+          (pohi ? ' · kuulub: ' + esc(pohi.nimetus) : '') + '</span></span>' + LAO.seisHtml(t) + '</button>';
+      }).join('');
+    }
+    var taimer = null;
+    sisend.addEventListener('input', function () { clearTimeout(taimer); taimer = setTimeout(joonista, 120); });
+    vorm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      clearTimeout(taimer);
+      var q = sisend.value.trim();
+      if (!q) return;
+      // USB-skänner kirjutas koodi otsingusse – käitu nagu skänn
+      if (LAO.leiaKoodiga(LAO.puhastaKood(q))) return kuiKood(q, new Date(), q);
+      joonista();
+      if (list.length === 1) kasitle({ toode: list[0] }, '', new Date());
+    });
+    $('#otsinguTulemus').addEventListener('click', function (e) {
+      var b = e.target.closest('.valik');
+      if (!b) return;
+      var t = LAO.toode(b.dataset.id);
+      if (t) kasitle({ toode: t }, '', new Date());
+    });
+    $('#loobu').addEventListener('click', function () { valmis(); });
+    joonista();
+    sisend.focus();
   }
 
   // -------------------------------------------------------------------------
@@ -72,7 +154,7 @@
   var skanniNr = 0; // iga skänn suurendab – taustal saabunud vastus teab, kas see käib veel praeguse kohta
 
   /** Otsing ainult seadme nimekirjast – serverit ei oodata. */
-  function kuiKood(kood, aeg, toores) {
+  function kuiKood(kood, aeg, toores, allikas) {
     kood = LAO.puhastaKood(kood);
     skanniNr++;
     var t0 = performance.now();
@@ -80,6 +162,8 @@
     ajad = { otsing: performance.now() - t0 };
     API.mootmine('otsing', ajad.otsing);
     if (leitud) return kasitle(leitud, kood, aeg);
+    // Käsitsi kirjutatud nimi (mitte kood) → näita nimeotsingu tulemusi, mitte uue toote vormi
+    if (allikas === 'kasitsi' && toores && otsiTooteid(toores).length) { LAO.piiks('hoiatus'); return naitaOtsing(String(toores).trim(), { kood: kood, aeg: aeg, toores: toores }); }
     if (reziim === 'paiguta') return uusPaigutatav(kood, aeg, toores);
     tundmatu(kood, aeg, toores);
   }
