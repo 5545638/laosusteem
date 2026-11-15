@@ -124,7 +124,7 @@
       var nuud = Date.now();
       if (allikas === 'kaamera' && kood === viimane.kood && nuud - viimane.aeg < KORDUSE_VAHE_MS) return;
       viimane = { kood: kood, aeg: nuud };
-      kuiKood(kood, new Date(), String(toores));
+      kuiKood(kood, new Date(), String(toores), allikas);
     }
 
     vorm.addEventListener('submit', function (e) {

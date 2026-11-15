@@ -328,3 +328,9 @@ a.avalehe-teade { display: block; text-decoration: none; }
 .komplekt-valik { margin: 12px 0 0; padding: 8px 12px; border: 1px solid #d0d7e2; border-radius: 8px; }
 .komplekt-valik legend { font-weight: 600; padding: 0 4px; }
 .komplekt-valik .linnuke { margin: 0; padding: 6px 0; }
+
+/* Otsing ilma skännimata */
+.otsi-nupp { width: 100%; }
+#toiming > .otsing { margin-top: 12px; }
+.otsing input { width: 100%; font-size: 18px; padding: 12px 14px; box-sizing: border-box; }
+.valik-info { display: block; margin-top: 2px; }
