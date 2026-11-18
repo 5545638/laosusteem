@@ -296,5 +296,6 @@ Eeldus: uus `Code.gs` on Apps Scripti kleebitud ja juurutatud uue versioonina (f
 | 7 | Skänni väljas olev trell uuesti | Linnukesed „Tagasta koos” (samale isikule antud osad) → TAGASTA LATTU toob kõik lattu |
 | 8 | Anna välja ainult aku (skänni aku) | Trell jääb lattu; trelli kaardil on aku real „VÄLJA ANTUD” |
 | 9 | Osa kaardil **Eemalda komplektist** | Osa on jälle iseseisev tööriist |
+| 10 | Trelli kaardil **🖨 Prindi komplekti sildid** (v30) | Aknas on eelvaates trelli ja kõigi osade sildid järjest; lindipõhjaga küsib Prindi / Jaga pildina „Üks riba” või „Eraldi sildid” |
 
 Automaattest: `node tests/test-komplekt.js`.
