@@ -256,9 +256,11 @@
       viimaneViga = err.message;
       return false;
     }).then(function (saatisMidagi) {
+      // kaib ja saatmisel nullitakse enne kõike muud: kui siin midagi viskab,
+      // ei tohi saatmine jääda igaveseks „Saadan…” olekusse.
       kaib = null;
       saatmisel = {};
-      LAO.rakendaOotel();
+      try { LAO.rakendaOotel(); } catch (e) { viimaneViga = e.message; }
       uuendaOlekuriba();
       // Pärast edukat saatmist värskenda kogu nimekiri serverist
       if (saatisMidagi && API.seanss()) LAO.laeAndmed().catch(function () {});
