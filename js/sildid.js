@@ -34,6 +34,7 @@
   var sisu = document.getElementById('sisu');
   var POHI_VOTI = 'lao.sildipohi';
   var EELISTA_VOTI = 'lao.eelistaSisekoodi';
+  var KOMPLEKT_QR_VOTI = 'lao.komplektAinultQr';
 
   var VAIKIMISI_POHJAD = [
     { id: 'V1', nimi: 'Tootesilt 62×29 mm (rull)', laius_mm: 62, korgus_mm: 29, paigutus: 'TOODE',
@@ -928,12 +929,16 @@
     var eelista = false;
     try { eelista = localStorage.getItem(EELISTA_VOTI) === '1'; } catch (e) { /* ignoreeri */ }
     var vaikePohi = r ? 'V2' : (t.tyyp === 'TÖÖRIIST' && valitudPohiId() === 'V1' ? 'V3' : valitudPohiId());
+    // Komplekti sildid vaikimisi ainult QR-iga (valik jääb seadmes meelde); üksiksilt nagu enne
+    var qrVaikimisi = false;
+    try { qrVaikimisi = mitu.length > 1 && localStorage.getItem(KOMPLEKT_QR_VOTI) !== '0'; } catch (e) { qrVaikimisi = mitu.length > 1; }
     var d = LAO.modaal(mis.pealkiri || 'Prindi silt: ' + (t ? t.nimetus : r.kood),
       '<form>' +
       '<label>Sildipõhi<select name="pohi"></select></label>' +
       '<div class="valjarida2"><label>' + (mitu.length > 1 ? 'Igast sildist tk' : 'Siltide arv') + '<input name="kogus" type="number" min="1" max="999" value="1"></label>' +
       '<label class="ainult-a4" hidden>Alusta kleebisest nr<input name="algus" type="number" min="1" value="1"></label></div>' +
       (mitu.some(function (x) { return x.koodid.length > 1; }) ? '<label class="linnuke"><input type="checkbox" name="sise"' + (eelista ? ' checked' : '') + '> Eelista sisekoodi</label>' : '') +
+      (t ? '<label class="linnuke"><input type="checkbox" name="ainultQr"' + (qrVaikimisi ? ' checked' : '') + '> Ainult QR (ilma koodi ja nimeta – võtab vähem linti)</label>' : '') +
       '<div class="sildid-eelvaade kiir-eelvaade"></div>' +
       '<p class="vaike kiir-paber"></p>' +
       '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
@@ -947,7 +952,9 @@
     function sildid() {
       if (!t) return [riiulist(r)];
       var sise = vorm.sise ? vorm.sise.checked : eelista;
-      return mitu.map(function (x) { return tootest(x, sise); }).filter(function (s) { return s.kood; });
+      var qr = vorm.ainultQr.checked;
+      return mitu.map(function (x) { return tootest(x, sise); }).filter(function (s) { return s.kood; })
+        .map(function (s) { s.ainultQr = qr; return s; });
     }
     function joonista() {
       var p = leiaPohi(vorm.pohi.value), list = sildid();
@@ -966,6 +973,10 @@
     vorm.pohi.addEventListener('change', function () { vaikePohi = vorm.pohi.value; joonista(); });
     d.querySelector('[data-jaga]').addEventListener('click', function () { jagaPildina(sildid(), leiaPohi(vorm.pohi.value)); });
     if (vorm.sise) vorm.sise.addEventListener('change', joonista);
+    if (vorm.ainultQr) vorm.ainultQr.addEventListener('change', function () {
+      if (mitu.length > 1) { try { localStorage.setItem(KOMPLEKT_QR_VOTI, vorm.ainultQr.checked ? '1' : '0'); } catch (e) { /* ignoreeri */ } }
+      joonista();
+    });
     pohjad();
     (pohjadLaetud || laePohjad()).then(pohjad);
   }
