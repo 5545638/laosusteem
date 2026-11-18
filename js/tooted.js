@@ -455,7 +455,8 @@
       '    <div class="nupurida"><button type="button" id="osaSkanni" class="nupp">📷 Skänni osa</button>' +
       '      <button type="submit" class="nupp nupp-pohi">Lisa osaks</button></div>' +
       '    <div class="nupurida nupurida-vasak"><button type="button" id="osaUus" class="nupp"' +
-      (t.ootel ? ' disabled title="Tööriist on veel serverisse saatmata"' : '') + '>+ Lisa uus osa</button></div>' +
+      (t.ootel ? ' disabled title="Tööriist on veel serverisse saatmata"' : '') + '>+ Lisa uus osa</button>' +
+      (osad.length ? '<button type="button" id="osadPrindi" class="nupp">🖨 Prindi komplekti sildid</button>' : '') + '</div>' +
       '    <p class="vormi-viga" id="osaViga"></p>' +
       '  </form>' +
       '</section>';
@@ -504,6 +505,14 @@
     ov.addEventListener('submit', function (e) { e.preventDefault(); lisaOsaKoodiga(LAO.puhastaKood(ov.kood.value)); });
     $('#osaSkanni').addEventListener('click', function () {
       LAO.skanniUksKood('Skänni komplekti osa silt').then(function (kood) { if (kood) lisaOsaKoodiga(kood); });
+    });
+    // Kõik komplekti sildid järjest: põhitööriist + osad (saatmata osal pole veel koodi)
+    var prindi = $('#osadPrindi');
+    if (prindi) prindi.addEventListener('click', function () {
+      LAO.kiirprint({
+        tooted: [t.id].concat(LAO.komplektiOsad(t).map(function (o) { return o.id; })),
+        pealkiri: 'Komplekti sildid: ' + t.nimetus
+      });
     });
     $('#osaUus').addEventListener('click', function () {
       avaLisaToode({ tyyp: 'TÖÖRIIST', komplekt_id: t.id, kategooria: t.kategooria, riiul_id: t.riiul_id },

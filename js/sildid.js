@@ -917,36 +917,45 @@
 
   /**
    * Avab akna ühe toote/riiuli sildi printimiseks.
-   * mis: { toode: id } või { riiul: id }
+   * mis: { toode: id } või { riiul: id } või { tooted: [id, …], pealkiri } – mitu toodet järjest
+   * (komplekt: põhitööriist + osad; lindipõhjal saab valida „Üks riba” või „Eraldi sildid”).
    */
   function kiirprint(mis) {
-    var t = mis.toode && LAO.toode(mis.toode), r = mis.riiul && LAO.riiul(mis.riiul);
+    var mitu = (mis.tooted || []).map(function (id) { return LAO.toode(id); }).filter(function (x) { return !!x; });
+    var t = mitu[0] || (mis.toode && LAO.toode(mis.toode)), r = mis.riiul && LAO.riiul(mis.riiul);
     if (!t && !r) { teade('Ei leitud.', 'viga'); return; }
+    if (!mitu.length && t) mitu = [t];
     var eelista = false;
     try { eelista = localStorage.getItem(EELISTA_VOTI) === '1'; } catch (e) { /* ignoreeri */ }
     var vaikePohi = r ? 'V2' : (t.tyyp === 'TÖÖRIIST' && valitudPohiId() === 'V1' ? 'V3' : valitudPohiId());
-    var d = LAO.modaal('Prindi silt: ' + (t ? t.nimetus : r.kood),
+    var d = LAO.modaal(mis.pealkiri || 'Prindi silt: ' + (t ? t.nimetus : r.kood),
       '<form>' +
       '<label>Sildipõhi<select name="pohi"></select></label>' +
-      '<div class="valjarida2"><label>Siltide arv<input name="kogus" type="number" min="1" max="999" value="1"></label>' +
+      '<div class="valjarida2"><label>' + (mitu.length > 1 ? 'Igast sildist tk' : 'Siltide arv') + '<input name="kogus" type="number" min="1" max="999" value="1"></label>' +
       '<label class="ainult-a4" hidden>Alusta kleebisest nr<input name="algus" type="number" min="1" value="1"></label></div>' +
-      (t && t.koodid.length > 1 ? '<label class="linnuke"><input type="checkbox" name="sise"' + (eelista ? ' checked' : '') + '> Eelista sisekoodi</label>' : '') +
+      (mitu.some(function (x) { return x.koodid.length > 1; }) ? '<label class="linnuke"><input type="checkbox" name="sise"' + (eelista ? ' checked' : '') + '> Eelista sisekoodi</label>' : '') +
       '<div class="sildid-eelvaade kiir-eelvaade"></div>' +
       '<p class="vaike kiir-paber"></p>' +
       '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
       '<button type="button" class="nupp" data-jaga>📤 Jaga pildina</button>' +
       '<button type="submit" class="nupp nupp-pohi">🖨 Prindi</button></div></form>',
       function (v) {
-        prindi(laiali([{ silt: silt(), kogus: v.kogus.value }]), leiaPohi(v.pohi.value), v.algus.value);
+        prindi(laiali(sildid().map(function (s) { return { silt: s, kogus: v.kogus.value }; })), leiaPohi(v.pohi.value), v.algus.value);
         return Promise.resolve();
       });
     var vorm = d.querySelector('form');
-    function silt() { return t ? tootest(t, vorm.sise ? vorm.sise.checked : eelista) : riiulist(r); }
+    function sildid() {
+      if (!t) return [riiulist(r)];
+      var sise = vorm.sise ? vorm.sise.checked : eelista;
+      return mitu.map(function (x) { return tootest(x, sise); }).filter(function (s) { return s.kood; });
+    }
     function joonista() {
-      var p = leiaPohi(vorm.pohi.value);
+      var p = leiaPohi(vorm.pohi.value), list = sildid();
       d.querySelector('.ainult-a4').hidden = p.paigutus !== 'A4';
-      d.querySelector('.kiir-eelvaade').innerHTML = '<div class="eelvaade-sisu">' + sildiHtml(silt(), p, []) + '</div>';
-      d.querySelector('.kiir-paber').innerHTML = paberiVihje([silt()], p);
+      d.querySelector('.kiir-eelvaade').innerHTML = list.map(function (s) {
+        return '<div class="eelvaade-sisu">' + sildiHtml(s, p, []) + '</div>';
+      }).join('');
+      d.querySelector('.kiir-paber').innerHTML = paberiVihje(list, p);
     }
     function pohjad() {
       vorm.pohi.innerHTML = koikPohjad().map(function (p) {
@@ -955,7 +964,7 @@
       joonista();
     }
     vorm.pohi.addEventListener('change', function () { vaikePohi = vorm.pohi.value; joonista(); });
-    d.querySelector('[data-jaga]').addEventListener('click', function () { jagaPildina([silt()], leiaPohi(vorm.pohi.value)); });
+    d.querySelector('[data-jaga]').addEventListener('click', function () { jagaPildina(sildid(), leiaPohi(vorm.pohi.value)); });
     if (vorm.sise) vorm.sise.addEventListener('change', joonista);
     pohjad();
     (pohjadLaetud || laePohjad()).then(pohjad);
