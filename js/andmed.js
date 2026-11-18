@@ -24,7 +24,7 @@
   var andmed = { tooted: [], riiulid: [], masinad: [], kelleleSoovitused: [], minuKonfliktid: [], konfliktideArv: null, laetud: null };
   try {
     var vana = JSON.parse(localStorage.getItem(VOTI) || 'null');
-    if (vana && vana.tooted) andmed = vana;
+    if (vana && Array.isArray(vana.tooted) && Array.isArray(vana.riiulid)) andmed = vana;
   } catch (e) { /* ignoreeri */ }
 
   // -------------------------------------------------------------------------
@@ -54,7 +54,7 @@
     return idb('readonly', function (s) { return s.get('andmed'); });
   }).then(function (v) {
     // Võta seadme mälust, kui seal on värskem kui localStorage'is (üleminekul on vastupidi)
-    if (v && v.tooted && !(andmed.laetud && v.laetud && andmed.laetud > v.laetud)) {
+    if (v && Array.isArray(v.tooted) && Array.isArray(v.riiulid) && !(andmed.laetud && v.laetud && andmed.laetud > v.laetud)) {
       Object.keys(v).forEach(function (k) { andmed[k] = v[k]; });
     }
     if (window.localStorage && localStorage.getItem(VOTI)) salvestaKohe();
@@ -99,6 +99,15 @@
     if (laadimas) return laadimas;
     var algus = Date.now();
     laadimas = API.kutsu('andmed').then(function (d) {
+      // Vigane vastus (nt vana või poolik juurutus) ei tohi seadme nimekirja ära rikkuda:
+      // varem jäi andmed.tooted siis tühjaks (undefined) ja sünkroonimine jäi „Saadan…” peale kinni.
+      if (!d || !Array.isArray(d.tooted) || !Array.isArray(d.riiulid)) {
+        var valjad = d && typeof d === 'object' ? Object.keys(d).join(', ') : typeof d;
+        var viga = new Error('Server saatis toodete nimekirja vales vormis (' + (valjad || 'tühi') +
+          '). Seadmes olev nimekiri jäi alles. Kontrolli, et Apps Scripti juurutus on uusim.');
+        viga.kood = 'VALE_VASTUS';
+        throw viga;
+      }
       viimatiLaetud = Date.now();
       // Kui päringu ajal jõudis serverist mõne toote uuem seis (saadetud liikumise vastus),
       // jääb see alles – muidu kaoks just saadetud liikumise mõju kuni järgmise laadimiseni.
@@ -156,6 +165,9 @@
    * Kutsutakse andmete laadimisel ja iga järjekorra muutuse järel.
    */
   function rakendaOotel() {
+    // Igaks juhuks: rikutud nimekiri ei tohi saatmist ega vaateid katki teha
+    if (!Array.isArray(andmed.tooted)) andmed.tooted = [];
+    if (!Array.isArray(andmed.riiulid)) andmed.riiulid = [];
     var ootel = LAO.jarjekord ? LAO.jarjekord.kirjed().filter(function (k) { return k.olek !== 'viga'; }) : [];
     var ootelTooted = {};
     ootel.forEach(function (k) { if (k.liik === 'toode') ootelTooted[k.andmed.id] = k.andmed; });
