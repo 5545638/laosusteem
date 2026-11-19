@@ -95,7 +95,8 @@
     if (LAO.uuendaOlekuriba) LAO.uuendaOlekuriba();
   }
 
-  $('#valjaNupp').addEventListener('click', function () {
+  /** Väljalogimine (nupp on SEADED-is, et seda kogemata ei vajutaks). */
+  function logiValja() {
     var s = API.seanss();
     var ootel = s && LAO.jarjekord ? LAO.jarjekord.ootelArv(s.kasutaja.id) : 0;
     if (ootel) {
@@ -109,7 +110,7 @@
     }
     API.salvestaSeanss(null);
     location.hash = '#/login';
-  });
+  }
 
   // Kui server ütleb, et seanss on kehtetu (aegunud või kasutaja lukustatud).
   API.kuiSeanssKehtetu = function (pohjus) {
@@ -217,37 +218,41 @@
   // -------------------------------------------------------------------------
 
   /**
-   * Menüü kirjed. "etapp" näitab, millises etapis vaade valmib; kuni selleni
-   * on nupp hall. admin: true = näha ainult adminile.
+   * Menüü kirjed. grupp: 'pohi' = suured tegevusnupud üleval, 'ylevaade' = keskmised,
+   * 'muu' = väikesed nupud all. admin: true = näha ainult adminile.
    */
   var MENYY = [
-    { pealkiri: 'SISSE', kirjeldus: 'Kauba vastuvõtt', href: '#/sisse', etapp: 3 },
-    { pealkiri: 'VÄLJA', kirjeldus: 'Kauba väljastamine', href: '#/valja', etapp: 3 },
-    { pealkiri: 'TÖÖRIIST', kirjeldus: 'Välja / tagasi', href: '#/tooriist', etapp: 3 },
-    { pealkiri: 'PAIGUTA', kirjeldus: 'Toode → riiul (ka uus toode)', href: '#/paiguta', etapp: 3 },
-    { pealkiri: 'LADU', kirjeldus: 'Saldod ja otsing', href: '#/ladu', etapp: 6 },
-    { pealkiri: 'VÄLJAS OLEVAD', kirjeldus: 'Tööriistad väljas', href: '#/valjas', etapp: 6 },
-    { pealkiri: 'AJALUGU', kirjeldus: 'Kõik liikumised', href: '#/ajalugu', etapp: 6 },
-    { pealkiri: 'TOOTED', kirjeldus: 'Lisa ja muuda', href: '#/tooted', etapp: 2, admin: true },
-    { pealkiri: 'RIIULID', kirjeldus: 'Asukohad', href: '#/riiulid', etapp: 2, admin: true },
-    { pealkiri: 'SILDID', kirjeldus: 'Sildiprint', href: '#/sildid', etapp: 5, admin: true },
-    { pealkiri: 'KASUTAJAD', kirjeldus: 'Kasutajate haldus', href: '#/kasutajad', etapp: 1, admin: true },
-    { pealkiri: 'KONFLIKTID', kirjeldus: 'Vajavad ülevaatust', href: '#/konfliktid', etapp: 4, admin: true },
-    { pealkiri: 'SEADED', kirjeldus: 'API aadress', href: '#/seaded', etapp: 1 }
+    { pealkiri: '📷 SKÄNNI', kirjeldus: 'Skänni ükskõik mida – rakendus pakub tegevuse', href: '#/skanni', grupp: 'suur' },
+    { pealkiri: 'SISSE', kirjeldus: 'Kauba vastuvõtt', href: '#/sisse', grupp: 'pohi', klass: 'paan-sisse' },
+    { pealkiri: 'VÄLJA', kirjeldus: 'Kauba väljastamine', href: '#/valja', grupp: 'pohi', klass: 'paan-valja' },
+    { pealkiri: 'TÖÖRIIST', kirjeldus: 'Välja / tagasi', href: '#/tooriist', grupp: 'pohi', klass: 'paan-tooriist' },
+    { pealkiri: 'PAIGUTA', kirjeldus: 'Toode → riiul', href: '#/paiguta', grupp: 'pohi', klass: 'paan-paiguta' },
+    { pealkiri: 'LADU', kirjeldus: 'Saldod ja otsing', href: '#/ladu', grupp: 'ylevaade' },
+    { pealkiri: 'VÄLJAS', kirjeldus: 'Tööriistad väljas', href: '#/valjas', grupp: 'ylevaade' },
+    { pealkiri: 'Ajalugu', href: '#/ajalugu', grupp: 'muu' },
+    { pealkiri: 'Tooted', href: '#/tooted', grupp: 'muu', admin: true },
+    { pealkiri: 'Riiulid', href: '#/riiulid', grupp: 'muu', admin: true },
+    { pealkiri: 'Sildid', href: '#/sildid', grupp: 'muu', admin: true },
+    { pealkiri: 'Kasutajad', href: '#/kasutajad', grupp: 'muu', admin: true },
+    { pealkiri: 'Konfliktid', href: '#/konfliktid', grupp: 'muu', admin: true },
+    { pealkiri: 'Seaded', href: '#/seaded', grupp: 'muu' }
   ];
-  var VALMIS_ETAPP = 6; // tõsta pärast iga etapi valmimist
 
   function vaadeAvaleht(param, varske) {
     var admin = onAdmin();
-    var nupud = MENYY.filter(function (m) { return !m.admin || admin; }).map(function (m) {
-      var valmis = m.etapp <= VALMIS_ETAPP;
-      // KONFLIKTID-paanil lahendamata konfliktide arv
-      var arv = m.href === '#/konfliktid' && LAO.andmed && LAO.andmed.konfliktideArv
-        ? ' <span class="arvumark">' + LAO.andmed.konfliktideArv + '</span>' : '';
-      return valmis
-        ? '<a class="paan' + (arv ? ' paan-hoiatus' : '') + '" href="' + m.href + '"><b>' + esc(m.pealkiri) + arv + '</b><span>' + esc(m.kirjeldus) + '</span></a>'
-        : '<span class="paan paan-tulekul"><b>' + esc(m.pealkiri) + '</b><span>Tuleb etapis ' + m.etapp + '</span></span>';
-    }).join('');
+    function paanid(grupp) {
+      return MENYY.filter(function (m) { return m.grupp === grupp && (!m.admin || admin); }).map(function (m) {
+        // Konfliktide nupul lahendamata konfliktide arv
+        var arv = m.href === '#/konfliktid' && LAO.andmed && LAO.andmed.konfliktideArv
+          ? ' <span class="arvumark">' + LAO.andmed.konfliktideArv + '</span>' : '';
+        return '<a class="paan ' + (m.klass || '') + (arv ? ' paan-hoiatus' : '') + '" href="' + m.href + '"><b>' + esc(m.pealkiri) + arv + '</b>' +
+          (m.kirjeldus ? '<span>' + esc(m.kirjeldus) + '</span>' : '') + '</a>';
+      }).join('');
+    }
+    var nupud = '<div class="paanid paanid-suur">' + paanid('suur') + '</div>' +
+      '<div class="paanid">' + paanid('pohi') + '</div>' +
+      '<div class="paanid">' + paanid('ylevaade') + '</div>' +
+      '<div class="paanid paanid-vaike">' + paanid('muu') + '</div>';
     // Kasutaja enda liikumised, mille server märkis konfliktiks
     var minu = (LAO.andmed && LAO.andmed.minuKonfliktid) || [];
     var hoiatus = minu.length
@@ -261,7 +266,7 @@
       hoiatus += '<a class="kaart-teade info avalehe-teade" href="#/tooted/nimeta">✎ <b>' + nimeta + ' tootel' +
         ' on nimi lisamata.</b> Vajuta, et nimed lisada.</a>';
     }
-    sisu.innerHTML = '<section>' + hoiatus + '<div class="paanid">' + nupud + '</div></section>';
+    sisu.innerHTML = '<section class="avaleht">' + hoiatus + nupud + '</section>';
     // Värskenda andmed (ja konfliktide arvud) taustal; muutuse korral joonista uuesti
     if (!varske && navigator.onLine && LAO.laeAndmed) {
       var enne = minu.length + '/' + LAO.andmed.konfliktideArv;
@@ -398,7 +403,7 @@
   // VAADE: SEADED
   // -------------------------------------------------------------------------
 
-  var RAKENDUSE_VERSIOON = 'v31'; // sama number mis ?v= failis index.html
+  var RAKENDUSE_VERSIOON = 'v32'; // sama number mis ?v= failis index.html
 
   function vaadeSeaded() {
     var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';
@@ -433,6 +438,8 @@
       '  <h2>Arendusrežiim</h2>' +
       '  <label class="linnuke"><input type="checkbox" id="arendus"' + (API.arendus() ? ' checked' : '') + '> Näita aegu (skännimisel ja siin)</label>' +
       '  <div id="ajad"></div>' +
+      (API.seanss() ? '  <h2>Kasutaja</h2><p>' + esc(API.seanss().kasutaja.nimi) + '</p>' +
+        '  <div class="nupurida nupurida-vasak"><button type="button" id="valjaNupp" class="nupp">Logi välja</button></div>' : '') +
       '  <p class="vaike">Rakenduse versioon ' + RAKENDUSE_VERSIOON + ' · <a href="#/avaleht">Tagasi</a></p>' +
       '</section>';
     var vorm = $('#seadedVorm');
@@ -461,6 +468,7 @@
       teade('Kaamera valitud: ' + o.textContent);
     });
     $('#otsiKaameraid').addEventListener('click', otsiKaameraid);
+    if ($('#valjaNupp')) $('#valjaNupp').addEventListener('click', logiValja);
     naitaAegu();
   }
 
