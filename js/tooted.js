@@ -270,9 +270,10 @@
       '  <input name="eksemplare" type="number" min="1" max="100" value="1"></label>';
     // Skännimisel (kood olemas): lühivorm – nimi, tüüp ja Salvesta kohe näha, ülejäänu „Rohkem” all
     if (nimiValikuline) {
-      return '<form autocomplete="off">' + nimi + tyybid + riiul + kirjeldus + LAO.MODAALI_NUPUD +
-        '<details class="rohkem"><summary>Rohkem välju (kood ' + esc(eel.kood || '') + ', kategooria, ühik…)</summary>' +
-        kood + muud + '</details></form>';
+      // Riiul küsitakse pärast salvestamist eraldi sammuna (skänni riiuli silt) – vt js/skannimine.js
+      return '<form autocomplete="off">' + nimi + tyybid + kirjeldus + LAO.MODAALI_NUPUD +
+        '<details class="rohkem"><summary>Rohkem välju (kood ' + esc(eel.kood || '') + ', riiul, kategooria, ühik…)</summary>' +
+        kood + riiul + muud + '</details></form>';
     }
     return '<form autocomplete="off">' + kood + nimi + tyybid + kirjeldus + riiul + muud + LAO.MODAALI_NUPUD + '</form>';
   }

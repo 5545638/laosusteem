@@ -29,6 +29,7 @@
 
   var reziim = null;     // 'skanni' | 'sisse' | 'valja' | 'tooriist' | 'paiguta' (skanni = rakendus pakub tegevuse ise)
   var skanner = null;
+  var riiuliOotel = null; // uus toode salvestatud, ootame riiuli silti: { toode, edasi }
   var paigutatav = null; // paigutamise 1. samm: valitud toode või { uus: true, kood, tyyp } (tundmatu kood)
 
   // -------------------------------------------------------------------------
@@ -39,6 +40,7 @@
     return function (algkood) {
       reziim = r;
       paigutatav = null;
+      riiuliOotel = null;
       var R = REZIIMID[r];
       sisu.innerHTML =
         '<section class="skanni-vaade ' + R.klass + '">' +
@@ -190,6 +192,8 @@
   }
 
   function kasitle(leitud, kood, aeg) {
+    if (leitud.riiul && riiuliOotel) { LAO.piiks('ok'); return uusRiiulile(leitud.riiul); }
+    riiuliOotel = null; // skänniti midagi muud – riiulisamm jääb vahele
     if (leitud.riiul) {
       LAO.piiks('ok');
       // SKÄNNI: pärast „📍 Riiul” ootab toode riiulit
@@ -227,7 +231,11 @@
       aken = LAO.avaLisaToode({ kood: kood, mudel: LAO.tehaseMudel(toores), tyyp: reziim === 'tooriist' ? 'TÖÖRIIST' : 'VARUOSA' }, function (loodud) {
         salvestatud = true;
         var t = LAO.toode(loodud[0].id);
-        if (t) kasitle({ toode: t }, kood, aeg); else valmis();
+        if (!t) return valmis();
+        var jatka = function () { var t2 = LAO.toode(t.id) || t; kasitle({ toode: t2 }, kood, aeg); };
+        // Riiulit vormis ei valitud → järgmine samm: skänni riiuli silt
+        if (!t.riiul_id && (LAO.andmed.riiulid || []).length) return kusiRiiul(t, jatka);
+        jatka();
       }, { kohe: true });
       aken.addEventListener('close', function () {
         aken = null;
@@ -247,6 +255,37 @@
       teade('See kood on juba olemas: ' + (leitud.toode ? leitud.toode.nimetus : 'riiul ' + leitud.riiul.kood));
       kasitle(leitud, kood, aeg);
     }).catch(function () { /* võrgu viga – kasutaja jätkab lisamisega */ });
+  }
+
+  /** Uue toote 2. samm: riiuli silt (või valik nimekirjast / vahele jätmine), siis edasi(). */
+  function kusiRiiul(t, edasi) {
+    riiuliOotel = { toode: t, edasi: edasi };
+    $('#toiming').innerHTML = tooteKaart(t) +
+      '<div class="kaart-teade info"><b>📍 Nüüd skänni riiuli silt</b>' +
+      '<select id="uusRiiul">' + LAO.riiuliValikud('').replace('– pole määratud –', '– või vali riiul –') + '</select>' +
+      '<div class="nupurida suured-nupud"><button type="button" class="nupp nupp-suur" id="jataVahele">Jäta vahele</button>' +
+      '<button type="button" class="nupp nupp-suur nupp-pohi" id="paigutaNupp">Lisa riiulile</button></div></div>';
+    $('#jataVahele').addEventListener('click', function () { riiuliOotel = null; edasi(); });
+    $('#paigutaNupp').addEventListener('click', function () {
+      var r = LAO.riiul($('#uusRiiul').value);
+      if (!r) { teade('Vali riiul või skänni riiuli silt.', 'viga'); return; }
+      uusRiiulile(r);
+    });
+    skanner.paus(false); // ootame riiuli skännimist
+  }
+
+  function uusRiiulile(riiul) {
+    var o = riiuliOotel;
+    riiuliOotel = null;
+    skanner.paus(true);
+    var t = LAO.toode(o.toode.id) || o.toode;
+    LAO.salvestaLiikumised([{
+      id: LAO.uusId(), toote_id: t.id, tyyp: 'ÜMBERPAIGUTUS', kellele_kuhu: riiul.id, skannimise_aeg: new Date().toISOString()
+    }]).then(function (tul) {
+      if (!tul[0].ok) throw new Error(tul[0].viga || 'Salvestamine ebaõnnestus.');
+      naitaTulemust(t.nimetus + ' → riiul ' + riiul.kood, { ok: true }, { id: null }, true);
+      o.edasi();
+    }).catch(function (err) { LAO.piiks('viga'); teade(err.message, 'viga'); o.edasi(); });
   }
 
   function valeTyyp(t, tekst, r1, n1, r2, n2, kood) {
