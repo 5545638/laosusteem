@@ -29,6 +29,7 @@
 
   var reziim = null;     // 'skanni' | 'sisse' | 'valja' | 'tooriist' | 'paiguta' (skanni = rakendus pakub tegevuse ise)
   var skanner = null;
+  var sisseVoo = null;    // SISSE ühe voona: { t?, kood, aeg, samm: 'andmed'|'riiul'|'kinnita', nimetus, kirjeldus, markus, kogus, riiul }
   var riiuliOotel = null; // uus toode salvestatud, ootame riiuli silti: { toode, edasi }
   var paigutatav = null; // paigutamise 1. samm: valitud toode või { uus: true, kood, tyyp } (tundmatu kood)
 
@@ -41,6 +42,7 @@
       reziim = r;
       paigutatav = null;
       riiuliOotel = null;
+      sisseVoo = null;
       var R = REZIIMID[r];
       sisu.innerHTML =
         '<section class="skanni-vaade ' + R.klass + '">' +
@@ -185,6 +187,10 @@
     ajad = { otsing: performance.now() - t0 };
     API.mootmine('otsing', ajad.otsing);
     if (leitud) return kasitle(leitud, kood, aeg);
+    if (sisseVoo && sisseVoo.samm === 'riiul') { // ootame riiuli silti, tundmatu kood ei katkesta voogu
+      LAO.piiks('hoiatus');
+      return teade('See pole riiuli silt (' + kood + ') – skänni riiuli silt.', 'viga');
+    }
     // Käsitsi kirjutatud nimi (mitte kood) → näita nimeotsingu tulemusi, mitte uue toote vormi
     if (allikas === 'kasitsi' && toores && otsiTooteid(toores).length) { LAO.piiks('hoiatus'); return naitaOtsing(String(toores).trim(), { kood: kood, aeg: aeg, toores: toores }); }
     if (reziim === 'paiguta') return uusPaigutatav(kood, aeg, toores);
@@ -192,6 +198,12 @@
   }
 
   function kasitle(leitud, kood, aeg) {
+    if (sisseVoo && sisseVoo.samm === 'riiul') {
+      if (leitud.riiul) { LAO.piiks('ok'); sisseVoo.riiul = leitud.riiul; return sisseKinnita(); }
+      LAO.piiks('hoiatus');
+      return teade('See on toote kood – skänni nüüd riiuli silt (või Katkesta).', 'viga');
+    }
+    sisseVoo = null;
     if (leitud.riiul && riiuliOotel) { LAO.piiks('ok'); return uusRiiulile(leitud.riiul); }
     riiuliOotel = null; // skänniti midagi muud – riiulisamm jääb vahele
     if (leitud.riiul) {
@@ -218,6 +230,11 @@
    * suletakse vorm ja jätkatakse olemasoleva tootega.
    */
   function tundmatu(kood, aeg, toores) {
+    // SISSE ja SKÄNNI: uus toode läbib sama voo (nimi, kirjeldus, kogus → riiul → kinnita)
+    if (reziim === 'sisse' || reziim === 'skanni') {
+      LAO.piiks('hoiatus');
+      return sisseAndmed({ t: null, kood: kood, aeg: aeg, tyyp: 'VARUOSA', nimetus: LAO.tehaseMudel(toores) || '', kirjeldus: '', markus: '', kogus: 1, riiul: null });
+    }
     LAO.piiks('hoiatus');
     skanner.paus(true);
     var aken = null, salvestatud = false, minu = skanniNr;
@@ -255,6 +272,180 @@
       teade('See kood on juba olemas: ' + (leitud.toode ? leitud.toode.nimetus : 'riiul ' + leitud.riiul.kood));
       kasitle(leitud, kood, aeg);
     }).catch(function () { /* võrgu viga – kasutaja jätkab lisamisega */ });
+  }
+
+  // -------------------------------------------------------------------------
+  // SISSE ÜHE VOONA: 1) nimi, kirjeldus, kogus  2) riiuli silt  3) kokkuvõte → KINNITA
+  // -------------------------------------------------------------------------
+
+  function sammuRiba(nr) {
+    return '<div class="sammud-riba">' + ['Andmed', 'Riiul', 'Kinnita'].map(function (n, i) {
+      return '<span class="' + (i + 1 === nr ? 'aktiivne' : i + 1 < nr ? 'tehtud' : '') + '">' + (i + 1) + '. ' + n + '</span>';
+    }).join('') + '</div>';
+  }
+
+  /** 1. samm: andmed. Uuel tootel nimi (kohustuslik), kirjeldus, kogus; olemasoleval nimi on olemas. */
+  function sisseAndmed(v) {
+    sisseVoo = v;
+    v.samm = 'andmed';
+    skanner.paus(true);
+    var uus = !v.t, tooriist = v.tyyp === 'TÖÖRIIST';
+    $('#toiming').innerHTML = sammuRiba(1) +
+      '<form id="sisseVorm" autocomplete="off" class="sisse-voog">' +
+      (uus
+        ? '<div class="kaart-teade hoiatus"><b>Uus kood:</b> <code>' + esc(v.kood) + '</code></div>' +
+          '<label>Nimetus *<input name="nimetus" required value="' + esc(v.nimetus) + '" placeholder="nt Laager 6204"></label>' +
+          '<div class="segment" id="sisseTyyp">' +
+          '  <label><input type="radio" name="tyyp" value="VARUOSA"' + (tooriist ? '' : ' checked') + '><span>Varuosa</span></label>' +
+          '  <label><input type="radio" name="tyyp" value="TÖÖRIIST"' + (tooriist ? ' checked' : '') + '><span>Tööriist</span></label></div>'
+        : '<div class="toote-kaart"><div class="toote-nimi">' + esc(v.t.nimetus) + '</div>' +
+          '<div class="toote-info"><code>' + esc(v.kood) + '</code>' + (v.riiul ? ' · Riiul <b>' + esc(v.riiul.kood) + '</b>' : '') + '</div>' +
+          '<div class="toote-seis">Saldo: ' + LAO.seisHtml(v.t) + '</div></div>') +
+      '<label>Kirjeldus <span class="vaike">(valikuline – jääb toote juurde)</span><textarea name="kirjeldus" rows="2" placeholder="nt mõõdud, sobivus, kust tellida">' +
+        esc(v.kirjeldus) + '</textarea></label>' +
+      '<div class="ainult-kogus"' + (tooriist ? ' hidden' : '') + '><span class="sildike">Kogus</span><div class="kogus">' +
+      '  <button type="button" class="kogus-nupp" data-muuda="-1" aria-label="Vähem">−</button>' +
+      '  <input name="kogus" inputmode="decimal" value="' + esc(LAO.arvTekst(v.kogus)) + '" aria-label="Kogus">' +
+      '  <button type="button" class="kogus-nupp" data-muuda="1" aria-label="Rohkem">+</button>' +
+      '</div><div class="kogus-yhik">' + esc(v.t ? v.t.yhik : 'tk') + '</div></div>' +
+      '<details class="rohkem"' + (v.markus ? ' open' : '') + '><summary>+ Märkus selle sissetuleku kohta (tarnija, arve)</summary>' +
+      '<textarea name="markus" rows="2">' + esc(v.markus) + '</textarea></details>' +
+      '<div class="nupurida suured-nupud">' +
+      '  <button type="button" class="nupp nupp-suur" id="loobu">Katkesta</button>' +
+      '  <button type="submit" class="nupp nupp-suur nupp-sisse">Edasi: riiul ➜</button></div>' +
+      '</form>';
+    var vorm = $('#sisseVorm');
+    function kogus() { return Number(String(vorm.kogus.value).replace(',', '.')); }
+    Array.prototype.forEach.call(vorm.querySelectorAll('[data-muuda]'), function (b) {
+      b.addEventListener('click', function () {
+        var k = kogus();
+        if (!isFinite(k)) k = 0;
+        vorm.kogus.value = LAO.arvTekst(Math.max(1, Math.round((k + Number(b.dataset.muuda)) * 1000) / 1000));
+      });
+    });
+    vorm.kogus.addEventListener('focus', function () { vorm.kogus.select(); });
+    Array.prototype.forEach.call(vorm.querySelectorAll('[name=tyyp]'), function (r) {
+      r.addEventListener('change', function () { vorm.querySelector('.ainult-kogus').hidden = r.value === 'TÖÖRIIST' && r.checked; });
+    });
+    $('#loobu').addEventListener('click', function () { sisseVoo = null; valmis(); });
+    vorm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (uus) {
+        v.nimetus = vorm.nimetus.value.trim();
+        if (!v.nimetus) { teade('Sisesta nimetus.', 'viga'); vorm.nimetus.focus(); return; }
+        v.tyyp = vorm.querySelector('[name=tyyp]:checked').value;
+      }
+      v.kirjeldus = vorm.kirjeldus.value.trim();
+      v.markus = vorm.markus.value.trim();
+      if (v.tyyp !== 'TÖÖRIIST') {
+        var k = kogus();
+        if (!isFinite(k) || k <= 0) { teade('Kogus peab olema suurem kui 0.', 'viga'); return; }
+        v.kogus = k;
+      }
+      sisseRiiul();
+    });
+    if (uus && !LAO.onPuude()) vorm.nimetus.focus();
+  }
+
+  /** 2. samm: kaamera ootab riiuli silti. */
+  function sisseRiiul() {
+    var v = sisseVoo;
+    v.samm = 'riiul';
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); // klaviatuur kinni, kaamera näha
+    $('#toiming').innerHTML = sammuRiba(2) +
+      '<div class="kaart-teade info riiuli-samm"><div class="riiuli-samm-pealkiri">📍 Skänni riiuli silt</div>' +
+      '<div class="vaike">' + esc(v.nimetus) + (v.tyyp === 'TÖÖRIIST' ? '' : ' · ' + LAO.arvTekst(v.kogus) + ' ' + (v.t ? v.t.yhik : 'tk')) + '</div>' +
+      (v.riiul ? '<button type="button" class="nupp nupp-suur" id="samaRiiul">✓ Jääb riiulile ' + esc(v.riiul.kood) + '</button>' : '') +
+      '<details class="rohkem"><summary>Silt puudub? Vali nimekirjast</summary>' +
+      '<select id="uusRiiul">' + LAO.riiuliValikud('').replace('– pole määratud –', '– vali riiul –') + '</select>' +
+      '<button type="button" class="nupp" id="valiRiiul">Vali</button></details></div>' +
+      '<div class="nupurida suured-nupud"><button type="button" class="nupp nupp-suur" id="tagasi">← Tagasi</button>' +
+      '<button type="button" class="nupp nupp-suur" id="loobu">Katkesta</button></div>';
+    $('#tagasi').addEventListener('click', function () { sisseAndmed(v); });
+    $('#loobu').addEventListener('click', function () { sisseVoo = null; valmis(); });
+    if ($('#samaRiiul')) $('#samaRiiul').addEventListener('click', function () { sisseKinnita(); });
+    $('#valiRiiul').addEventListener('click', function () {
+      var r = LAO.riiul($('#uusRiiul').value);
+      if (!r) { teade('Vali riiul.', 'viga'); return; }
+      v.riiul = r;
+      sisseKinnita();
+    });
+    skanner.paus(false);
+  }
+
+  /** 3. samm: kokkuvõte → KINNITA. */
+  function sisseKinnita() {
+    var v = sisseVoo;
+    v.samm = 'kinnita';
+    skanner.paus(true);
+    var tooriist = v.tyyp === 'TÖÖRIIST';
+    var rida = function (n, w) { return '<div class="kokkuvote-rida"><span>' + n + '</span><b>' + w + '</b></div>'; };
+    $('#toiming').innerHTML = sammuRiba(3) +
+      '<div class="toote-kaart kokkuvote">' +
+      '<div class="toote-nimi">' + esc(v.nimetus) + (v.t ? '' : ' <span class="uus-mark">UUS</span>') + '</div>' +
+      rida('Kood', '<code>' + esc(v.kood) + '</code>') +
+      (tooriist ? rida('Tüüp', 'Tööriist') : rida('Kogus', '+' + esc(LAO.arvTekst(v.kogus)) + ' ' + esc(v.t ? v.t.yhik : 'tk'))) +
+      rida('Riiul', esc(v.riiul.kood) + (v.t && v.t.riiul_id && v.t.riiul_id !== v.riiul.id ? ' <span class="vaike">(oli ' + esc((LAO.riiul(v.t.riiul_id) || {}).kood || '') + ')</span>' : '')) +
+      (v.kirjeldus ? '<div class="toote-kirjeldus">' + esc(v.kirjeldus) + '</div>' : '') +
+      (v.markus ? '<div class="vaike">Märkus: ' + esc(v.markus) + '</div>' : '') +
+      '</div>' +
+      '<button type="button" class="nupp nupp-suur nupp-sisse kinnita-suur" id="kinnita">✓ KINNITA</button>' +
+      '<div class="nupurida suured-nupud"><button type="button" class="nupp nupp-suur" id="muuda">← Muuda</button>' +
+      '<button type="button" class="nupp nupp-suur" id="loobu">Katkesta</button></div>';
+    $('#muuda').addEventListener('click', function () { sisseAndmed(v); });
+    $('#loobu').addEventListener('click', function () { sisseVoo = null; valmis(); });
+    $('#kinnita').addEventListener('click', sisseSalvesta);
+    if (!LAO.onPuude()) $('#kinnita').focus();
+  }
+
+  function sisseSalvesta() {
+    var v = sisseVoo;
+    if (!v) return;
+    Array.prototype.forEach.call(document.querySelectorAll('#toiming button'), function (b) { b.disabled = true; });
+    var tooriist = v.tyyp === 'TÖÖRIIST';
+    var aeg = v.aeg.toISOString();
+    var toode;
+    if (!v.t) {
+      // Uus toode koos riiuli ja kirjeldusega – seadmesse kohe, serverisse taustal (js/jarjekord.js)
+      toode = LAO.jarjekord.lisaToode({
+        kood: v.kood, nimetus: v.nimetus, tyyp: v.tyyp, yhik: 'tk', kategooria: '', riiul_id: v.riiul.id,
+        miinimumkogus: '', kirjeldus: v.kirjeldus
+      }).then(function (loodud) { return LAO.toode(loodud[0].id) || { id: loodud[0].id, nimetus: v.nimetus, yhik: 'tk' }; });
+    } else {
+      var t = v.t, muud = [];
+      if (t.riiul_id !== v.riiul.id) {
+        muud.push({ id: LAO.uusId(), toote_id: t.id, tyyp: 'ÜMBERPAIGUTUS', kellele_kuhu: v.riiul.id, skannimise_aeg: aeg });
+      }
+      if (v.kirjeldus !== (t.kirjeldus || '')) {
+        if (navigator.onLine && !t.ootel) {
+          API.kutsu('tooted.kirjeldus', { id: t.id, kirjeldus: v.kirjeldus }).then(function () {
+            t.kirjeldus = v.kirjeldus;
+            LAO.laeAndmed().catch(function () { /* taustal */ });
+          }).catch(function (err) { teade('Kirjeldust ei salvestatud: ' + err.message, 'viga'); });
+        } else teade('Kirjelduse salvestamiseks on vaja internetti – lisa see hiljem.', 'viga');
+      }
+      toode = (muud.length ? LAO.salvestaLiikumised(muud) : Promise.resolve()).then(function () { return t; });
+    }
+    toode.then(function (t) {
+      if (tooriist) {
+        sisseVoo = null;
+        naitaTulemust((v.t ? '' : 'Uus tööriist ') + v.nimetus + ' → riiul ' + v.riiul.kood, { ok: true }, { id: null }, true, null, t.id);
+        return valmis();
+      }
+      var l = { id: LAO.uusId(), toote_id: t.id, tyyp: 'SISSE', kogus: v.kogus, kellele_kuhu: '', markus: v.markus, skannimise_aeg: aeg };
+      return LAO.salvestaLiikumised([l]).then(function (tul) {
+        if (!tul[0].ok) throw new Error(tul[0].viga || 'Salvestamine ebaõnnestus.');
+        sisseVoo = null;
+        var uus = LAO.toode(t.id) || t;
+        naitaTulemust('SISSE ' + LAO.arvTekst(v.kogus) + ' ' + (uus.yhik || 'tk') + ' – ' + v.nimetus + ' → riiul ' + v.riiul.kood +
+          '. Saldo nüüd ' + LAO.arvTekst(uus.saldo) + ' ' + (uus.yhik || 'tk') + '.', tul[0], l, false, [], v.t ? null : t.id);
+        valmis();
+      });
+    }).catch(function (err) {
+      LAO.piiks('viga');
+      teade(err.message, 'viga');
+      Array.prototype.forEach.call(document.querySelectorAll('#toiming button'), function (b) { b.disabled = false; });
+    });
   }
 
   /** Uue toote 2. samm: riiuli silt (või valik nimekirjast / vahele jätmine), siis edasi(). */
@@ -385,6 +576,10 @@
     skanner.paus(true);
     // Kiirrežiim: kogus 1 kohe (VÄLJA puhul ainult siis, kui saldo ei lähe negatiivseks – muidu tavaline vorm)
     if (kiirSees() && !t.arhiveeritud && !(reziim === 'valja' && t.saldo - 1 < 0)) return kiirSalvesta(t, aeg);
+    if (reziim === 'sisse') {
+      return sisseAndmed({ t: t, kood: LAO.esimeneKood(t), aeg: aeg, tyyp: t.tyyp, nimetus: t.nimetus, kirjeldus: t.kirjeldus || '',
+        markus: '', kogus: 1, riiul: LAO.riiul(t.riiul_id) || null });
+    }
     var molemad = reziim === 'skanni'; // SKÄNNI: nii SISSE kui VÄLJA nupp
     var valja = reziim === 'valja';
     var masinad = (LAO.andmed.masinad || []).length;
