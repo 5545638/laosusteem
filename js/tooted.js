@@ -252,6 +252,9 @@
       '</div></div>';
     var kirjeldus = '<label>Kirjeldus <span class="vaike">(valikuline – nt mõõdud, sobivus, kust tellida)</span>' +
       '<textarea name="kirjeldus" rows="2">' + esc(eel.kirjeldus || '') + '</textarea></label>';
+    var riiul =
+      '<label>Riiul<select name="riiul_id">' + LAO.riiuliValikud(eel.riiul_id || '') + '</select></label>' +
+      '<button type="button" class="nupp nupp-vaike skanni-riiul">📷 Skänni riiuli silt</button>';
     var muud =
       '<label class="ainult-varuosa">Ühik<select name="yhik">' + LAO.YHIKUD.map(function (y) {
         return '<option' + (y === (eel.yhik || 'tk') ? ' selected' : '') + '>' + y + '</option>';
@@ -260,8 +263,6 @@
       '<datalist id="kategooriad">' + LAO.unikaalsed(LAO.andmed.tooted, 'kategooria').map(function (k) {
         return '<option value="' + esc(k) + '">';
       }).join('') + '</datalist>' +
-      '<label>Riiul<select name="riiul_id">' + LAO.riiuliValikud(eel.riiul_id || '') + '</select></label>' +
-      '<button type="button" class="nupp nupp-vaike skanni-riiul">📷 Skänni riiuli silt</button>' +
       '<label class="ainult-varuosa">Miinimumkogus <span class="vaike">(alla selle tõstetakse esile)</span>' +
       '  <input name="miinimumkogus" inputmode="decimal" value="' + esc(eel.miinimumkogus || '') + '"></label>' +
       (admin ? '<label class="ainult-varuosa">Algsaldo <span class="vaike">(praegu laos olev kogus)</span><input name="algsaldo" inputmode="decimal"></label>' : '') +
@@ -269,11 +270,12 @@
       '  <input name="eksemplare" type="number" min="1" max="100" value="1"></label>';
     // Skännimisel (kood olemas): lühivorm – nimi, tüüp ja Salvesta kohe näha, ülejäänu „Rohkem” all
     if (nimiValikuline) {
+      // Riiul küsitakse pärast salvestamist eraldi sammuna (skänni riiuli silt) – vt js/skannimine.js
       return '<form autocomplete="off">' + nimi + tyybid + kirjeldus + LAO.MODAALI_NUPUD +
         '<details class="rohkem"><summary>Rohkem välju (kood ' + esc(eel.kood || '') + ', riiul, kategooria, ühik…)</summary>' +
-        kood + muud + '</details></form>';
+        kood + riiul + muud + '</details></form>';
     }
-    return '<form autocomplete="off">' + kood + nimi + tyybid + kirjeldus + muud + LAO.MODAALI_NUPUD + '</form>';
+    return '<form autocomplete="off">' + kood + nimi + tyybid + kirjeldus + riiul + muud + LAO.MODAALI_NUPUD + '</form>';
   }
 
   // -------------------------------------------------------------------------
