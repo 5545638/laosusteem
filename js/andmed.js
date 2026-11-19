@@ -189,7 +189,7 @@
     var varuosa = (d.tyyp || 'VARUOSA') === 'VARUOSA';
     var t = {
       id: d.id, nimetus: d.nimetus, tyyp: d.tyyp || 'VARUOSA', yhik: varuosa ? (d.yhik || 'tk') : 'tk',
-      kategooria: d.kategooria || '', riiul_id: d.riiul_id || '', komplekt_id: d.komplekt_id || '',
+      kategooria: d.kategooria || '', riiul_id: d.riiul_id || '', komplekt_id: d.komplekt_id || '', kirjeldus: d.kirjeldus || '',
       miinimumkogus: varuosa && d.miinimumkogus !== '' && d.miinimumkogus !== undefined ? Number(String(d.miinimumkogus).replace(',', '.')) : null,
       arhiveeritud: false, loodud: new Date().toISOString(),
       koodid: d.kood ? [{ kood: d.kood, tyyp: '' }] : [],

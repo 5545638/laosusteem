@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 
 var SEADED = {
-  VERSIOON: '1.7.1-tehasekood',
+  VERSIOON: '1.8.0-kirjeldus',
   SEANSI_KEHTIVUS_PAEVI: 30,      // Mitu päeva telefon sisselogimist meeles peab
   // Aegunud/lukustatud seansi rida hoitakse veel nii mitu päeva alles, et lukustatud
   // kasutaja telefonist hiljem saabuvad liikumised saaks tema nimel KONFLIKTIDE alla panna.
@@ -75,7 +75,9 @@ var SKEEM = {
     ['id', 's'], ['nimetus', 's'], ['tüüp', 's'], ['ühik', 's'], ['kategooria', 's'],
     ['riiul_id', 's'], ['miinimumkogus', 'n'], ['arhiveeritud', 'b'], ['loodud', 'd'],
     // Tööriistakomplekt: osa (nt aku) juures on põhitööriista (nt akutrelli) id. Põhitööriistal tühi.
-    ['komplekt_id', 's']
+    ['komplekt_id', 's'],
+    // Vaba tekst toote kohta (nt mõõdud, sobivus, kust tellida). Näha skännimisel; muuta saab ka laotöötaja.
+    ['kirjeldus', 's']
   ],
   Koodid: [
     ['kood', 's'], ['toote_id', 's'], ['koodi_tüüp', 's']
@@ -182,6 +184,7 @@ var TEGEVUSED = {
   'andmed':               { fn: tAndmed_ },
   'tooted.lisa':          { fn: tTootedLisa_, kirjutab: true, lukustatuleLubatud: true },   // ka laotöötaja (kiirlisamine)
   'tooted.muuda':         { fn: tTootedMuuda_, roll: ROLL.ADMIN, kirjutab: true },
+  'tooted.kirjeldus':     { fn: tTootedKirjeldus_, kirjutab: true },                         // ka laotöötaja (skännimisel)
   'tooted.arhiveeri':     { fn: tTootedArhiveeri_, roll: ROLL.ADMIN, kirjutab: true },
   'tooted.import':        { fn: tTootedImport_, roll: ROLL.ADMIN, kirjutab: true },
   'koodid.lisa':          { fn: tKoodidLisa_, roll: ROLL.ADMIN, kirjutab: true },
@@ -860,6 +863,7 @@ function tAndmed_(data, kasutaja) {
       kategooria: t.kategooria,
       riiul_id: t.riiul_id,
       komplekt_id: t.komplekt_id || '',
+      kirjeldus: t.kirjeldus || '',
       miinimumkogus: t.miinimumkogus === '' ? null : t.miinimumkogus,
       arhiveeritud: t.arhiveeritud,
       loodud: isoAeg_(t.loodud),
@@ -1157,8 +1161,25 @@ function tTootedMuuda_(data) {
     muutus.komplekt_id = kontrolliKomplekt_(tooted, data.id, muutus['tüüp'] || rida.obj['tüüp'], data.komplekt_id);
     tagaVeerg_('Tooted', 'komplekt_id');
   }
+  if (data.kirjeldus !== undefined) {
+    muutus.kirjeldus = kirjeldus_(data.kirjeldus);
+    tagaVeerg_('Tooted', 'kirjeldus');
+  }
   uuendaRida_('Tooted', rida.rida, muutus);
   return true;
+}
+
+/** Toote kirjelduse muutmine (kõik kasutajad – skännimise vaates). */
+function tTootedKirjeldus_(data) {
+  var rida = leiaTooteRida_(data.id);
+  tagaVeerg_('Tooted', 'kirjeldus');
+  var k = kirjeldus_(data.kirjeldus);
+  uuendaRida_('Tooted', rida.rida, { kirjeldus: k });
+  return { id: data.id, kirjeldus: k };
+}
+
+function kirjeldus_(v) {
+  return String(v === null || v === undefined ? '' : v).trim().slice(0, 1000);
 }
 
 /**
@@ -1438,6 +1459,9 @@ function lisaToode_(ctx, data, kasutaja) {
     tagaVeerg_('Tooted', 'komplekt_id');
   }
 
+  var kirjeldus = kirjeldus_(data.kirjeldus);
+  if (kirjeldus) tagaVeerg_('Tooted', 'kirjeldus');
+
   var loodud = [];
   for (var i = 1; i <= eksemplare; i++) {
     var id = (i === 1 && data.id && /^[A-Za-z0-9-]{8,40}$/.test(data.id) && !ctx.tooted[data.id])
@@ -1450,6 +1474,7 @@ function lisaToode_(ctx, data, kasutaja) {
       kategooria: String(data.kategooria || '').trim(),
       riiul_id: riiulId,
       komplekt_id: komplektId,
+      kirjeldus: kirjeldus,
       miinimumkogus: miinimum,
       arhiveeritud: false,
       loodud: new Date()

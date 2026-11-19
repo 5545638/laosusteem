@@ -269,6 +269,8 @@
       (r ? ' · Riiul <b>' + esc(r.kood) + '</b>' : '') +
       (t.koodid[0] && LAO.kiirprint ? ' <button type="button" class="nupp nupp-vaike sildi-nupp" data-silt="' + esc(t.id) + '">🖨 Silt</button>' : '') + '</div>' +
       '<div class="toote-seis">' + (t.tyyp === 'VARUOSA' ? 'Saldo: ' : 'Olek: ') + LAO.seisHtml(t) + '</div>' +
+      '<div class="toote-kirjeldus" data-kirjeldus-tekst="' + esc(t.id) + '"' + (t.kirjeldus ? '' : ' hidden') + '>' + esc(t.kirjeldus || '') + '</div>' +
+      '<button type="button" class="nupp nupp-vaike kirjeldus-nupp" data-kirjeldus="' + esc(t.id) + '">✎ ' + (t.kirjeldus ? 'Muuda kirjeldust' : 'Lisa kirjeldus') + '</button>' +
       komplektiInfo(t) +
       (LAO.onNimeta(t) ? '<div class="vaike">Nimi on lisamata' + (LAO.onAdmin() ? ' – <a href="#/toode/' + encodeURIComponent(t.id) + '">lisa nimi</a>' : '') + '</div>' : '') +
       (t.arhiveeritud ? '<div class="kaart-teade viga">Toode on arhiveeritud – liikumine märgitakse adminile ülevaatamiseks.</div>' : '') +
@@ -354,7 +356,7 @@
       '  <div class="kogus-yhik">' + esc(t.yhik) + '</div>' +
       '  <p id="saldoHoiatus" class="kaart-teade viga" hidden></p>' +
       ((valja || molemad) && masinad ? masinaValik() : '') +
-      '  <input name="markus" placeholder="' + (molemad ? 'Märkus – valikuline' : valja ? 'Märkus (kellele, mille jaoks) – valikuline' : 'Märkus (tarnija, arve nr) – valikuline') + '">' +
+      '  <textarea name="markus" rows="2" placeholder="' + (molemad ? 'Märkus selle liikumise kohta – valikuline' : valja ? 'Märkus (kellele, mille jaoks) – valikuline' : 'Märkus (tarnija, arve nr, muu vajalik) – valikuline') + '"></textarea>' +
       (molemad
         ? '  <div class="nupurida kaks-suunda">' +
           '    <button type="submit" class="nupp nupp-suur nupp-valja" data-suund="VÄLJA" id="kinnitaValja">− VÄLJA</button>' +
@@ -764,6 +766,32 @@
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('.sildi-nupp');
     if (b && LAO.kiirprint) LAO.kiirprint({ toode: b.dataset.silt });
+  });
+
+  // ✎ Toote kirjeldus: püsiv tekst toote juures (Code.gs tooted.kirjeldus, vajab internetti)
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.kirjeldus-nupp');
+    if (!b) return;
+    var t = LAO.toode(b.dataset.kirjeldus);
+    if (!t) return;
+    LAO.modaal('Kirjeldus: ' + t.nimetus,
+      '<form><textarea name="kirjeldus" rows="5" maxlength="1000" placeholder="nt mõõdud, sobivus, kust tellida">' + esc(t.kirjeldus || '') + '</textarea>' +
+      LAO.MODAALI_NUPUD + '</form>',
+      function (v) {
+        if (t.ootel) return Promise.reject(new Error('Toode on veel serverisse saatmata – proovi hetke pärast uuesti.'));
+        if (!navigator.onLine) return Promise.reject(new Error('Kirjelduse salvestamiseks on vaja internetti.'));
+        return API.kutsu('tooted.kirjeldus', { id: t.id, kirjeldus: v.kirjeldus.value }).then(function (r) {
+          t.kirjeldus = r && r.kirjeldus !== undefined ? r.kirjeldus : v.kirjeldus.value.trim();
+          var el = document.querySelector('[data-kirjeldus-tekst="' + t.id + '"]');
+          if (el) { el.textContent = t.kirjeldus; el.hidden = !t.kirjeldus; }
+          b.textContent = '✎ ' + (t.kirjeldus ? 'Muuda kirjeldust' : 'Lisa kirjeldus');
+          teade('Kirjeldus salvestatud.');
+          LAO.laeAndmed().catch(function () { /* taustal */ });
+        }, function (err) {
+          if (err.kood === 'VALE_PARING') throw new Error('Server on vana – kleebi uus Code.gs ja tee uus juurutus.');
+          throw err;
+        });
+      });
   });
 
   LAO.vaated['skanni'] = { fn: looVaade('skanni') };
