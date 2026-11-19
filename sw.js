@@ -4,33 +4,33 @@
  * Paigaldamisel salvestatakse brauseri vahemällu kõik rakenduse failid (FAILID).
  * Leht ise (index.html) ja config.js loetakse alati kõigepealt võrgust (et uuendused
  * jõuaksid kohe kohale) ja ainult siis vahemälust, kui võrku pole. Ülejäänud failid
- * on versiooninumbriga (?v=31) ja tulevad otse vahemälust – kiire avanemine.
+ * on versiooninumbriga (?v=32) ja tulevad otse vahemälust – kiire avanemine.
  * API päringud (script.google.com) käivad alati otse serverisse, neid ei puudutata.
  *
  * UUENDAMISEL: tõsta VERSIOON ja ?v= numbrid siin ja failis index.html.
  */
-var VERSIOON = 'laosusteem-v31';
+var VERSIOON = 'laosusteem-v32';
 var FAILID = [
   './',
   'index.html',
   'manifest.webmanifest',
-  'css/app.css?v=31',
-  'js/config.js?v=31',
-  'js/api.js?v=31',
-  'js/app.js?v=31',
-  'js/andmed.js?v=31',
-  'js/jarjekord.js?v=31',
-  'js/tooted.js?v=31',
-  'js/riiulid.js?v=31',
-  'js/import.js?v=31',
+  'css/app.css?v=32',
+  'js/config.js?v=32',
+  'js/api.js?v=32',
+  'js/app.js?v=32',
+  'js/andmed.js?v=32',
+  'js/jarjekord.js?v=32',
+  'js/tooted.js?v=32',
+  'js/riiulid.js?v=32',
+  'js/import.js?v=32',
   'js/vendor/html5-qrcode.min.js?v=2.3.8',
-  'js/skanner.js?v=31',
-  'js/skannimine.js?v=31',
+  'js/skanner.js?v=32',
+  'js/skannimine.js?v=32',
   'js/vendor/jsbarcode.all.min.js?v=3.11.6',
   'js/vendor/qrcode.js?v=1.4.4',
-  'js/sildid.js?v=31',
-  'js/ulevaated.js?v=31',
-  'js/konfliktid.js?v=31',
+  'js/sildid.js?v=32',
+  'js/ulevaated.js?v=32',
+  'js/konfliktid.js?v=32',
   'ikoonid/ikoon-192.png',
   'ikoonid/ikoon-512.png',
   'ikoonid/favicon-32.png',

@@ -112,6 +112,7 @@ a.paan:active { transform: scale(.98); }
   .tabel tr { display: block; border: 1px solid var(--joon); border-radius: 8px; margin-bottom: 10px; padding: 6px 10px; }
   .tabel td { display: flex; justify-content: space-between; gap: 10px; border: 0; padding: 6px 0; }
   .tabel td[data-silt]::before { content: attr(data-silt); color: var(--hall); font-size: 13px; }
+  .tabel td:empty, .tabel td.tyhi { display: none; } /* tühjad väljad (nt kategooria) ei võta telefonis ruumi */
   .tabel .tegevused { justify-content: flex-start; flex-wrap: wrap; white-space: normal; }
   .tabel .tegevused .nupp { margin: 4px 6px 0 0; }
 }
@@ -128,7 +129,8 @@ a.paan:active { transform: scale(.98); }
 
 /* ---------- Lühiteade ---------- */
 .teade {
-  position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  /* Ülal, et ei kataks all olevaid KINNITA / ANNA VÄLJA nuppe */
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); transform: translateX(-50%);
   padding: 14px 20px; border-radius: 8px; font-weight: 600; z-index: 100;
   pointer-events: none; /* teade ei tohi katta nuppe (nt KINNITA) */
   max-width: calc(100vw - 32px); box-shadow: 0 4px 12px rgba(0,0,0,.2);
@@ -164,9 +166,10 @@ a.nupp { display: inline-flex; align-items: center; text-decoration: none; }
 .sildike { display: block; font-weight: 600; font-size: 15px; margin-bottom: 6px; }
 /* Suured lülitinupud (nt Varuosa / Tööriist) */
 .segment { display: flex; gap: 8px; }
-.segment label { flex: 1; margin: 0; }
-.segment input { position: absolute; opacity: 0; pointer-events: none; }
-.segment span { display: block; text-align: center; padding: 12px; border: 2px solid var(--joon); border-radius: 8px; font-weight: 600; cursor: pointer; }
+.segment label { flex: 1; margin: 0; min-width: 0; position: relative; }
+/* Peidetud raadionupp: width:100% tegi selle ekraanist laiemaks → telefonis külgsuunas kerimine */
+.segment input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; left: 0; top: 0; }
+.segment span { display: block; text-align: center; padding: 12px 6px; overflow-wrap: anywhere; border: 2px solid var(--joon); border-radius: 8px; font-weight: 600; cursor: pointer; }
 .segment input:checked + span { border-color: var(--pohi); background: #e8eef7; color: var(--pohi); }
 .segment input:focus-visible + span { outline: 3px solid rgba(31,78,121,.3); }
 .valjad-kolm { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -334,3 +337,34 @@ a.avalehe-teade { display: block; text-decoration: none; }
 #toiming > .otsing { margin-top: 12px; }
 .otsing input { width: 100%; font-size: 18px; padding: 12px 14px; box-sizing: border-box; }
 .valik-info { display: block; margin-top: 2px; }
+
+/* ---------- Lihtsustatud avaleht (v32) ---------- */
+.avaleht .paanid + .paanid { margin-top: 12px; }
+.paanid-suur { grid-template-columns: 1fr !important; }
+.paanid-suur .paan { min-height: 90px; background: var(--pohi); align-items: center; text-align: center; }
+.paanid-suur .paan b { color: #fff; font-size: 26px; }
+.paanid-suur .paan span { color: rgba(255,255,255,.85); }
+.paan-sisse { border-left: 6px solid var(--sisse); }
+.paan-valja { border-left: 6px solid var(--valja); }
+.paan-tooriist { border-left: 6px solid var(--tooriist); }
+.paan-paiguta { border-left: 6px solid var(--paiguta); }
+.paanid-vaike { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (min-width: 700px) { .paanid-vaike { grid-template-columns: repeat(7, 1fr); } }
+.paanid-vaike .paan { min-height: 52px; padding: 8px; align-items: center; text-align: center; box-shadow: none; border: 1px solid var(--joon); }
+.paanid-vaike .paan b { font-size: 15px; color: var(--tekst); font-weight: 600; }
+.ylariba a.kasutaja { color: #fff; text-decoration: none; }
+.r-skanni .reziimi-riba { background: var(--pohi); }
+
+/* SKÄNNI: VÄLJA ja SISSE kõrvuti, Katkesta all */
+.kaks-suunda { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kaks-suunda .nupp-suur { margin: 0; min-height: 70px; }
+.katkesta-rida { width: 100%; margin-top: 10px; }
+/* TÖÖRIIST: viimased saajad kiirnuppudena */
+.kellele-kiir { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.kiirnupp { min-height: 56px; font-size: 17px; overflow-wrap: anywhere; }
+.kiir-luliti { justify-content: center; font-size: 15px; color: var(--hall); margin-top: 12px; }
+.sildi-nupp { margin-left: 6px; vertical-align: middle; }
+/* Uue toote lühivorm: lisaväljad kokku volditud */
+.rohkem { margin-top: 14px; border-top: 1px solid var(--joon); padding-top: 10px; }
+.rohkem summary { cursor: pointer; font-weight: 600; color: var(--pohi); padding: 8px 0; }
+.rohkem[open] summary { margin-bottom: 10px; }

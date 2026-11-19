@@ -173,7 +173,7 @@
     var list = valjasList();
     $('#valjasArv').textContent = list.length + ' tööriista';
     $('#valjasTabel').innerHTML = list.length ? '<table class="tabel"><thead><tr><th>Tööriist</th><th>Kood</th><th>Olek</th>' +
-      '<th>Kellel / kus</th><th>Alates</th><th>Päevi</th></tr></thead><tbody>' + list.map(function (t) {
+      '<th>Kellel / kus</th><th>Alates</th><th>Päevi</th><th></th></tr></thead><tbody>' + list.map(function (t) {
         var p = paevi(t.alates);
         return '<tr' + (p >= 30 ? ' class="rida-madal"' : '') + '>' +
           '<td data-silt="Tööriist"><b>' + esc(t.nimetus) + '</b></td>' +
@@ -181,8 +181,43 @@
           '<td data-silt="Olek">' + LAO.seisHtml({ tyyp: 'TÖÖRIIST', olek: t.olek }) + '</td>' +
           '<td data-silt="Kellel / kus">' + esc(t.kellele) + '</td>' +
           '<td data-silt="Alates">' + esc(LAO.aeg(t.alates)) + '</td>' +
-          '<td data-silt="Päevi"><b>' + esc(p) + '</b></td></tr>';
+          '<td data-silt="Päevi"><b>' + esc(p) + '</b></td>' +
+          '<td class="tegevused">' + (t.olek === 'VÄLJA ANTUD'
+            ? '<button type="button" class="nupp tagasta-nupp" data-id="' + esc(t.id) + '">Tagasta</button>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="kaart-teade info">Kõik tööriistad on laos.</p>';
+    Array.prototype.forEach.call(document.querySelectorAll('#valjasTabel .tagasta-nupp'), function (b) {
+      b.addEventListener('click', function () { tagasta(b); });
+    });
+  }
+
+  /**
+   * Tagastus ilma skännimata: 1. vajutus → „Kinnita tagastus”, 2. vajutus salvestab.
+   * Komplekti osad, mis on sama inimese käes, tagastatakse koos põhitööriistaga.
+   */
+  function tagasta(b) {
+    var t = LAO.toode(b.dataset.id);
+    if (!t) return;
+    if (!b.classList.contains('kinnita')) {
+      b.classList.add('kinnita', 'nupp-sisse');
+      b.textContent = 'Kinnita tagastus';
+      setTimeout(function () {
+        if (!b.isConnected || b.disabled) return;
+        b.classList.remove('kinnita', 'nupp-sisse');
+        b.textContent = 'Tagasta';
+      }, 5000);
+      return;
+    }
+    b.disabled = true;
+    var aeg = new Date().toISOString();
+    var osad = LAO.komplektiOsad(t).filter(function (o) { return o.olek === 'VÄLJA ANTUD' && o.kellele === t.kellele; });
+    LAO.salvestaLiikumised([t].concat(osad).map(function (x) {
+      return { id: LAO.uusId(), toote_id: x.id, tyyp: 'TAGASTATUD', markus: '', skannimise_aeg: aeg };
+    })).then(function (tul) {
+      if (!tul[0].ok) throw new Error(tul[0].viga || 'Salvestamine ebaõnnestus.');
+      LAO.piiks('ok');
+      teade('TAGASTATUD: ' + t.nimetus + (osad.length ? ' + ' + osad.length + ' osa' : '') + ' on laos.');
+      joonistaValjas();
+    }).catch(function (err) { b.disabled = false; teade(err.message, 'viga'); });
   }
 
   // -------------------------------------------------------------------------

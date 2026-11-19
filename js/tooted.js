@@ -237,17 +237,19 @@
 
   function modaalHtml(eel, admin, nimiValikuline) {
     var tyyp = eel.tyyp || 'VARUOSA';
-    return '<form autocomplete="off">' +
+    var kood =
       '<label>Kood <span class="vaike">(skänni või sisesta; tühjaks jättes luuakse sisekood)</span>' +
       '  <input name="kood" value="' + esc(eel.kood || '') + '" autocapitalize="characters"></label>' +
-      '<label class="linnuke ainult-kood"><input type="checkbox" name="lisaSisekood"> Lisa ka meie sisekood (nt kui tootja kood on halvasti loetav)</label>' +
-      (nimiValikuline
-        ? '<label>Nimetus <span class="vaike">(võid jätta tühjaks ja lisada hiljem)</span><input name="nimetus" value="' + esc(eel.nimetus || '') + '"></label>'
-        : '<label>Nimetus *<input name="nimetus" required value="' + esc(eel.nimetus || '') + '"></label>') +
+      '<label class="linnuke ainult-kood"><input type="checkbox" name="lisaSisekood"> Lisa ka meie sisekood (nt kui tootja kood on halvasti loetav)</label>';
+    var nimi = nimiValikuline
+      ? '<label>Nimetus <span class="vaike">(võid jätta tühjaks ja lisada hiljem)</span><input name="nimetus" value="' + esc(eel.nimetus || '') + '"></label>'
+      : '<label>Nimetus *<input name="nimetus" required value="' + esc(eel.nimetus || '') + '"></label>';
+    var tyybid =
       '<div class="valjarida"><span class="sildike">Tüüp</span><div class="segment">' +
       '  <label><input type="radio" name="tyyp" value="VARUOSA"' + (tyyp === 'VARUOSA' ? ' checked' : '') + '><span>Varuosa</span></label>' +
       '  <label><input type="radio" name="tyyp" value="TÖÖRIIST"' + (tyyp === 'TÖÖRIIST' ? ' checked' : '') + '><span>Tööriist</span></label>' +
-      '</div></div>' +
+      '</div></div>';
+    var muud =
       '<label class="ainult-varuosa">Ühik<select name="yhik">' + LAO.YHIKUD.map(function (y) {
         return '<option' + (y === (eel.yhik || 'tk') ? ' selected' : '') + '>' + y + '</option>';
       }).join('') + '</select></label>' +
@@ -261,8 +263,14 @@
       '  <input name="miinimumkogus" inputmode="decimal" value="' + esc(eel.miinimumkogus || '') + '"></label>' +
       (admin ? '<label class="ainult-varuosa">Algsaldo <span class="vaike">(praegu laos olev kogus)</span><input name="algsaldo" inputmode="decimal"></label>' : '') +
       '<label class="ainult-eksemplarid">Eksemplaride arv <span class="vaike">(iga eksemplar saab oma T-koodi)</span>' +
-      '  <input name="eksemplare" type="number" min="1" max="100" value="1"></label>' +
-      LAO.MODAALI_NUPUD + '</form>';
+      '  <input name="eksemplare" type="number" min="1" max="100" value="1"></label>';
+    // Skännimisel (kood olemas): lühivorm – nimi, tüüp ja Salvesta kohe näha, ülejäänu „Rohkem” all
+    if (nimiValikuline) {
+      return '<form autocomplete="off">' + nimi + tyybid + LAO.MODAALI_NUPUD +
+        '<details class="rohkem"><summary>Rohkem välju (kood ' + esc(eel.kood || '') + ', riiul, kategooria, ühik…)</summary>' +
+        kood + muud + '</details></form>';
+    }
+    return '<form autocomplete="off">' + kood + nimi + tyybid + muud + LAO.MODAALI_NUPUD + '</form>';
   }
 
   // -------------------------------------------------------------------------

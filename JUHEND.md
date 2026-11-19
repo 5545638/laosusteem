@@ -159,6 +159,12 @@ Kui avad esimest korda SISSE, VÄLJA või TÖÖRIIST vaate, küsib brauser luba 
   - **iPhone Safari:** ava **Seaded → Safari → Kaamera** ja vali **Küsi** või **Luba**.
 - Kaamera lülitatakse sisse ja välja nupuga 📷 skännimisvälja kõrval. Valik jääb seadmesse meelde: telefonis on kaamera vaikimisi sees, arvutis väljas.
 - Arvutis töötab USB-vöötkoodiskänner ilma seadistamata. Ava SISSE või VÄLJA, vaata, et kursor oleks skännimisväljas, ja skänni. Skänner vajutab ise Enterit.
+- **📷 SKÄNNI (avalehe ülemine nupp):** skänni ükskõik mida – rakendus pakub ise tegevuse. Varuosal on nupud **− VÄLJA** ja **+ SISSE**, tööriistal **ANNA VÄLJA** või **TAGASTA LATTU**, riiulil näidatakse selle tooteid. Režiimi pole vaja enne valida.
+- **Tööriista väljaandmine:** viimati kasutatud saajad on suurte nuppudena – vajutus nimele annab tööriista kohe välja.
+- **⚡ Kiirrežiim (SISSE ja VÄLJA vaates, linnuke juhise all):** iga skänn salvestab kohe koguse 1 ilma vormita (VÄLJA puhul viimati valitud masinale). Sama toodet uuesti skännides lisandub veel 1. Vale skänni korral vajuta **Tühista**. Kui VÄLJA viiks saldo negatiivseks, avaneb tavaline vorm.
+- **🖨 Silt:** skännitud toote kaardil ja uue toote tulemuses – avab kohe prindiakna.
+- **Tagastus ilma skännimata:** avalehel **VÄLJAS** → **Tagasta** → **Kinnita tagastus**.
+- **Väljalogimine:** ülaribal oma nimele vajutades avanevad SEADED, seal on **Logi välja**.
 - **Ilma skännimata:** SISSE, VÄLJA, TÖÖRIIST ja PAIGUTA vaates vajuta **🔍 Otsi nime järgi** ja kirjuta osa nimest, koodist, kategooriast või riiulist (nt „filter hf”). Vali toode nimekirjast ja edasi on sama vorm nagu skännimisel. TÖÖRIIST vaates leiab tööriista ka selle järgi, kellel see väljas on. Kui kirjutad nime otse skännimisvälja, näidatakse samuti otsingu tulemusi.
 
 ## 6c. Töö ilma internetita
