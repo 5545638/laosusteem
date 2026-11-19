@@ -192,11 +192,13 @@
   function kasitle(leitud, kood, aeg) {
     if (leitud.riiul) {
       LAO.piiks('ok');
-      return reziim === 'paiguta' ? paigutaRiiulile(leitud.riiul) : naitaRiiulit(leitud.riiul, aeg);
+      // SKÄNNI: pärast „📍 Riiul” ootab toode riiulit
+      return reziim === 'paiguta' || (reziim === 'skanni' && paigutatav) ? paigutaRiiulile(leitud.riiul) : naitaRiiulit(leitud.riiul, aeg);
     }
     var t = leitud.toode;
     LAO.piiks('ok');
     if (reziim === 'paiguta') return valiPaigutatav(t);
+    paigutatav = null;
     if (reziim === 'skanni') return t.tyyp === 'TÖÖRIIST' ? tooriistaVorm(t, aeg) : koguseVorm(t, aeg);
     if (reziim === 'tooriist') {
       if (t.tyyp !== 'TÖÖRIIST') return valeTyyp(t, 'See on varuosa, mitte tööriist.', 'sisse', 'Ava SISSE', 'valja', 'Ava VÄLJA', kood);
@@ -271,6 +273,7 @@
       '<div class="toote-seis">' + (t.tyyp === 'VARUOSA' ? 'Saldo: ' : 'Olek: ') + LAO.seisHtml(t) + '</div>' +
       '<div class="toote-kirjeldus" data-kirjeldus-tekst="' + esc(t.id) + '"' + (t.kirjeldus ? '' : ' hidden') + '>' + esc(t.kirjeldus || '') + '</div>' +
       '<button type="button" class="nupp nupp-vaike kirjeldus-nupp" data-kirjeldus="' + esc(t.id) + '">✎ ' + (t.kirjeldus ? 'Muuda kirjeldust' : 'Lisa kirjeldus') + '</button>' +
+      (reziim === 'skanni' ? ' <button type="button" class="nupp nupp-vaike riiul-nupp" data-riiul-toode="' + esc(t.id) + '">📍 ' + (r ? 'Muuda riiulit' : 'Vali riiul') + '</button>' : '') +
       komplektiInfo(t) +
       (LAO.onNimeta(t) ? '<div class="vaike">Nimi on lisamata' + (LAO.onAdmin() ? ' – <a href="#/toode/' + encodeURIComponent(t.id) + '">lisa nimi</a>' : '') + '</div>' : '') +
       (t.arhiveeritud ? '<div class="kaart-teade viga">Toode on arhiveeritud – liikumine märgitakse adminile ülevaatamiseks.</div>' : '') +
@@ -792,6 +795,14 @@
           throw err;
         });
       });
+  });
+
+  // 📍 SKÄNNI vaates: toode → riiul (nagu PAIGUTA)
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.riiul-nupp');
+    if (!b || reziim !== 'skanni') return;
+    var t = LAO.toode(b.dataset.riiulToode);
+    if (t) valiPaigutatav(t);
   });
 
   LAO.vaated['skanni'] = { fn: looVaade('skanni') };
