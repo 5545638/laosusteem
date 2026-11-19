@@ -144,7 +144,7 @@
    * kuiValmis(loodudTooted): kutsutakse pärast salvestamist (andmed on juba värskendatud).
    */
   /**
-   * Toote lisamise aken. valikud.kohe (skännimisel): kui kood on olemas, salvestatakse toode
+   * Toote lisamise aken. valikud.kohe (skannimisel): kui kood on olemas, salvestatakse toode
    * kohe seadmesse ja saadetakse serverisse taustal – serveri vastust ei oodata.
    * Tagastab akna (dialog), et kutsuja saaks selle vajadusel sulgeda.
    */
@@ -169,10 +169,10 @@
         algsaldo: admin && tyyp === 'VARUOSA' ? v.algsaldo.value : '',
         eksemplare: tyyp === 'TÖÖRIIST' && !v.kood.value.trim() ? v.eksemplare.value : 1
       };
-      // Skännimisel võib nime jätta tühjaks – toode saab ajutise nime, päris nime lisab admin hiljem
+      // Skannimisel võib nime jätta tühjaks – toode saab ajutise nime, päris nime lisab admin hiljem
       if (!data.nimetus && kohe && data.kood) data.nimetus = LAO.nimetaNimi(data.kood);
       if (!data.nimetus) { v.nimetus.focus(); return Promise.reject(new Error('Nimetus on kohustuslik.')); }
-      // Skännimisel (kood olemas, üks eksemplar) ei oodata serverit – toode läheb järjekorda
+      // Skannimisel (kood olemas, üks eksemplar) ei oodata serverit – toode läheb järjekorda
       var seadmesse = !navigator.onLine || (kohe && data.kood && Number(data.eksemplare) <= 1);
       var paring = !seadmesse ? API.kutsu('tooted.lisa', data).catch(function (err) {
         if (err.kood !== 'VORK') throw err;
@@ -181,7 +181,7 @@
       return paring.then(function (loodud) {
         if (loodud[0].ootel) {
           teade(navigator.onLine ? 'Toode lisatud: ' + data.nimetus + ' (saadan serverisse…)'
-            : 'Toode salvestati seadmesse. Kood/sisekood tuleb serverist, kui internet tagasi tuleb.');
+            : 'Toode salvestati seadmesse. Sisekood tuleb serverist, kui internetiühendus taastub.');
           if (kuiValmis) kuiValmis(loodud);
           return;
         }
@@ -206,14 +206,14 @@
     }
     Array.prototype.forEach.call(vorm.querySelectorAll('[name=tyyp]'), function (r) { r.addEventListener('change', uuendaValju); });
     vorm.kood.addEventListener('input', uuendaValju);
-    // USB-skänner saadab koodi järel Enteri – liigu siis nimetuse väljale, mitte ära salvesta
+    // USB-skanner saadab koodi järel Enteri – liigu siis nimetuse väljale, mitte ära salvesta
     vorm.kood.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); vorm.nimetus.focus(); }
     });
     uuendaValju();
-    // Riiuli valimine sildi skännimisega (kaamera või USB-skänner)
+    // Riiuli valimine sildi skannimisega (kaamera või USB-skanner)
     dialog.querySelector('.skanni-riiul').addEventListener('click', function () {
-      LAO.skanniUksKood('Skänni riiuli silt').then(function (kood) {
+      LAO.skanniUksKood('Skanni riiuli silt').then(function (kood) {
         if (!kood) return;
         var leitud = LAO.leiaKoodiga(kood);
         if (leitud && leitud.riiul) { vorm.riiul_id.value = leitud.riiul.id; teade('Riiul ' + leitud.riiul.kood); }
@@ -239,7 +239,7 @@
   function modaalHtml(eel, admin, nimiValikuline) {
     var tyyp = eel.tyyp || 'VARUOSA';
     var kood =
-      '<label>Kood <span class="vaike">(skänni või sisesta; tühjaks jättes luuakse sisekood)</span>' +
+      '<label>Kood <span class="vaike">(skanni või sisesta; tühjaks jättes luuakse sisekood)</span>' +
       '  <input name="kood" value="' + esc(eel.kood || '') + '" autocapitalize="characters"></label>' +
       '<label class="linnuke ainult-kood"><input type="checkbox" name="lisaSisekood"> Lisa ka meie sisekood (nt kui tootja kood on halvasti loetav)</label>';
     var nimi = nimiValikuline
@@ -254,7 +254,7 @@
       '<textarea name="kirjeldus" rows="2">' + esc(eel.kirjeldus || '') + '</textarea></label>';
     var riiul =
       '<label>Riiul<select name="riiul_id">' + LAO.riiuliValikud(eel.riiul_id || '') + '</select></label>' +
-      '<button type="button" class="nupp nupp-vaike skanni-riiul">📷 Skänni riiuli silt</button>';
+      '<button type="button" class="nupp nupp-vaike skanni-riiul">📷 Skanni riiuli silt</button>';
     var muud =
       '<label class="ainult-varuosa">Ühik<select name="yhik">' + LAO.YHIKUD.map(function (y) {
         return '<option' + (y === (eel.yhik || 'tk') ? ' selected' : '') + '>' + y + '</option>';
@@ -268,9 +268,9 @@
       (admin ? '<label class="ainult-varuosa">Algsaldo <span class="vaike">(praegu laos olev kogus)</span><input name="algsaldo" inputmode="decimal"></label>' : '') +
       '<label class="ainult-eksemplarid">Eksemplaride arv <span class="vaike">(iga eksemplar saab oma T-koodi)</span>' +
       '  <input name="eksemplare" type="number" min="1" max="100" value="1"></label>';
-    // Skännimisel (kood olemas): lühivorm – nimi, tüüp ja Salvesta kohe näha, ülejäänu „Rohkem” all
+    // Skannimisel (kood olemas): lühivorm – nimi, tüüp ja Salvesta kohe näha, ülejäänu „Rohkem” all
     if (nimiValikuline) {
-      // Riiul küsitakse pärast salvestamist eraldi sammuna (skänni riiuli silt) – vt js/skannimine.js
+      // Riiul küsitakse pärast salvestamist eraldi sammuna (skanni riiuli silt) – vt js/skannimine.js
       return '<form autocomplete="off">' + nimi + tyybid + kirjeldus + LAO.MODAALI_NUPUD +
         '<details class="rohkem"><summary>Rohkem välju (kood ' + esc(eel.kood || '') + ', riiul, kategooria, ühik…)</summary>' +
         kood + riiul + muud + '</details></form>';
@@ -307,7 +307,7 @@
       '<section class="kaart">' +
       '  <h2>Andmed</h2>' +
       '  <form id="tooteVorm">' +
-      (LAO.onNimeta(t) // skännimisel ilma nimeta lisatud – väli tühjaks, et saaks kohe kirjutada
+      (LAO.onNimeta(t) // skannimisel ilma nimeta lisatud – väli tühjaks, et saaks kohe kirjutada
         ? '    <label>Nimetus * <span class="vaike">(praegu lisamata)</span><input name="nimetus" required placeholder="' + esc(t.nimetus) + '"></label>'
         : '    <label>Nimetus *<input name="nimetus" required value="' + esc(t.nimetus) + '"></label>') +
       (varuosa ? '<label>Ühik<select name="yhik">' + LAO.YHIKUD.map(function (y) {
@@ -327,14 +327,14 @@
 
       '<section class="kaart">' +
       '  <h2>Koodid</h2>' +
-      '  <p class="vaike">Kõik koodid töötavad skännimisel. Tootja kood (EAN jm) ja meie sisekood võivad olla korraga.</p>' +
+      '  <p class="vaike">Kõik koodid töötavad skannimisel. Tootja kood (EAN jm) ja meie sisekood võivad olla korraga.</p>' +
       '  <table class="tabel"><tbody>' + t.koodid.map(function (k) {
         return '<tr><td data-silt="Kood"><code>' + esc(k.kood) + '</code></td><td data-silt="Tüüp">' + esc(k.tyyp) + '</td>' +
           '<td class="tegevused">' + (t.koodid.length > 1
             ? '<button class="nupp nupp-vaike nupp-oht" data-eemalda="' + esc(k.kood) + '">Eemalda</button>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' +
       '  <form id="koodiVorm" class="koodivorm">' +
-      '    <label>Lisa kood<input name="kood" placeholder="Skänni või sisesta" autocapitalize="characters"></label>' +
+      '    <label>Lisa kood<input name="kood" placeholder="Skanni või sisesta" autocapitalize="characters"></label>' +
       '    <label>Tüüp<select name="koodiTyyp"><option value="">Automaatne</option>' +
       LAO.KOODI_TYYBID.filter(function (x) { return x !== 'SISEKOOD'; }).map(function (x) { return '<option>' + x + '</option>'; }).join('') +
       '    </select></label>' +
@@ -366,7 +366,7 @@
         ? '<button id="arhiiviNupp" class="nupp">Taasta arhiivist</button>'
         : '<button id="arhiiviNupp" class="nupp nupp-oht">Arhiveeri</button>') +
       '  </div>' +
-      '  <p class="vaike">Arhiveeritud toode kaob nimekirjadest ja skännimisel antakse hoiatus. Ajalugu jääb alles.</p>' +
+      '  <p class="vaike">Arhiveeritud toode kaob nimekirjadest ja skannimisel antakse hoiatus. Ajalugu jääb alles.</p>' +
       '</section>';
 
     // Tagasi sinna, kust tuldi (LADU või TOOTED, koos filtritega)
@@ -456,7 +456,7 @@
     return '<section class="kaart">' +
       '  <h2>Komplekt</h2>' +
       '  <p class="vaike">Selle tööriista juurde kuuluvad osad (nt akud, laadija). Igal osal on oma kood ja silt – ' +
-      'osa skännimisel näed, millise tööriista juurde see kuulub.</p>' +
+      'osa skannimisel näed, millise tööriista juurde see kuulub.</p>' +
       (osad.length
         ? '<table class="tabel"><tbody>' + osad.map(function (o) {
           return '<tr><td data-silt="Kood"><code>' + esc(LAO.esimeneKood(o)) + '</code></td>' +
@@ -466,8 +466,8 @@
         }).join('') + '</tbody></table>'
         : '<p class="vaike">Osi pole veel lisatud.</p>') +
       '  <form id="osaVorm" class="koodivorm" autocomplete="off">' +
-      '    <label>Lisa olemasolev tööriist osaks<input name="kood" placeholder="Skänni või sisesta osa kood" autocapitalize="characters"></label>' +
-      '    <div class="nupurida"><button type="button" id="osaSkanni" class="nupp">📷 Skänni osa</button>' +
+      '    <label>Lisa olemasolev tööriist osaks<input name="kood" placeholder="Skanni või sisesta osa kood" autocapitalize="characters"></label>' +
+      '    <div class="nupurida"><button type="button" id="osaSkanni" class="nupp">📷 Skanni osa</button>' +
       '      <button type="submit" class="nupp nupp-pohi">Lisa osaks</button></div>' +
       '    <div class="nupurida nupurida-vasak"><button type="button" id="osaUus" class="nupp"' +
       (t.ootel ? ' disabled title="Tööriist on veel serverisse saatmata"' : '') + '>+ Lisa uus osa</button>' +
@@ -502,7 +502,7 @@
       $('#osaViga').textContent = '';
       var leitud = LAO.leiaKoodiga(kood);
       var o = leitud && leitud.toode;
-      var viga = !kood ? 'Skänni või sisesta osa kood.'
+      var viga = !kood ? 'Skanni või sisesta osa kood.'
         : !o ? 'Koodiga ' + kood + ' tööriista ei leitud. Uue osa jaoks vajuta „+ Lisa uus osa”.'
         : o.id === t.id ? 'See on sama tööriist.'
         : o.tyyp !== 'TÖÖRIIST' ? '„' + o.nimetus + '” on varuosa – komplekti saab teha ainult tööriistadest.'
@@ -519,7 +519,7 @@
     }
     ov.addEventListener('submit', function (e) { e.preventDefault(); lisaOsaKoodiga(LAO.puhastaKood(ov.kood.value)); });
     $('#osaSkanni').addEventListener('click', function () {
-      LAO.skanniUksKood('Skänni komplekti osa silt').then(function (kood) { if (kood) lisaOsaKoodiga(kood); });
+      LAO.skanniUksKood('Skanni komplekti osa silt').then(function (kood) { if (kood) lisaOsaKoodiga(kood); });
     });
     // Kõik komplekti sildid järjest: põhitööriist + osad (saatmata osal pole veel koodi)
     var prindi = $('#osadPrindi');

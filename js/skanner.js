@@ -1,9 +1,9 @@
 /**
- * SKÄNNER – koodi lugemine kaamerast, USB-skännerist või käsitsi.
+ * SKANNER – koodi lugemine kaamerast, USB-skannerist või käsitsi.
  *
  * Kaamera: html5-qrcode teek (js/vendor/html5-qrcode.min.js), toetab
  * EAN-13, EAN-8, UPC-A, UPC-E, Code128, Code39 ja QR-koode.
- * USB-skänner käitub nagu klaviatuur: see "kirjutab" koodi tekstivälja ja
+ * USB-skanner käitub nagu klaviatuur: see "kirjutab" koodi tekstivälja ja
  * vajutab Enterit, seega sama väli sobib ka käsitsi sisestamiseks.
  *
  * Kasutamine:
@@ -53,7 +53,7 @@
 
   /** Seadme kaamerate nimekiri [{id, label}] (küsib vajadusel kaamera luba). */
   function kaamerad() {
-    if (typeof Html5Qrcode === 'undefined') return Promise.reject(new Error('Kaamera teek ei laadinud.'));
+    if (typeof Html5Qrcode === 'undefined') return Promise.reject(new Error('Kaamera teeki ei õnnestunud laadida.'));
     return Html5Qrcode.getCameras();
   }
 
@@ -90,7 +90,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // SKÄNNERI KOMPONENT
+  // SKANNERI KOMPONENT
   // -------------------------------------------------------------------------
 
   var loendur = 0;
@@ -103,7 +103,7 @@
       '  <div class="kaamera-raam" id="' + id + '-raam" hidden><div id="' + id + '"></div></div>' +
       '  <p class="kaamera-teade vaike" id="' + id + '-teade" hidden></p>' +
       '  <form class="kasitsi" autocomplete="off">' +
-      '    <input name="kood" placeholder="' + esc(valikud.vihje || 'Skänni või sisesta kood') + '" autocapitalize="characters" enterkeyhint="go">' +
+      '    <input name="kood" placeholder="' + esc(valikud.vihje || 'Skanni või sisesta kood') + '" autocapitalize="characters" enterkeyhint="go">' +
       '    <button type="submit" class="nupp nupp-pohi">OK</button>' +
       '    <button type="button" class="nupp kaamera-nupp" title="Kaamera sisse/välja">📷</button>' +
       '  </form>' +
@@ -141,7 +141,7 @@
 
     function kaivitaKaamera() {
       if (kaameraSees) return Promise.resolve();
-      if (typeof Html5Qrcode === 'undefined') { naitaTeadet('Kaamera teek ei laadinud. Sisesta kood käsitsi.'); return Promise.resolve(); }
+      if (typeof Html5Qrcode === 'undefined') { naitaTeadet('Kaamera teeki ei õnnestunud laadida. Sisesta kood käsitsi.'); return Promise.resolve(); }
       if (!window.isSecureContext) { naitaTeadet('Kaamera töötab ainult https-aadressil.'); return Promise.resolve(); }
       raam.hidden = false;
       naitaTeadet('');
@@ -200,7 +200,7 @@
     document.addEventListener('visibilitychange', nahtavus);
 
     if (kaameraSoovitud() && !valikud.kaameraValjas) kaivitaKaamera();
-    if (!onPuude()) vorm.kood.focus(); // arvutis fookus väljale USB-skänneri jaoks
+    if (!onPuude()) vorm.kood.focus(); // arvutis fookus väljale USB-skanneri jaoks
 
     return {
       // Pausil (vorm lahti): kaamerapilt tehakse väiksemaks, et vorm mahuks ekraanile
@@ -217,7 +217,7 @@
   }
 
   /**
-   * Avab akna, milles saab skännida ühe koodi (nt riiuli silt toote lisamise vormis).
+   * Avab akna, milles saab skannida ühe koodi (nt riiuli silt toote lisamise vormis).
    * Tagastab Promise'i koodiga (või null, kui kasutaja loobus).
    * Kaamerat saab korraga kasutada ainult üks lugeja – LAO.aktiivneSkanner peatatakse vahepeal.
    */
@@ -227,8 +227,8 @@
     return ootan.then(function () {
       return new Promise(function (resolve) {
         var valmis = false;
-        var d = LAO.modaal(pealkiri || 'Skänni kood',
-          // Skänneril on oma vorm – see ei tohi olla teise vormi sees (pesastatud vormi brauser ei loo)
+        var d = LAO.modaal(pealkiri || 'Skanni kood',
+          // Skanneril on oma vorm – see ei tohi olla teise vormi sees (pesastatud vormi brauser ei loo)
           '<div class="uks-skanner"></div>' +
           '<form><div class="nupurida"><button type="button" class="nupp" data-sulge>Loobu</button></div></form>',
           function () {});

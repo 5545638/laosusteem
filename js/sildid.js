@@ -93,7 +93,7 @@
    * Tühjad koodid: varuks prinditud QR-sildid kaubale, millel oma koodi pole.
    * Kood on juhuslik (L- + 6 märki, ilma segiaetavate märkideta 0/O, 1/I jne), seega
    * eri seadmetes ja eri kordadel loodud koodid ei kattu. Laos pole neid enne olemas –
-   * PAIGUTA-vaates skännimisel luuakse toode (nimeta) ja seotakse riiuliga.
+   * PAIGUTA-vaates skannimisel luuakse toode (nimeta) ja seotakse riiuliga.
    */
   var TYHJA_MARGID = 'ACDEFGHJKMNPRTUVWXY34679';
   function uusTyhiKood() {
@@ -401,7 +401,7 @@
     if (!viis && saabRibana(sildid, pohi) && !avakuvaIphone()) {
       var L = ribaPikkus(sildid, pohi);
       LAO.modaal('Kuidas printida?', '<form><input type="hidden" name="viis" value="riba">' +
-        '<p><b>Üks riba</b> – kõik ' + sildid.length + ' silti ühes tükis, tühi algus ainult korra; lõikad kääridega (lõikekohad servades kriipsuga). ' +
+        '<p><b>Üks riba</b> – kõik ' + sildid.length + ' silti ühes tükis, tühi algus ainult korra; lõikad kääridega (lõikekohad on servades kriipsuga märgitud). ' +
         'Paberi suurus: <b>' + pohi.korgus_mm + ' × ' + L + ' mm</b> (Macis Manage Custom Sizes: Width ' + L + ' mm, Height ' + pohi.korgus_mm + ' mm, veerised 0).</p>' +
         '<p><b>Eraldi sildid</b> – printer lõikab iga sildi ise, aga iga sildi ette jääb ~2,5 cm tühja linti.</p>' +
         '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
@@ -415,8 +415,8 @@
     }
     var riba = viis === 'riba' && saabRibana(sildid, pohi);
     if (avakuvaIphone()) {
-      if (pohi.paigutus === 'A4') { teade('Avakuva-äpist iPhone printida ei luba. A4 lehe jaoks ava laosüsteem Safaris või arvutis.', 'viga'); return; }
-      teade('Avakuva-äpist iPhone printida ei luba – jagan sildi pildina (vali printeri äpp või „Salvesta pilt”).');
+      if (pohi.paigutus === 'A4') { teade('iPhone ei luba avakuva-äpist printida. A4-lehe printimiseks ava laosüsteem Safaris või arvutis.', 'viga'); return; }
+      teade('iPhone ei luba avakuva-äpist printida, seepärast jagan sildi pildina (vali printeri äpp või „Salvesta pilt”).');
       jagaPildina(sildid, pohi);
       return;
     }
@@ -544,7 +544,7 @@
 
   /** Uus vajutus jagamiseks (Safari lubab jagada ainult kohe pärast vajutust). */
   function jagaUuesti(failid) {
-    LAO.modaal('Pildid on valmis', '<form><p>' + failid.length + ' silti pildina.</p>' +
+    LAO.modaal('Pildid on valmis', '<form><p>' + failid.length + ' silti on pildina valmis.</p>' +
       '<div class="nupurida"><button type="button" class="nupp" data-sulge>Sulge</button>' +
       '<button type="submit" class="nupp nupp-pohi">📤 Jaga</button></div></form>',
       function () { return navigator.share({ files: failid }).catch(function (e) { if (!e || e.name !== 'AbortError') throw e; }); });
@@ -652,7 +652,7 @@
       '        <label><input type="radio" name="allikas" value="tyhjad"><span>Tühjad koodid</span></label>' +
       '      </div>' +
       '      <div id="tyhjadVorm" class="kaart-teade info" hidden>' +
-      '        <p>Varuks QR-sildid kaubale, millel oma koodi pole. Kleebi silt kaubale ja skänni see <b>PAIGUTA</b> vaates – toode luuakse ja seotakse riiuliga, nime saad lisada hiljem.</p>' +
+      '        <p>Varuks QR-sildid kaubale, millel oma koodi pole. Kleebi silt kaubale ja skanni see <b>PAIGUTA</b> vaates – toode luuakse ja seotakse riiuliga, nime saad lisada hiljem.</p>' +
       '        <div class="nupurida nupurida-vasak"><label>Mitu koodi<input id="tyhjadArv" type="number" min="1" max="200" value="20"></label>' +
       '        <button class="nupp nupp-pohi" id="looTyhjad" type="button">Loo uued koodid</button></div>' +
       '        <label class="linnuke"><input type="checkbox" id="tyhjadQr"> Ainult QR <span class="vaike">(ilma kirjata – säästab linti; vali lindipõhi ja „Jaga pildina” → Üks riba)</span></label>' +
@@ -678,7 +678,7 @@
       '      <label class="linnuke"><input type="checkbox" id="sSise"> Eelista sisekoodi (kui tootel on ka tootja kood)</label>' +
       '      <div class="nupurida nupurida-vasak">' +
       '        <button class="nupp nupp-pohi nupp-suur" id="prindiNupp" type="button">🖨 Prindi</button>' +
-      '        <button class="nupp" id="testNupp" type="button">Testprint</button>' +
+      '        <button class="nupp" id="testNupp" type="button">Proovitrükk</button>' +
       '        <button class="nupp" id="jagaNupp" type="button">📤 Jaga pildina</button>' +
       '      </div>' +
       '      <p class="vaike">Telefonis: „Jaga pildina” → printeri äpp (nt Brother iPrint&amp;Label) või „Salvesta pilt”. Iga kood tuleb üks kord, arvu määrad äpis.</p>' +
@@ -789,7 +789,7 @@
       $('#prindiNupp').textContent = '🖨 Prindi' + (sildid.length ? ' (' + sildid.length + ')' : '');
       var hoiatused = [];
       var naidis = sildid.length ? sildid.slice(0, MAX_EELVAADE) : [testSilt(pohi)];
-      $('#sEelvaade').innerHTML = (sildid.length ? '' : '<p class="vaike">Näidis (vali vasakult sildid):</p>') +
+      $('#sEelvaade').innerHTML = (sildid.length ? '' : '<p class="vaike">Näidis (vali sildid nimekirjast):</p>') +
         '<div class="eelvaade-sisu' + (pohi.paigutus === 'A4' ? ' eelvaade-a4' : '') + '">' +
         lehtedeHtml(naidis, pohi, $('#sAlgus').value, hoiatused) + '</div>' +
         (sildid.length > MAX_EELVAADE ? '<p class="vaike">… ja veel ' + (sildid.length - MAX_EELVAADE) + ' silti.</p>' : '');
@@ -881,7 +881,7 @@
       '<div class="valjarida2">' + vali('ribakood_mm', 'Vöötkoodi kõrgus (mm)', p.ribakood_mm) + vali('moodul_mm', 'Vöötkoodi joon (mm)', p.moodul_mm, 'tühi = venita') + '</div>' +
       '<div class="valjarida2">' + vali('nimi_pt', 'Nimetuse font (pt)', p.nimi_pt, '0 = peida') + vali('nimi_ridu', 'Nimetuse ridu', p.nimi_ridu, '1–2') + '</div>' +
       '<div class="valjarida2">' + vali('kood_pt', 'Koodi font (pt)', p.kood_pt) + vali('riiul_pt', 'Riiuli/tsooni font (pt)', p.riiul_pt, '0 = peida') + '</div>' +
-      '<label class="linnuke"><input type="checkbox" name="auto_pikkus"' + (autoPikkus(pohi) ? ' checked' : '') + '> Pikkus sisu järgi <span class="vaike">(lint: Laius on siis ainult varuväärtus, Veeris = tühi ots mõlemas otsas)</span></label>' +
+      '<label class="linnuke"><input type="checkbox" name="auto_pikkus"' + (autoPikkus(pohi) ? ' checked' : '') + '> Pikkus sisu järgi <span class="vaike">(lindi puhul on laius siis ainult varuväärtus ja veeris on tühi ots mõlemas otsas)</span></label>' +
       '<label class="linnuke"><input type="checkbox" name="vootkood"' + (p.vootkood ? ' checked' : '') + '> Tootesildil ka vöötkood <span class="vaike">(vaja ainult QR-i mittelugeva skanneri jaoks; muidu QR ja kood)</span></label>' +
       '<label class="linnuke"><input type="checkbox" name="poora"' + (poorata(pohi) ? ' checked' : '') + '> Prindi 90° pööratult <span class="vaike">(kui silt tuleb lindile risti või kärbitult)</span></label>' +
       '<fieldset class="ainult-a4"><legend>A4 leht</legend>' +

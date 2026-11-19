@@ -152,23 +152,26 @@ Seadistuskood kehtib ühe korra. Kui esimene admin on loodud, saab uusi kasutaja
 
 ## 6b. Kaamera luba telefonis
 
-Kui avad esimest korda SISSE, VÄLJA või TÖÖRIIST vaate, küsib brauser luba kaamerat kasutada. Vasta **Luba / Allow**.
+Kui avad esimest korda SKANNI, SISSE, VÄLJA või TÖÖRIISTA vaate, küsib brauser luba kaamerat kasutada. Vasta **Luba / Allow**.
 
 - **Kui vajutasid kogemata „Keela”:**
   - **Android Chrome:** puuduta aadressiriba vasakus servas olevat ikooni → **Õigused** → **Kaamera** → **Luba**.
   - **iPhone Safari:** ava **Seaded → Safari → Kaamera** ja vali **Küsi** või **Luba**.
-- Kaamera lülitatakse sisse ja välja nupuga 📷 skännimisvälja kõrval. Valik jääb seadmesse meelde: telefonis on kaamera vaikimisi sees, arvutis väljas.
-- Arvutis töötab USB-vöötkoodiskänner ilma seadistamata. Ava SISSE või VÄLJA, vaata, et kursor oleks skännimisväljas, ja skänni. Skänner vajutab ise Enterit.
-- **📷 SKÄNNI (avalehe ülemine nupp):** skänni ükskõik mida – rakendus pakub ise tegevuse. Varuosal on nupud **− VÄLJA** ja **+ SISSE**, tööriistal **ANNA VÄLJA** või **TAGASTA LATTU**, riiulil näidatakse selle tooteid. Režiimi pole vaja enne valida.
+- Kaamera lülitatakse sisse ja välja nupuga 📷 skannimisvälja kõrval. Valik jääb seadmesse meelde: telefonis on kaamera vaikimisi sees, arvutis väljas.
+- Arvutis töötab USB-vöötkoodiskanner ilma seadistamata. Ava SISSE või VÄLJA, vaata, et kursor oleks skannimisväljas, ja skanni. Skanner vajutab ise Enterit.
+
+### Skannimise vaated
+
+- **📷 SKANNI (avalehe ülemine nupp):** skanni ükskõik mida – rakendus pakub ise tegevuse. Varuosal on nupud **− VÄLJA** ja **+ SISSE**, tööriistal **ANNA VÄLJA** või **TAGASTA LATTU**, riiulil näidatakse selle tooteid. Režiimi pole vaja enne valida.
 - **Tööriista väljaandmine:** viimati kasutatud saajad on suurte nuppudena – vajutus nimele annab tööriista kohe välja.
-- **⚡ Kiirrežiim (SISSE ja VÄLJA vaates, linnuke juhise all):** iga skänn salvestab kohe koguse 1 ilma vormita (VÄLJA puhul viimati valitud masinale). Sama toodet uuesti skännides lisandub veel 1. Vale skänni korral vajuta **Tühista**. Kui VÄLJA viiks saldo negatiivseks, avaneb tavaline vorm.
-- **🖨 Silt:** skännitud toote kaardil ja uue toote tulemuses – avab kohe prindiakna.
-- **SISSE ühe voona:** skänni toode → **1. Andmed** (uuel tootel nimi, kirjeldus, kogus; olemasoleval kogus ja vajadusel kirjeldus) → **Edasi: riiul** → **2. Riiul**: kaamera ootab riiuli silti (olemasoleval tootel ka „✓ Jääb riiulile …”) → **3. Kinnita**: kokkuvõte → **✓ KINNITA**. Uus toode luuakse kohe koos riiuli ja kirjeldusega. SKÄNNI vaates läbib uus kood sama voo. Kiirrežiimis (⚡) jääb voog vahele.
-- **Uus toode skännimisel:** sisesta nimi → **Salvesta** → rakendus palub kohe **skännida riiuli sildi** (või vali riiul nimekirjast / **Jäta vahele**) → edasi kogus või tööriista väljaandmine. Olemasolevale tootele saab SKÄNNI vaates riiuli määrata nupuga **📍 Vali riiul**.
-- **Toote kirjeldus:** skännitud toote kaardil **✎ Lisa kirjeldus / Muuda kirjeldust** – püsiv tekst toote juures (nt mõõdud, sobivus, kust tellida), näha iga skännimise ajal. Uue toote vormis on väli „Kirjeldus”. Salvestamiseks on vaja internetti. Märkus SISSE/VÄLJA vormis kehtib ainult selle ühe liikumise kohta.
-- **Tagastus ilma skännimata:** avalehel **VÄLJAS** → **Tagasta** → **Kinnita tagastus**.
+- **⚡ Kiirrežiim (SISSE ja VÄLJA vaates, linnuke juhise all):** iga skannimine salvestab kohe koguse 1 ilma vormita (VÄLJA puhul viimati valitud masinale). Sama toodet uuesti skannides lisandub veel 1. Vale skannimise korral vajuta **Tühista**. Kui VÄLJA viiks saldo negatiivseks, avaneb tavaline vorm.
+- **🖨 Silt:** skannitud toote kaardil ja uue toote tulemuses – avab kohe prindiakna.
+- **SISSE ühe voona:** skanni toode → **1. Andmed** (uuel tootel nimi, kirjeldus, kogus; olemasoleval kogus ja vajadusel kirjeldus) → **Edasi: riiul** → **2. Riiul**: kaamera ootab riiuli silti (olemasoleval tootel ka „✓ Jääb riiulile …”) → **3. Kinnita**: kokkuvõte → **✓ KINNITA**. Uus toode luuakse kohe koos riiuli ja kirjeldusega. SKANNI vaates läbib uus kood sama voo. Kiirrežiimis (⚡) jääb voog vahele.
+- **Uus toode VÄLJA ja TÖÖRIIST vaates:** sisesta nimi → **Salvesta** → rakendus palub kohe **skannida riiuli sildi** (või vali riiul nimekirjast / **Jäta vahele**) → edasi kogus või tööriista väljaandmine. Olemasolevale tootele saab SKANNI vaates riiuli määrata nupuga **📍 Vali riiul**.
+- **Toote kirjeldus:** skannitud toote kaardil **✎ Lisa kirjeldus / Muuda kirjeldust** – püsiv tekst toote juures (nt mõõdud, sobivus, kust tellida), näha iga skannimise ajal. Uue toote vormis on väli „Kirjeldus”. Salvestamiseks on vaja internetti. Märkus SISSE/VÄLJA vormis kehtib ainult selle ühe liikumise kohta.
+- **Tagastus ilma skannimata:** avalehel **VÄLJAS** → **Tagasta** → **Kinnita tagastus**.
 - **Väljalogimine:** ülaribal oma nimele vajutades avanevad SEADED, seal on **Logi välja**.
-- **Ilma skännimata:** SISSE, VÄLJA, TÖÖRIIST ja PAIGUTA vaates vajuta **🔍 Otsi nime järgi** ja kirjuta osa nimest, koodist, kategooriast või riiulist (nt „filter hf”). Vali toode nimekirjast ja edasi on sama vorm nagu skännimisel. TÖÖRIIST vaates leiab tööriista ka selle järgi, kellel see väljas on. Kui kirjutad nime otse skännimisvälja, näidatakse samuti otsingu tulemusi.
+- **Ilma skannimata:** SISSE, VÄLJA, TÖÖRIIST ja PAIGUTA vaates vajuta **🔍 Otsi nime järgi** ja kirjuta osa nimest, koodist, kategooriast või riiulist (nt „filter hf”). Vali toode nimekirjast ja edasi on sama vorm nagu skannimisel. TÖÖRIIST vaates leiab tööriista ka selle järgi, kellel see väljas on. Kui kirjutad nime otse skannimisvälja, näidatakse samuti otsingu tulemusi.
 
 ## 6c. Töö ilma internetita
 
@@ -262,7 +265,7 @@ Masinakulude rakendus (arvutis) saadab laosüsteemi arvetelt lattu võetud kauba
 1. **Uuenda Apps Scripti kood:** kleebi uus `apps-script/Code.gs` ja tee **Juuruta → Halda juurutusi → ✎ Muuda → Uus versioon → Juuruta** (vt „Hiljem: koodi uuendamine“). Aadress jääb samaks. Lehte **Masinad** pole vaja ise luua – see tekib esimesel masinate saatmisel.
 2. **Masinakuludes:** ava vasakult **Ladu**, kontrolli laosüsteemi aadressi (sama, mis `js/config.js` failis), kirjuta admin-kasutaja nimi ja vajuta **Logi sisse** (küsitakse PIN-i).
 3. Vajuta **Sünkroniseeri laoga**. Masinad jõuavad laosüsteemi ja telefoni VÄLJA-vormi tekib valik **Masin**.
-4. Telefonis: **VÄLJA** → skänni toode → vali **Masin** → kinnita. Viimati valitud masin jääb telefoni meelde. Masinata väljastus läheb Masinakuludes üldkuluks.
+4. Telefonis: **VÄLJA** → skanni toode → vali **Masin** → kinnita. Viimati valitud masin jääb telefoni meelde. Masinata väljastus läheb Masinakuludes üldkuluks.
 
 Hinnad on ainult Masinakuludes (keskmine ostuhind); laosüsteemis hindu ei näidata.
 

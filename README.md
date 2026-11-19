@@ -1,6 +1,6 @@
 # Laosüsteem
 
-Lihtne laosüsteem varuosadele ja tööriistadele: telefoniga skännimine, arvutis ülevaated ja sildiprint.
+Lihtne laosüsteem varuosadele ja tööriistadele: telefoniga skannimine, arvutis ülevaated ja sildiprint.
 Esipaneel on staatiline veebileht (GitHub Pages), taustasüsteem on Google Apps Script ja andmed on Google Sheetsis.
 
 - **Paigaldus:** [JUHEND.md](JUHEND.md)
@@ -20,7 +20,7 @@ Esipaneel on staatiline veebileht (GitHub Pages), taustasüsteem on Google Apps 
 | `js/tooted.js` | TOOTED: nimekiri, lisamine, tootekaart, koodid |
 | `js/riiulid.js` | RIIULID: haldus ja hulgilisamine |
 | `js/import.js` | CSV-import |
-| `js/skanner.js` | Skänner: kaamera, USB-skänner, käsitsi sisestus, heli ja vibratsioon |
+| `js/skanner.js` | Skanner: kaamera, USB-skanner, käsitsi sisestus, heli ja vibratsioon |
 | `js/skannimine.js` | SISSE, VÄLJA, TÖÖRIIST, PAIGUTA (telefoni vaated) |
 | `js/sildid.js` | SILDID: sildipõhjad, vöötkoodid/QR ja printimine (rull ja A4) |
 | `js/ulevaated.js` | LADU, VÄLJAS OLEVAD, AJALUGU ja CSV-eksport |
@@ -51,9 +51,9 @@ node tests/dev-server.js      # kohalik server http://localhost:8080, API on aad
 
 1. ✅ Google Sheetsi struktuur, Apps Script API, sisselogimine ja kasutajad, paigaldusjuhend
 2. ✅ Tooted, koodid, riiulid, CSV-import
-3. ✅ Telefoni skännimine
+3. ✅ Telefoni skannimine
 4. ✅ Võrguühenduseta järjekord, sünkroonimine, konfliktid
 5. ✅ Sildiprint ja sildipõhjad
 6. ✅ Ülevaated, eksport, PWA
-7. ✅ Kiirus: skännimine ilma serveri ootamiseta, Saldode leht
+7. ✅ Kiirus: skannimine ilma serveri ootamiseta, Saldode leht
 8. ✅ Sidumine Masinakuludega: masinate nimekiri (`masinad.salvesta`), VÄLJA masinale (`kellele_kuhu`), arvelt SISSE (JUHEND.md, samm 9)
