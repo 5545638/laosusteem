@@ -373,3 +373,19 @@ a.avalehe-teade { display: block; text-decoration: none; }
 .kirjeldus-nupp { margin-top: 8px; }
 textarea { resize: vertical; line-height: 1.35; }
 #koguseVorm > textarea, #tooriistaVorm > textarea { margin-bottom: 4px; }
+
+/* SISSE ühe voona (andmed → riiul → kinnita) */
+.sammud-riba { display: flex; gap: 6px; margin: 12px 0 8px; }
+.sammud-riba span { flex: 1; text-align: center; font-size: 14px; font-weight: 600; padding: 6px 4px; border-radius: 6px; background: #e5e9ef; color: var(--hall); }
+.sammud-riba .aktiivne { background: var(--sisse); color: #fff; }
+.sammud-riba .tehtud { background: var(--ok-taust); color: var(--ok); }
+.sisse-voog .segment { margin-bottom: 14px; }
+.sisse-voog > .kaart-teade, .sisse-voog > .toote-kaart { margin-bottom: 14px; }
+.riiuli-samm { text-align: center; }
+.riiuli-samm-pealkiri { font-size: 24px; font-weight: 700; margin: 6px 0; }
+.riiuli-samm .nupp-suur { margin-top: 10px; }
+.riiuli-samm details { text-align: left; }
+.kokkuvote-rida { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--joon); font-size: 18px; }
+.kokkuvote .toote-nimi { margin-bottom: 6px; }
+.kinnita-suur { min-height: 76px; font-size: 24px; margin: 12px 0 0; }
+.uus-mark { display: inline-block; vertical-align: middle; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--hoiatus-taust); color: var(--hoiatus); }
