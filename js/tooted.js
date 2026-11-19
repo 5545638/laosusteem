@@ -162,6 +162,7 @@
         tyyp: tyyp,
         yhik: v.yhik.value,
         kategooria: v.kategooria.value,
+        kirjeldus: v.kirjeldus.value.trim(),
         riiul_id: v.riiul_id.value,
         komplekt_id: tyyp === 'TÖÖRIIST' && eel.komplekt_id ? eel.komplekt_id : '', // uus osa otse komplekti
         miinimumkogus: tyyp === 'VARUOSA' ? v.miinimumkogus.value : '',
@@ -249,6 +250,8 @@
       '  <label><input type="radio" name="tyyp" value="VARUOSA"' + (tyyp === 'VARUOSA' ? ' checked' : '') + '><span>Varuosa</span></label>' +
       '  <label><input type="radio" name="tyyp" value="TÖÖRIIST"' + (tyyp === 'TÖÖRIIST' ? ' checked' : '') + '><span>Tööriist</span></label>' +
       '</div></div>';
+    var kirjeldus = '<label>Kirjeldus <span class="vaike">(valikuline – nt mõõdud, sobivus, kust tellida)</span>' +
+      '<textarea name="kirjeldus" rows="2">' + esc(eel.kirjeldus || '') + '</textarea></label>';
     var muud =
       '<label class="ainult-varuosa">Ühik<select name="yhik">' + LAO.YHIKUD.map(function (y) {
         return '<option' + (y === (eel.yhik || 'tk') ? ' selected' : '') + '>' + y + '</option>';
@@ -266,11 +269,11 @@
       '  <input name="eksemplare" type="number" min="1" max="100" value="1"></label>';
     // Skännimisel (kood olemas): lühivorm – nimi, tüüp ja Salvesta kohe näha, ülejäänu „Rohkem” all
     if (nimiValikuline) {
-      return '<form autocomplete="off">' + nimi + tyybid + LAO.MODAALI_NUPUD +
+      return '<form autocomplete="off">' + nimi + tyybid + kirjeldus + LAO.MODAALI_NUPUD +
         '<details class="rohkem"><summary>Rohkem välju (kood ' + esc(eel.kood || '') + ', riiul, kategooria, ühik…)</summary>' +
         kood + muud + '</details></form>';
     }
-    return '<form autocomplete="off">' + kood + nimi + tyybid + muud + LAO.MODAALI_NUPUD + '</form>';
+    return '<form autocomplete="off">' + kood + nimi + tyybid + kirjeldus + muud + LAO.MODAALI_NUPUD + '</form>';
   }
 
   // -------------------------------------------------------------------------
@@ -314,6 +317,7 @@
       }).join('') + '</datalist>' +
       '    <label>Riiul<select name="riiul_id">' + LAO.riiuliValikud(t.riiul_id) + '</select></label>' +
       (varuosa ? '<label>Miinimumkogus<input name="miinimumkogus" inputmode="decimal" value="' + esc(LAO.arvTekst(t.miinimumkogus)) + '"></label>' : '') +
+      '    <label>Kirjeldus<textarea name="kirjeldus" rows="3">' + esc(t.kirjeldus || '') + '</textarea></label>' +
       '    <div class="nupurida"><button type="submit" class="nupp nupp-pohi">Salvesta</button></div>' +
       '    <p class="vormi-viga" id="tooteViga"></p>' +
       '  </form>' +
@@ -373,7 +377,8 @@
       e.preventDefault();
       $('#tooteViga').textContent = '';
       LAO.hoivatud(vorm, true);
-      var andmed = { id: t.id, nimetus: vorm.nimetus.value, kategooria: vorm.kategooria.value, riiul_id: vorm.riiul_id.value };
+      var andmed = { id: t.id, nimetus: vorm.nimetus.value, kategooria: vorm.kategooria.value, riiul_id: vorm.riiul_id.value,
+        kirjeldus: vorm.kirjeldus.value };
       if (varuosa) { andmed.yhik = vorm.yhik.value; andmed.miinimumkogus = vorm.miinimumkogus.value; }
       API.kutsu('tooted.muuda', andmed).then(function () {
         teade('Salvestatud.');

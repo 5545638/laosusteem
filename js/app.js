@@ -403,7 +403,7 @@
   // VAADE: SEADED
   // -------------------------------------------------------------------------
 
-  var RAKENDUSE_VERSIOON = 'v32'; // sama number mis ?v= failis index.html
+  var RAKENDUSE_VERSIOON = 'v33'; // sama number mis ?v= failis index.html
 
   function vaadeSeaded() {
     var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';

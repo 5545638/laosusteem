@@ -368,3 +368,8 @@ a.avalehe-teade { display: block; text-decoration: none; }
 .rohkem { margin-top: 14px; border-top: 1px solid var(--joon); padding-top: 10px; }
 .rohkem summary { cursor: pointer; font-weight: 600; color: var(--pohi); padding: 8px 0; }
 .rohkem[open] summary { margin-bottom: 10px; }
+/* Toote kirjeldus skännimise kaardil */
+.toote-kirjeldus { margin-top: 8px; padding: 8px 10px; background: var(--taust); border-radius: 6px; white-space: pre-wrap; font-size: 16px; }
+.kirjeldus-nupp { margin-top: 8px; }
+textarea { resize: vertical; line-height: 1.35; }
+#koguseVorm > textarea, #tooriistaVorm > textarea { margin-bottom: 4px; }

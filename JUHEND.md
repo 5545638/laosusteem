@@ -163,6 +163,7 @@ Kui avad esimest korda SISSE, VÄLJA või TÖÖRIIST vaate, küsib brauser luba 
 - **Tööriista väljaandmine:** viimati kasutatud saajad on suurte nuppudena – vajutus nimele annab tööriista kohe välja.
 - **⚡ Kiirrežiim (SISSE ja VÄLJA vaates, linnuke juhise all):** iga skänn salvestab kohe koguse 1 ilma vormita (VÄLJA puhul viimati valitud masinale). Sama toodet uuesti skännides lisandub veel 1. Vale skänni korral vajuta **Tühista**. Kui VÄLJA viiks saldo negatiivseks, avaneb tavaline vorm.
 - **🖨 Silt:** skännitud toote kaardil ja uue toote tulemuses – avab kohe prindiakna.
+- **Toote kirjeldus:** skännitud toote kaardil **✎ Lisa kirjeldus / Muuda kirjeldust** – püsiv tekst toote juures (nt mõõdud, sobivus, kust tellida), näha iga skännimise ajal. Uue toote vormis on väli „Kirjeldus”. Salvestamiseks on vaja internetti. Märkus SISSE/VÄLJA vormis kehtib ainult selle ühe liikumise kohta.
 - **Tagastus ilma skännimata:** avalehel **VÄLJAS** → **Tagasta** → **Kinnita tagastus**.
 - **Väljalogimine:** ülaribal oma nimele vajutades avanevad SEADED, seal on **Logi välja**.
 - **Ilma skännimata:** SISSE, VÄLJA, TÖÖRIIST ja PAIGUTA vaates vajuta **🔍 Otsi nime järgi** ja kirjuta osa nimest, koodist, kategooriast või riiulist (nt „filter hf”). Vali toode nimekirjast ja edasi on sama vorm nagu skännimisel. TÖÖRIIST vaates leiab tööriista ka selle järgi, kellel see väljas on. Kui kirjutad nime otse skännimisvälja, näidatakse samuti otsingu tulemusi.
