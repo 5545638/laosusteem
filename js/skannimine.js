@@ -1,10 +1,10 @@
 /**
- * SKÄNNIMINE – telefoni vaated (töötavad ka arvutis USB-skänneriga).
+ * SKANNIMINE – telefoni vaated (töötavad ka arvutis USB-skanneriga).
  *
  *   #/sisse      – kauba vastuvõtt (varuosa kogus juurde)
  *   #/valja      – kauba väljastamine (kogus maha)
  *   #/tooriist   – tööriista väljaandmine ja tagastamine
- *   #/paiguta    – toote paigutamine: skänni toode → kohe palutakse riiul. Uus (tundmatu)
+ *   #/paiguta    – toote paigutamine: skanni toode → kohe palutakse riiul. Uus (tundmatu)
  *                  kood luuakse ilma nimeta ja seotakse riiuliga; nime lisab admin hiljem.
  *
  * Kõigis vaadetes:
@@ -20,11 +20,11 @@
   var sisu = document.getElementById('sisu');
 
   var REZIIMID = {
-    skanni: { pealkiri: 'SKÄNNI', klass: 'r-skanni', vihje: 'Skänni toode, tööriist või riiul' },
-    sisse: { pealkiri: 'SISSE', klass: 'r-sisse', vihje: 'Skänni vastuvõetav toode' },
-    valja: { pealkiri: 'VÄLJA', klass: 'r-valja', vihje: 'Skänni väljastatav toode' },
-    tooriist: { pealkiri: 'TÖÖRIIST', klass: 'r-tooriist', vihje: 'Skänni tööriist' },
-    paiguta: { pealkiri: 'PAIGUTA', klass: 'r-paiguta', vihje: 'Skänni toode, siis riiul' }
+    skanni: { pealkiri: 'SKANNI', klass: 'r-skanni', vihje: 'Skanni toode, tööriist või riiul' },
+    sisse: { pealkiri: 'SISSE', klass: 'r-sisse', vihje: 'Skanni vastuvõetav toode' },
+    valja: { pealkiri: 'VÄLJA', klass: 'r-valja', vihje: 'Skanni väljastatav toode' },
+    tooriist: { pealkiri: 'TÖÖRIIST', klass: 'r-tooriist', vihje: 'Skanni tööriist' },
+    paiguta: { pealkiri: 'PAIGUTA', klass: 'r-paiguta', vihje: 'Skanni toode, siis riiul' }
   };
 
   var reziim = null;     // 'skanni' | 'sisse' | 'valja' | 'tooriist' | 'paiguta' (skanni = rakendus pakub tegevuse ise)
@@ -63,28 +63,28 @@
     };
   }
 
-  /** Lähtestab toimingu ala ja jätkab skännimist. */
+  /** Lähtestab toimingu ala ja jätkab skannimist. */
   function valmis(juhis) {
     naitaJuhis(juhis);
     skanner.paus(false);
     skanner.fookus();
   }
 
-  /** Juhis + nupp „Otsi nime järgi” (väljastamine/tagastus ilma skännimata). */
+  /** Juhis + nupp „Otsi nime järgi” (väljastamine/tagastus ilma skannimata). */
   function naitaJuhis(juhis) {
     var kiirVoimalik = reziim === 'sisse' || reziim === 'valja';
     $('#toiming').innerHTML = '<p class="juhis">' + esc(juhis || REZIIMID[reziim].vihje) + '</p>' +
       '<div class="nupurida"><button type="button" class="nupp nupp-suur otsi-nupp" id="otsiNupp">🔍 Otsi nime järgi</button></div>' +
       (kiirVoimalik ? '<label class="linnuke kiir-luliti"><input type="checkbox" id="kiirLuliti"' + (kiirSees() ? ' checked' : '') + '> ' +
-        '⚡ Kiirrežiim: iga skänn salvestab kohe 1 ' + (reziim === 'valja' && kiirMasin() ? '(masin ' + esc(kiirMasin()) + ')' : 'tk') +
-        ' – vale korral vajuta Tühista</label>' : '');
+        '⚡ Kiirrežiim: iga skannimine salvestab kohe 1 tk' + (reziim === 'valja' && kiirMasin() ? ' (masin ' + esc(kiirMasin()) + ')' : '') +
+        '. Vea korral vajuta „Tühista”.</label>' : '');
     $('#otsiNupp').addEventListener('click', function () { naitaOtsing(''); });
     if (kiirVoimalik) $('#kiirLuliti').addEventListener('change', function () {
       try { localStorage.setItem('lao.kiir.' + reziim, this.checked ? '1' : '0'); } catch (e) { /* ignoreeri */ }
     });
   }
 
-  /** Kiirrežiim (SISSE/VÄLJA): skännimine salvestab kohe koguse 1 ilma vormita. Seade jätab meelde. */
+  /** Kiirrežiim (SISSE/VÄLJA): skannimine salvestab kohe koguse 1 ilma vormita. Seade jätab meelde. */
   function kiirSees() {
     if (reziim !== 'sisse' && reziim !== 'valja') return false;
     try { return localStorage.getItem('lao.kiir.' + reziim) === '1'; } catch (e) { return false; }
@@ -98,7 +98,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // OTSING ILMA SKÄNNIMATA
+  // OTSING ILMA SKANNIMATA
   // -------------------------------------------------------------------------
 
   var OTSINGU_MAX = 40;
@@ -118,7 +118,7 @@
     }).sort(function (a, b) { return a.nimetus.localeCompare(b.nimetus, 'et', { numeric: true }); });
   }
 
-  /** Otsingulahter + nimekiri; valik viib sama vormini nagu skännimine. Skänner jääb tööle. */
+  /** Otsingulahter + nimekiri; valik viib sama vormini nagu skannimine. Skanner jääb tööle. */
   function naitaOtsing(algus, uus) {
     var tooriist = reziim === 'tooriist';
     $('#toiming').innerHTML =
@@ -155,7 +155,7 @@
       clearTimeout(taimer);
       var q = sisend.value.trim();
       if (!q) return;
-      // USB-skänner kirjutas koodi otsingusse – käitu nagu skänn
+      // USB-skanner kirjutas koodi otsingusse – käitu nagu skann
       if (LAO.leiaKoodiga(LAO.puhastaKood(q))) return kuiKood(q, new Date(), q);
       joonista();
       if (list.length === 1) kasitle({ toode: list[0] }, '', new Date());
@@ -175,8 +175,8 @@
   // KOODI TÖÖTLEMINE
   // -------------------------------------------------------------------------
 
-  var ajad = {}; // arendusrežiimi jaoks: viimase skänni otsingu ja salvestuse aeg
-  var skanniNr = 0; // iga skänn suurendab – taustal saabunud vastus teab, kas see käib veel praeguse kohta
+  var ajad = {}; // arendusrežiimi jaoks: viimase skanni otsingu ja salvestuse aeg
+  var skanniNr = 0; // iga skann suurendab – taustal saabunud vastus teab, kas see käib veel praeguse kohta
 
   /** Otsing ainult seadme nimekirjast – serverit ei oodata. */
   function kuiKood(kood, aeg, toores, allikas) {
@@ -189,7 +189,7 @@
     if (leitud) return kasitle(leitud, kood, aeg);
     if (sisseVoo && sisseVoo.samm === 'riiul') { // ootame riiuli silti, tundmatu kood ei katkesta voogu
       LAO.piiks('hoiatus');
-      return teade('See pole riiuli silt (' + kood + ') – skänni riiuli silt.', 'viga');
+      return teade('See pole riiuli silt (' + kood + '). Skanni riiuli silt.', 'viga');
     }
     // Käsitsi kirjutatud nimi (mitte kood) → näita nimeotsingu tulemusi, mitte uue toote vormi
     if (allikas === 'kasitsi' && toores && otsiTooteid(toores).length) { LAO.piiks('hoiatus'); return naitaOtsing(String(toores).trim(), { kood: kood, aeg: aeg, toores: toores }); }
@@ -201,14 +201,14 @@
     if (sisseVoo && sisseVoo.samm === 'riiul') {
       if (leitud.riiul) { LAO.piiks('ok'); sisseVoo.riiul = leitud.riiul; return sisseKinnita(); }
       LAO.piiks('hoiatus');
-      return teade('See on toote kood – skänni nüüd riiuli silt (või Katkesta).', 'viga');
+      return teade('See on toote kood. Skanni nüüd riiuli silt või vajuta „Katkesta”.', 'viga');
     }
     sisseVoo = null;
     if (leitud.riiul && riiuliOotel) { LAO.piiks('ok'); return uusRiiulile(leitud.riiul); }
-    riiuliOotel = null; // skänniti midagi muud – riiulisamm jääb vahele
+    riiuliOotel = null; // skanniti midagi muud – riiulisamm jääb vahele
     if (leitud.riiul) {
       LAO.piiks('ok');
-      // SKÄNNI: pärast „📍 Riiul” ootab toode riiulit
+      // SKANNI: pärast „📍 Riiul” ootab toode riiulit
       return reziim === 'paiguta' || (reziim === 'skanni' && paigutatav) ? paigutaRiiulile(leitud.riiul) : naitaRiiulit(leitud.riiul, aeg);
     }
     var t = leitud.toode;
@@ -230,7 +230,7 @@
    * suletakse vorm ja jätkatakse olemasoleva tootega.
    */
   function tundmatu(kood, aeg, toores) {
-    // SISSE ja SKÄNNI: uus toode läbib sama voo (nimi, kirjeldus, kogus → riiul → kinnita)
+    // SISSE ja SKANNI: uus toode läbib sama voo (nimi, kirjeldus, kogus → riiul → kinnita)
     if (reziim === 'sisse' || reziim === 'skanni') {
       LAO.piiks('hoiatus');
       return sisseAndmed({ t: null, kood: kood, aeg: aeg, tyyp: 'VARUOSA', nimetus: LAO.tehaseMudel(toores) || '', kirjeldus: '', markus: '', kogus: 1, riiul: null });
@@ -250,13 +250,13 @@
         var t = LAO.toode(loodud[0].id);
         if (!t) return valmis();
         var jatka = function () { var t2 = LAO.toode(t.id) || t; kasitle({ toode: t2 }, kood, aeg); };
-        // Riiulit vormis ei valitud → järgmine samm: skänni riiuli silt
+        // Riiulit vormis ei valitud → järgmine samm: skanni riiuli silt
         if (!t.riiul_id && (LAO.andmed.riiulid || []).length) return kusiRiiul(t, jatka);
         jatka();
       }, { kohe: true });
       aken.addEventListener('close', function () {
         aken = null;
-        // Loobus vormist → tagasi skännima (kui vahepeal midagi muud ei juhtunud)
+        // Loobus vormist → tagasi skannima (kui vahepeal midagi muud ei juhtunud)
         if (!salvestatud && minu === skanniNr) valmis('Kood ' + kood + ' jäi lisamata. ' + REZIIMID[reziim].vihje);
       });
     }
@@ -266,9 +266,9 @@
     if (!navigator.onLine) return;
     LAO.laeAndmed().then(function () {
       var leitud = LAO.leiaKoodiga(kood);
-      // Kasutaja on juba edasi läinud (salvestas, loobus või skännis uue koodi)
+      // Kasutaja on juba edasi läinud (salvestas, loobus või skannis uue koodi)
       if (!leitud || salvestatud || minu !== skanniNr || !$('#kiirlisa')) return;
-      if (aken) { salvestatud = true; aken.close(); } // ära mine sulgemisel tagasi skännima
+      if (aken) { salvestatud = true; aken.close(); } // ära mine sulgemisel tagasi skannima
       teade('See kood on juba olemas: ' + (leitud.toode ? leitud.toode.nimetus : 'riiul ' + leitud.riiul.kood));
       kasitle(leitud, kood, aeg);
     }).catch(function () { /* võrgu viga – kasutaja jätkab lisamisega */ });
@@ -353,7 +353,7 @@
     v.samm = 'riiul';
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); // klaviatuur kinni, kaamera näha
     $('#toiming').innerHTML = sammuRiba(2) +
-      '<div class="kaart-teade info riiuli-samm"><div class="riiuli-samm-pealkiri">📍 Skänni riiuli silt</div>' +
+      '<div class="kaart-teade info riiuli-samm"><div class="riiuli-samm-pealkiri">📍 Skanni riiuli silt</div>' +
       '<div class="vaike">' + esc(v.nimetus) + (v.tyyp === 'TÖÖRIIST' ? '' : ' · ' + LAO.arvTekst(v.kogus) + ' ' + (v.t ? v.t.yhik : 'tk')) + '</div>' +
       (v.riiul ? '<button type="button" class="nupp nupp-suur" id="samaRiiul">✓ Jääb riiulile ' + esc(v.riiul.kood) + '</button>' : '') +
       '<details class="rohkem"><summary>Silt puudub? Vali nimekirjast</summary>' +
@@ -452,17 +452,17 @@
   function kusiRiiul(t, edasi) {
     riiuliOotel = { toode: t, edasi: edasi };
     $('#toiming').innerHTML = tooteKaart(t) +
-      '<div class="kaart-teade info"><b>📍 Nüüd skänni riiuli silt</b>' +
+      '<div class="kaart-teade info"><b>📍 Nüüd skanni riiuli silt</b>' +
       '<select id="uusRiiul">' + LAO.riiuliValikud('').replace('– pole määratud –', '– või vali riiul –') + '</select>' +
       '<div class="nupurida suured-nupud"><button type="button" class="nupp nupp-suur" id="jataVahele">Jäta vahele</button>' +
       '<button type="button" class="nupp nupp-suur nupp-pohi" id="paigutaNupp">Lisa riiulile</button></div></div>';
     $('#jataVahele').addEventListener('click', function () { riiuliOotel = null; edasi(); });
     $('#paigutaNupp').addEventListener('click', function () {
       var r = LAO.riiul($('#uusRiiul').value);
-      if (!r) { teade('Vali riiul või skänni riiuli silt.', 'viga'); return; }
+      if (!r) { teade('Vali riiul või skanni riiuli silt.', 'viga'); return; }
       uusRiiulile(r);
     });
-    skanner.paus(false); // ootame riiuli skännimist
+    skanner.paus(false); // ootame riiuli skannimist
   }
 
   function uusRiiulile(riiul) {
@@ -539,7 +539,7 @@
       .filter(function (o) { return !!o; });
   }
 
-  /** Riiuli skännimisel: riiuli tooted, millest saab valida (väikeste detailide jaoks). */
+  /** Riiuli skannimisel: riiuli tooted, millest saab valida (väikeste detailide jaoks). */
   function naitaRiiulit(riiul, aeg) {
     var tooriist = reziim === 'tooriist';
     var tooted = LAO.andmed.tooted.filter(function (t) {
@@ -580,7 +580,7 @@
       return sisseAndmed({ t: t, kood: LAO.esimeneKood(t), aeg: aeg, tyyp: t.tyyp, nimetus: t.nimetus, kirjeldus: t.kirjeldus || '',
         markus: '', kogus: 1, riiul: LAO.riiul(t.riiul_id) || null });
     }
-    var molemad = reziim === 'skanni'; // SKÄNNI: nii SISSE kui VÄLJA nupp
+    var molemad = reziim === 'skanni'; // SKANNI: nii SISSE kui VÄLJA nupp
     var valja = reziim === 'valja';
     var masinad = (LAO.andmed.masinad || []).length;
     $('#toiming').innerHTML = tooteKaart(t) +
@@ -632,7 +632,7 @@
         kontrolli();
       });
     });
-    // SKÄNNI: kumba nuppu vajutati (Enter klaviatuuril = SISSE)
+    // SKANNI: kumba nuppu vajutati (Enter klaviatuuril = SISSE)
     Array.prototype.forEach.call(vorm.querySelectorAll('[data-suund]'), function (b) {
       b.addEventListener('click', function () { suund = b.dataset.suund; });
     });
@@ -811,7 +811,7 @@
     $('#loobu').addEventListener('click', function () { paigutatav = null; valmis(); });
     $('#paigutaNupp').addEventListener('click', function () {
       var r2 = LAO.riiul($('#uusRiiul').value);
-      if (!r2) { teade('Vali riiul või skänni riiuli silt.', 'viga'); return; }
+      if (!r2) { teade('Vali riiul või skanni riiuli silt.', 'viga'); return; }
       paigutaRiiulile(r2);
     });
   }
@@ -820,16 +820,16 @@
     paigutatav = t;
     var r = LAO.riiul(t.riiul_id);
     $('#toiming').innerHTML = tooteKaart(t) +
-      '<div class="kaart-teade info"><b>Nüüd skänni riiuli silt</b>' +
+      '<div class="kaart-teade info"><b>Nüüd skanni riiuli silt</b>' +
       '<p>Praegu: ' + esc(r ? r.kood : 'riiul määramata') + '</p>' +
       riiuliValikHtml('Paiguta') + '</div>';
     seoRiiuliValik();
-    skanner.paus(false); // ootame riiuli skännimist
+    skanner.paus(false); // ootame riiuli skannimist
   }
 
   /**
    * Tundmatu kood PAIGUTA-režiimis: nime ei küsita, kohe palutakse riiul.
-   * Toode luuakse riiuli skännimisel ajutise nimega „(nimeta) <kood>”.
+   * Toode luuakse riiuli skannimisel ajutise nimega „(nimeta) <kood>”.
    */
   function uusPaigutatav(kood, aeg, toores) {
     LAO.piiks('hoiatus');
@@ -843,7 +843,7 @@
       '  <label><input type="radio" name="uusTyyp" value="VARUOSA"' + (tyyp === 'VARUOSA' ? ' checked' : '') + '><span>Varuosa</span></label>' +
       '  <label><input type="radio" name="uusTyyp" value="TÖÖRIIST"' + (tyyp === 'TÖÖRIIST' ? ' checked' : '') + '><span>Tööriist</span></label>' +
       '</div></div>' +
-      '<div class="kaart-teade info"><b>Nüüd skänni riiuli silt</b>' +
+      '<div class="kaart-teade info"><b>Nüüd skanni riiuli silt</b>' +
       riiuliValikHtml('Lisa riiulile') +
       '<div class="nupurida nupurida-vasak"><button class="nupp nupp-vaike" id="nimiKohe">Lisa nimi kohe</button></div></div>';
     seoRiiuliValik();
@@ -870,12 +870,12 @@
         if (!salvestatud && minu === skanniNr) skanner.paus(false); // tagasi riiuli ootamisse
       });
     });
-    skanner.paus(false); // ootame riiuli skännimist (või uut tootekoodi)
+    skanner.paus(false); // ootame riiuli skannimist (või uut tootekoodi)
   }
 
   function paigutaRiiulile(riiul) {
     var t = paigutatav;
-    if (!t) { teade('Skänni kõigepealt toode, siis riiul.', 'viga'); LAO.piiks('viga'); return; }
+    if (!t) { teade('Skanni kõigepealt toode, siis riiul.', 'viga'); LAO.piiks('viga'); return; }
     if (t.uus) return lisaUusRiiulile(t, riiul);
     if (t.riiul_id === riiul.id) {
       // Juba õigel kohal – kinnita ja oota järgmist toodet
@@ -956,7 +956,7 @@
     $('#tulemus').innerHTML =
       '<div class="tulemus tulemus-ok">' +
       '<div class="tulemus-tekst">✓ ' + esc(tekst) +
-      (liikumine.id === null ? '' : '<div class="vaike saatmise-olek">' + (navigator.onLine ? 'Salvestatud, saadan serverisse…' : 'Salvestatud seadmesse – saadetakse, kui internet tagasi tuleb.') + '</div>') +
+      (liikumine.id === null ? '' : '<div class="vaike saatmise-olek">' + (navigator.onLine ? 'Salvestatud, saadan serverisse…' : 'Salvestatud seadmesse – saadetakse, kui internetiühendus taastub.') + '</div>') +
       (API.arendus() ? '<div class="vaike ajarida">⏱ otsing ' + LAO.ajaTekst(ajad.otsing || 0) + ' · salvestus seadmesse ' + LAO.ajaTekst(ajad.salvestus || 0) +
         ' · server <span class="serveriaeg">…</span></div>' : '') + '</div>' +
       (sildiToode && LAO.kiirprint ? '<button type="button" class="nupp nupp-vaike sildi-nupp" data-silt="' + esc(sildiToode) + '">🖨 Silt</button>' : '') +
@@ -999,7 +999,7 @@
     if (sa && m) sa.textContent = LAO.ajaTekst(m.ms) + (m.serveris !== null ? ' (Apps Scriptis ' + LAO.ajaTekst(m.serveris) + ')' : '');
   });
 
-  // 🖨 Silt: skännitud toote kaardil ja uue toote tulemuses (prindiaken js/sildid.js)
+  // 🖨 Silt: skannitud toote kaardil ja uue toote tulemuses (prindiaken js/sildid.js)
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('.sildi-nupp');
     if (b && LAO.kiirprint) LAO.kiirprint({ toode: b.dataset.silt });
@@ -1031,7 +1031,7 @@
       });
   });
 
-  // 📍 SKÄNNI vaates: toode → riiul (nagu PAIGUTA)
+  // 📍 SKANNI vaates: toode → riiul (nagu PAIGUTA)
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('.riiul-nupp');
     if (!b || reziim !== 'skanni') return;

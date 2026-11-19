@@ -191,7 +191,7 @@
   }
 
   /**
-   * Tagastus ilma skännimata: 1. vajutus → „Kinnita tagastus”, 2. vajutus salvestab.
+   * Tagastus ilma skannimata: 1. vajutus → „Kinnita tagastus”, 2. vajutus salvestab.
    * Komplekti osad, mis on sama inimese käes, tagastatakse koos põhitööriistaga.
    */
   function tagasta(b) {

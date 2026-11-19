@@ -1,7 +1,7 @@
 {
   "name": "Laosüsteem",
   "short_name": "Ladu",
-  "description": "Varuosade ja tööriistade laoarvestus: skännimine, saldod, sildid",
+  "description": "Varuosade ja tööriistade laoarvestus: skannimine, saldod, sildid",
   "lang": "et",
   "start_url": "./#/avaleht",
   "scope": "./",

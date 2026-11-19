@@ -3,7 +3,7 @@
  *
  * Server saadab tegevusega "andmed" kõik tooted (koos koodide, saldo ja
  * olekuga) ning riiulid. Hoiame neid mälus ja seadme mälus (IndexedDB,
- * varuvariandina localStorage), et vaated avaneksid kohe ja skännimisel
+ * varuvariandina localStorage), et vaated avaneksid kohe ja skannimisel
  * leitaks toode kohe telefonist – serverit ei oodata.
  *
  * Nimekiri uueneb taustal: rakenduse avamisel, esiplaanile tulekul, pärast
@@ -262,7 +262,7 @@
 
   /**
    * Otsib koodi järgi (tähesuurus ei loe). Tagastab { toode } või { riiul } või null.
-   * Kasutatakse skännimisel (etapp 3) ja dubleeritud koodide kontrollimisel.
+   * Kasutatakse skannimisel (etapp 3) ja dubleeritud koodide kontrollimisel.
    */
   function leiaKoodiga(kood) {
     var n = puhastaKood(kood).toUpperCase();
@@ -414,7 +414,7 @@
   LAO.unikaalsed = unikaalsed;
   LAO.riiuliValikud = riiuliValikud;
   LAO.YHIKUD = ['tk', 'm', 'l', 'kg', 'pakk'];
-  // Skännimisel ilma nimeta lisatud toode saab ajutise nime „(nimeta) <kood>” – nime lisab admin hiljem (TOOTED → Nimeta)
+  // Skannimisel ilma nimeta lisatud toode saab ajutise nime „(nimeta) <kood>” – nime lisab admin hiljem (TOOTED → Nimeta)
   LAO.NIMETA = '(nimeta)';
   LAO.nimetaNimi = function (kood) { return LAO.NIMETA + ' ' + String(kood || '').trim(); };
   LAO.onNimeta = function (t) { return !!t && String(t.nimetus || '').indexOf(LAO.NIMETA) === 0; };

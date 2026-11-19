@@ -52,7 +52,7 @@ Lisakontroll tabelis: lehtedel `Kasutajad` ja `Seansid` ei tohi kuskil olla PIN-
 | 2 | **RIIULID → Hulgilisamine**: A, 1–3, korrused 1–4, tsoon „Lao vasak sein” | Eelvaade näitab „Luuakse 12 riiulit: R-A01-01 … R-A03-04”. Pärast loomist on tabelis 12 riiulit ja need on ka tabeli lehel `Riiulid` |
 | 3 | Korda sama hulgilisamist | „Loodud 0 riiulit, 12 oli juba olemas”, duplikaate ei teki |
 | 4 | **+ Lisa riiul**, kood `b01` | Luuakse riiul **R-B01** (suurtähed, R- lisatakse ette) |
-| 5 | **TOOTED → + Lisa toode**: skänni USB-skänneriga (või sisesta käsitsi ja vajuta Enter) tootja vöötkood, nt filtri karbilt | Pärast Enterit liigub kursor nimetuse väljale, salvestamist veel ei toimu |
+| 5 | **TOOTED → + Lisa toode**: skanni USB-skanneriga (või sisesta käsitsi ja vajuta Enter) tootja vöötkood, nt filtri karbilt | Pärast Enterit liigub kursor nimetuse väljale, salvestamist veel ei toimu |
 | 6 | Täida nimetus, kategooria, riiul, miinimum 5, algsaldo 3 → Salvesta | Teade „Lisatud: <kood>”. Rida on tabelis kollase taustaga, sest saldo 3 on alla miinimumi 5 |
 | 7 | **+ Lisa toode** koodi väljata, tüüp **Tööriist**, eksemplaride arv 2 | Luuakse „… #1” ja „… #2” koodidega T-00001 ja T-00002, olek LAOS |
 | 8 | Lisa varuosa koodi väljata | Saab sisekoodi V-00001 (või järgmise vaba) |
@@ -74,11 +74,11 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 ### Mida ma ise testisin
 
 - 27 uut automaattesti (`node tests/test-etapp2.js`) ja 30 etapi 1 testi. Need katavad EAN-13, EAN-8 ja UPC kontrollnumbriga tuvastamist, sisekoodide loendureid, eksemplare, duplikaatkoode (ka väiketähtedega ja riiulikoodidega), algsaldot ja õigusi (laotöötaja võib kiirlisada, aga ei saa muuta ega algsaldot panna), tüübi muutmise keeldu liikumistega tootel, hulgilisamist, saldo arvutust liikumistest ning importi vigaste ridade, korduskoodide ja 500 rea pakiga.
-- Brauseritest arvuti ja telefoni suurusega aknas: kogu ülaltoodud voog, sh USB-skänneri Enter. CSV-import Windows-1257 kodeeringus failiga (vanem Excel) ja jutumärkidega väljadega. Konsoolis vigu ei olnud.
+- Brauseritest arvuti ja telefoni suurusega aknas: kogu ülaltoodud voog, sh USB-skanneri Enter. CSV-import Windows-1257 kodeeringus failiga (vanem Excel) ja jutumärkidega väljadega. Konsoolis vigu ei olnud.
 
 ---
 
-## Etapp 3: telefoniga skännimine
+## Etapp 3: telefoniga skannimine
 
 ### Enne testimist
 
@@ -86,7 +86,7 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 2. Kleebi uus `apps-script/Code.gs` Apps Scripti ja tee **Deploy → Manage deployments → ✎ → Version: New version → Deploy**.
 3. **Seaded → Testi ühendust** peab näitama versiooni **1.2.0-etapp3**.
 4. Kui avalehel pole paani PAIGUTA, värskenda lehte (telefonis sulge vaheleht ja ava uuesti, arvutis Cmd+Shift+R).
-5. Testimiseks on vaja mõnda toodet koos vöötkoodiga (nt tootja EAN karbil) ja mõnda tööriista. Sobivad ka etapis 2 lisatud tooted. Kui sildiprinterit veel pole, ava tootekaart arvutis ja skänni telefoniga koodi otse ekraanilt. Sisekoodi (nt T-00001) saab sisestada ka käsitsi.
+5. Testimiseks on vaja mõnda toodet koos vöötkoodiga (nt tootja EAN karbil) ja mõnda tööriista. Sobivad ka etapis 2 lisatud tooted. Kui sildiprinterit veel pole, ava tootekaart arvutis ja skanni telefoniga koodi otse ekraanilt. Sisekoodi (nt T-00001) saab sisestada ka käsitsi.
 
 ### Testid telefonis
 
@@ -94,19 +94,19 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 |---|---|---|
 | 1 | Logi telefonis sisse laotöötajana → **SISSE** | Brauser küsib kaamera luba. Pärast lubamist on näha kaamerapilt |
 | 2 | Suuna kaamera toote vöötkoodile | Piiks/vibratsioon, toote nimi, kood, riiul ja praegune saldo |
-| 3 | Vajuta **+** kaks korda, kirjuta märkus „Arve 123”, vajuta **KINNITA SISSE** | Roheline teade „✓ SISSE 3 tk – … Saldo nüüd X”. Tabeli lehel `Liikumised` on uus rida sinu kasutaja-id, märkuse ja skännimise ajaga |
+| 3 | Vajuta **+** kaks korda, kirjuta märkus „Arve 123”, vajuta **KINNITA SISSE** | Roheline teade „✓ SISSE 3 tk – … Saldo nüüd X”. Tabeli lehel `Liikumised` on uus rida sinu kasutaja-id, märkuse ja skannimise ajaga |
 | 4 | Vajuta rohelises teates **Tühista** | Teade „Tühistatud”. Saldo on tagasi endine. Lehel `Liikumised` on lisarida tüübiga TÜHISTUS (ajalugu jääb alles) |
-| 5 | **VÄLJA** → skänni sama toode → pane kogus suuremaks kui saldo | Punane hoiatus „Saldo läheks negatiivseks …” ja nupp „KINNITA IKKAGI”. Pärast kinnitamist on teade kollane: „Märgitud adminile ülevaatamiseks” |
-| 6 | Skänni riiuli silt (või sisesta `R-A01`) | Näidatakse riiuli tooteid koos saldoga. Toote puudutamisel avaneb koguse vorm |
-| 7 | **VÄLJA** vaates skänni tööriist | „See on tööriist” ja nupp „Ava TÖÖRIIST” |
-| 8 | **TÖÖRIIST** → skänni laos olev tööriist → kirjuta „Kellele/kuhu” → **ANNA VÄLJA** | „✓ VÄLJA ANTUD: … → …”. Järgmisel korral pakutakse sama nime valikuna |
-| 9 | Skänni sama tööriist uuesti | Näidatakse, kellel see on ja mitu päeva. Üks nupp: **TAGASTA LATTU** |
+| 5 | **VÄLJA** → skanni sama toode → pane kogus suuremaks kui saldo | Punane hoiatus „Saldo läheks negatiivseks …” ja nupp „KINNITA IKKAGI”. Pärast kinnitamist on teade kollane: „Märgitud adminile ülevaatamiseks” |
+| 6 | Skanni riiuli silt (või sisesta `R-A01`) | Näidatakse riiuli tooteid koos saldoga. Toote puudutamisel avaneb koguse vorm |
+| 7 | **VÄLJA** vaates skanni tööriist | „See on tööriist” ja nupp „Ava TÖÖRIIST” |
+| 8 | **TÖÖRIIST** → skanni laos olev tööriist → kirjuta „Kellele/kuhu” → **ANNA VÄLJA** | „✓ VÄLJA ANTUD: … → …”. Järgmisel korral pakutakse sama nime valikuna |
+| 9 | Skanni sama tööriist uuesti | Näidatakse, kellel see on ja mitu päeva. Üks nupp: **TAGASTA LATTU** |
 | 10 | Vajuta **TAGASTA LATTU** | „✓ TAGASTATUD … on laos.” |
 | 11 | Anna sama tööriist välja kahest telefonist korraga (või teine kasutaja annab juba väljas oleva välja) | Teine väljaandmine salvestatakse, aga märgitakse konfliktiks (kollane teade) |
-| 12 | **SISSE** → skänni kood, mida süsteemis pole | „Tundmatu kood” ja nupp **+ Lisa uus toode**. Vormis on kood eeltäidetud. Riiuli saab valida nimekirjast või nupuga **📷 Skänni riiuli silt** |
+| 12 | **SISSE** → skanni kood, mida süsteemis pole | „Tundmatu kood” ja nupp **+ Lisa uus toode**. Vormis on kood eeltäidetud. Riiuli saab valida nimekirjast või nupuga **📷 Skanni riiuli silt** |
 | 13 | Salvesta uus toode | Avaneb kohe sama toote koguse vorm. Kinnita SISSE |
-| 14 | **PAIGUTA** → skänni toode → skänni teise riiuli silt | „✓ …: R-A01 → R-A02”. Arvutis on TOOTED vaates riiul muutunud |
-| 14b | **PAIGUTA** → skänni tundmatu kood → kohe skänni riiuli silt | „✓ Uus toode … → riiul … (nimi lisamata)”. Avalehel adminile teade „N tootel on nimi lisamata” → vajuta, lisa nimed |
+| 14 | **PAIGUTA** → skanni toode → skanni teise riiuli silt | „✓ …: R-A01 → R-A02”. Arvutis on TOOTED vaates riiul muutunud |
+| 14b | **PAIGUTA** → skanni tundmatu kood → kohe skanni riiuli silt | „✓ Uus toode … → riiul … (nimi lisamata)”. Avalehel adminile teade „N tootel on nimi lisamata” → vajuta, lisa nimed |
 | 15 | Lülita kaamera nupuga 📷 välja ja sulge rakendus. Ava uuesti | Kaamera jääb välja lülitatuks, kuni lülitad selle ise sisse |
 | 16 | Proovi töökinnastega | Kõik nupud peaksid olema piisavalt suured |
 
@@ -114,9 +114,9 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 
 | # | Tegevus | Oodatav tulemus |
 |---|---|---|
-| 17 | Ava **SISSE** ja skänni USB-skänneriga (või kirjuta kood ja vajuta Enter) | Toode avaneb ja fookus on nupul KINNITA, nii et teine Enter kinnitab koguse 1. Pärast seda on kursor jälle skännimisväljas |
+| 17 | Ava **SISSE** ja skanni USB-skanneriga (või kirjuta kood ja vajuta Enter) | Toode avaneb ja fookus on nupul KINNITA, nii et teine Enter kinnitab koguse 1. Pärast seda on kursor jälle skannimisväljas |
 | 18 | Adminina **TOOTED → toode → Inventuur**: sisesta tegelik kogus | Saldo muutub selleks koguseks. Lehel `Liikumised` on KORRIGEERIMINE vahega ja märkusega „Inventuur: tegelik X, oli Y” |
-| 19 | Adminina **TÖÖRIIST** → skänni tööriist → **Märgi remonti** | Olek REMONDIS. Tagastamine viib selle uuesti LAOS-olekusse |
+| 19 | Adminina **TÖÖRIIST** → skanni tööriist → **Märgi remonti** | Olek REMONDIS. Tagastamine viib selle uuesti LAOS-olekusse |
 
 ### Mida ma ise testisin
 
@@ -140,14 +140,14 @@ Tabelis peaks olema nii: lehel `Koodid` on veerus `kood` EAN-koodid koos algusnu
 
 | # | Tegevus | Oodatav tulemus |
 |---|---|---|
-| 1 | Internetiga: **SISSE** → skänni toode → **KINNITA** | Roheline teade tuleb kohe. Selle all on kõigepealt „Salvestatud, saadan serverisse…” ja sekundi pärast „✓ Serveris”. Ülal on **✓ Sünkroonitud** |
+| 1 | Internetiga: **SISSE** → skanni toode → **KINNITA** | Roheline teade tuleb kohe. Selle all on kõigepealt „Salvestatud, saadan serverisse…” ja sekundi pärast „✓ Serveris”. Ülal on **✓ Sünkroonitud** |
 | 2 | Lülita sisse **lennukirežiim**. Tee **VÄLJA** 2 tk | Kinnitus tuleb kohe ja saldo väheneb kohe. Teates on „Salvestatud seadmesse – saadetakse, kui internet tagasi tuleb”. Ülariba: **⚠ Võrguühendus puudub · Ootel: 1** |
-| 3 | Ikka ilma internetita: skänni tundmatu kood → **+ Lisa uus toode** → salvesta → **KINNITA SISSE** | Toode lisatakse ja koguse vorm avaneb. Ülariba: **Ootel: 3** (uus toode ja 2 liikumist) |
+| 3 | Ikka ilma internetita: skanni tundmatu kood → **+ Lisa uus toode** → salvesta → **KINNITA SISSE** | Toode lisatakse ja koguse vorm avaneb. Ülariba: **Ootel: 3** (uus toode ja 2 liikumist) |
 | 4 | Vajuta ülaribale | Avaneb nimekiri ootel liikumistest: aeg, tüüp, kogus ja toode |
-| 5 | Lülita lennukirežiim välja | Mõne sekundi jooksul läheb riba roheliseks: **✓ Sünkroonitud**. Tabelis on uus toode ja liikumised. Veerus `skännimise_aeg` on aeg, mil skännisid, mitte saatmise aeg |
+| 5 | Lülita lennukirežiim välja | Mõne sekundi jooksul läheb riba roheliseks: **✓ Sünkroonitud**. Tabelis on uus toode ja liikumised. Veerus `skannimise_aeg` on aeg, mil skannisid, mitte saatmise aeg |
 | 6 | Tee ilma internetita liikumine, sulge rakendus täiesti ja oota veidi. Lülita internet sisse ja ava rakendus | Liikumine on alles ja saadetakse automaatselt |
 | 7 | **Kaks telefoni**, mõlemad lennukirežiimis: anna sama tööriist mõlemast välja (eri inimestele). Lülita internet sisse kõigepealt esimeses, siis teises | Teine telefon näitab kollast teadet „…märgiti adminile ülevaatamiseks: Tööriist oli juba välja antud: …”. Ülaribal on „Sinu konflikte: 1” ja avalehel on hoiatus |
-| 8 | **Kaks telefoni** lennukirežiimis: skänni mõlemas sama tundmatu kood, lisa toode (eri nimedega) ja tee SISSE. Lülita internet sisse kordamööda | Tabelis on ainult üks toode. Teise telefoni liikumine seotakse selle tootega ja märgitakse konfliktiks „Toode lisati kahest seadmest…” |
+| 8 | **Kaks telefoni** lennukirežiimis: skanni mõlemas sama tundmatu kood, lisa toode (eri nimedega) ja tee SISSE. Lülita internet sisse kordamööda | Tabelis on ainult üks toode. Teise telefoni liikumine seotakse selle tootega ja märgitakse konfliktiks „Toode lisati kahest seadmest…” |
 | 9 | Lennukirežiimis tee liikumine ja vajuta **Logi välja** | Hoiatus „Seadmes on 1 saatmata liikumist… Neid ei kustutata”. Vasta OK, logi sisse teise kasutajana ja lülita internet sisse. Liikumine saadetakse esimese kasutaja nimel |
 | 10 | Telefonis lennukirežiimis: tee liikumine. Arvutis: **KASUTAJAD → Lukusta** see kasutaja. Telefonis lülita internet sisse | Telefon suunatakse sisselogimisele ja näitab teadet „Kasutaja on lukustatud. Saatmata liikumised edastati adminile”. Saldo **ei muutu** enne, kui admin selle liikumise kinnitab |
 | 11 | Ilma internetita tee liikumine ja vajuta rohelises teates **Tühista** | Liikumine eemaldatakse järjekorrast ja serverisse seda üldse ei saadeta |
@@ -187,7 +187,7 @@ Sildiprinterit veel pole, seega prindi testid **„Salvesta PDF-ina”** (Save a
 | 1 | **SILDID** → Varuosad → **Vali kõik filtreeritud** | Paremal on eelvaade valitud siltidest ja „Valitud N silti” |
 | 2 | Põhi **Tootesilt 62×29 mm** → **🖨 Prindi** → printer „Salvesta PDF-ina” | Printimisaknas on paberi suurus 62 × 29 mm. PDF-is on iga silt oma lehel: QR vasakul, paremal nimetus, vöötkood, kood ja riiul |
 | 3 | Sama põhjaga tootel, millel on tootja kood (EAN) | Sildil on tootja vöötkood. Kui märgid **Eelista sisekoodi**, on sildil sisekood |
-| 4 | Telefonis **SISSE** → skänni prinditud (või ekraanil olevat) silti, nii QR-i kui vöötkoodi | Mõlemad leiavad õige toote |
+| 4 | Telefonis **SISSE** → skanni prinditud (või ekraanil olevat) silti, nii QR-i kui vöötkoodi | Mõlemad leiavad õige toote |
 | 5 | Allikas **Riiulid**, põhi **Riiulisilt 62×100 mm** → Prindi | Suur riiulikood, nimetus, QR, vöötkood ja all kood koos tsooniga |
 | 6 | Allikas **Tööriistad**, põhi **Väike tööriistasilt 29×29 mm** | Ainult QR ja kood |
 | 7 | Põhi **A4 kleebiseleht 3×8**, **Alusta kleebisest nr** 5 → Prindi | A4 leht, esimesed 4 kohta on tühjad ja sildid algavad 5. kohast |
@@ -222,13 +222,13 @@ Sildiprinterit veel pole, seega prindi testid **„Salvesta PDF-ina”** (Save a
 - Brauseritest (Chromium): kõik neli põhja prinditi PDF-iks ja kontrollisin, et lehe suurus on täpne (nt 62 × 29 mm) ning et ükski tekst ega vöötkood ei lõigu. Kontrollisin ka oma põhja salvestamist, LADU / VÄLJAS / AJALUGU filtreid ja CSV-faile ning seda, et rakendus avaneb pärast esimest laadimist ka ilma võrguta.
 - Päris sildiprinteriga ja päris telefoni avakuvalt ma testida ei saanud.
 
-## Kiirus: skännimine ilma serveri ootamiseta
+## Kiirus: skannimine ilma serveri ootamiseta
 
 ### Mis muutus
 
-- **Telefon:** toodete, koodide, riiulite ja saldode nimekiri on telefonis (IndexedDB). See uueneb taustal rakenduse avamisel, esiplaanile tulekul, pärast saadetud liikumisi ja iga 3 minuti järel. Skännimisel otsitakse ainult telefonist.
+- **Telefon:** toodete, koodide, riiulite ja saldode nimekiri on telefonis (IndexedDB). See uueneb taustal rakenduse avamisel, esiplaanile tulekul, pärast saadetud liikumisi ja iga 3 minuti järel. Skannimisel otsitakse ainult telefonist.
 - **Tundmatu kood:** lisamise vorm avaneb kohe. Taustal kontrollitakse serverist, kas keegi on selle koodi vahepeal lisanud. Kui on, suletakse vorm ja jätkatakse olemasoleva tootega.
-- **Uus toode skännimisel** salvestatakse kohe telefoni ja saadetakse serverisse taustal (varem ootas see kaks serveri vastust).
+- **Uus toode skannimisel** salvestatakse kohe telefoni ja saadetakse serverisse taustal (varem ootas see kaks serveri vastust).
 - **Server:** uus leht **Saldod**. Saldo saamiseks ei loeta enam kogu Liikumiste lehte. Liikumise salvestamisel loetakse liikumistest ainult id-veerg (topeltkirjete kontroll) ja uuendatakse ainult puudutatud toodete saldoridu.
 - **Äratus:** rakenduse avamisel saadetakse taustal kerge päring (`soe`). Soovi korral saab lisada 5-minutilise soojenduse (JUHEND, „Soojendus”).
 - **SEADED → Kontrolli saldosid** (admin) ja **SEADED → Näita aegu** (arendusrežiim).
@@ -248,12 +248,12 @@ Sildiprinterit veel pole, seega prindi testid **„Salvesta PDF-ina”** (Save a
 
 | # | Tegevus | Oodatav tulemus |
 |---|---|---|
-| 1 | SISSE → skänni tuttav toode | Koguse vorm avaneb kohe, ilma „Otsin…” tekstita |
-| 2 | **KINNITA** | Kohe on näha „✓ … Saldo nüüd N” ja saab skännida järgmist. Arendusrežiimis on all rida „⏱ otsing … · salvestus seadmesse … · server …”. Serveri aeg ilmub, kui vastus tuleb |
-| 3 | Skänni kood, mida pole | Lisamise vorm avaneb kohe |
+| 1 | SISSE → skanni tuttav toode | Koguse vorm avaneb kohe, ilma „Otsin…” tekstita |
+| 2 | **KINNITA** | Kohe on näha „✓ … Saldo nüüd N” ja saab skannida järgmist. Arendusrežiimis on all rida „⏱ otsing … · salvestus seadmesse … · server …”. Serveri aeg ilmub, kui vastus tuleb |
+| 3 | Skanni kood, mida pole | Lisamise vorm avaneb kohe |
 | 4 | Täida nimetus → **Salvesta** | Koguse vorm avaneb kohe. Teade „Toode lisatud … (saadan serverisse…)” |
-| 5 | Arvutis lisa uus toode. Kohe pärast seda skänni telefonis selle kood | Telefon avab lisamise vormi, aga sulgeb selle mõne sekundi pärast ise: „See kood on juba olemas: …”. Jätkub olemasoleva tootega |
-| 6 | Lisamise vormis vajuta **Loobu** | Tagasi skännimise juurde |
+| 5 | Arvutis lisa uus toode. Kohe pärast seda skanni telefonis selle kood | Telefon avab lisamise vormi, aga sulgeb selle mõne sekundi pärast ise: „See kood on juba olemas: …”. Jätkub olemasoleva tootega |
+| 6 | Lisamise vormis vajuta **Loobu** | Tagasi skannimise juurde |
 | 7 | Lennukirežiim → tee liikumisi → internet tagasi | Nagu varem: järjekord saadetakse ja riba läheb roheliseks |
 | 8 | Arvutis tee telefoni tootele liikumine. Telefonis oota kuni 3 minutit või too rakendus esiplaanile | Telefoni saldo uueneb ise |
 
@@ -289,12 +289,12 @@ Eeldus: uus `Code.gs` on Apps Scripti kleebitud ja juurutatud uue versioonina (f
 |---|---|---|
 | 1 | Ava akutrelli tootekaart (TOOTED või LADU kaudu) | Kaardil on jaotis **Komplekt** |
 | 2 | **+ Lisa uus osa**: nimi „Aku”, eksemplaride arv 2 | Tekivad „Aku #1” ja „Aku #2” oma T-koodidega, mõlemad on trelli osade nimekirjas |
-| 3 | **Skänni osa** ja skänni mõne olemasoleva tööriista (nt laadija) silt | Laadija lisandub osade nimekirja |
-| 4 | TÖÖRIIST: skänni aku silt | Aku kaardil on „Kuulub: Akutrell … T-…” koos trelli oleku ja riiuliga |
-| 5 | TÖÖRIIST: skänni trell | Kaardil on osade nimekiri olekutega; all linnukesed „Anna koos välja” |
+| 3 | **Skanni osa** ja skanni mõne olemasoleva tööriista (nt laadija) silt | Laadija lisandub osade nimekirja |
+| 4 | TÖÖRIIST: skanni aku silt | Aku kaardil on „Kuulub: Akutrell … T-…” koos trelli oleku ja riiuliga |
+| 5 | TÖÖRIIST: skanni trell | Kaardil on osade nimekiri olekutega; all linnukesed „Anna koos välja” |
 | 6 | Sisesta kellele ja vajuta ANNA VÄLJA | Trell ja linnukesega osad on VÄLJA ANTUD samale isikule; **Tühista** võtab kõik korraga tagasi |
-| 7 | Skänni väljas olev trell uuesti | Linnukesed „Tagasta koos” (samale isikule antud osad) → TAGASTA LATTU toob kõik lattu |
-| 8 | Anna välja ainult aku (skänni aku) | Trell jääb lattu; trelli kaardil on aku real „VÄLJA ANTUD” |
+| 7 | Skanni väljas olev trell uuesti | Linnukesed „Tagasta koos” (samale isikule antud osad) → TAGASTA LATTU toob kõik lattu |
+| 8 | Anna välja ainult aku (skanni aku) | Trell jääb lattu; trelli kaardil on aku real „VÄLJA ANTUD” |
 | 9 | Osa kaardil **Eemalda komplektist** | Osa on jälle iseseisev tööriist |
 | 10 | Trelli kaardil **🖨 Prindi komplekti sildid** (v30) | Aknas on eelvaates trelli ja kõigi osade sildid järjest; lindipõhjaga küsib Prindi / Jaga pildina „Üks riba” või „Eraldi sildid” |
 

@@ -222,7 +222,7 @@
    * 'muu' = väikesed nupud all. admin: true = näha ainult adminile.
    */
   var MENYY = [
-    { pealkiri: '📷 SKÄNNI', kirjeldus: 'Skänni ükskõik mida – rakendus pakub tegevuse', href: '#/skanni', grupp: 'suur' },
+    { pealkiri: '📷 SKANNI', kirjeldus: 'Skanni ükskõik mida – rakendus pakub tegevuse', href: '#/skanni', grupp: 'suur' },
     { pealkiri: 'SISSE', kirjeldus: 'Kauba vastuvõtt', href: '#/sisse', grupp: 'pohi', klass: 'paan-sisse' },
     { pealkiri: 'VÄLJA', kirjeldus: 'Kauba väljastamine', href: '#/valja', grupp: 'pohi', klass: 'paan-valja' },
     { pealkiri: 'TÖÖRIIST', kirjeldus: 'Välja / tagasi', href: '#/tooriist', grupp: 'pohi', klass: 'paan-tooriist' },
@@ -259,7 +259,7 @@
       ? '<div class="kaart-teade hoiatus avalehe-teade">⚠ <b>' + minu.length + ' sinu liikumist ootab admini ülevaatust.</b> ' +
         'Vajuta ülal olekuribale, et näha üksikasju.</div>'
       : '';
-    // Adminile: skännimisel ilma nimeta lisatud tooted
+    // Adminile: skannimisel ilma nimeta lisatud tooted
     var nimeta = admin && LAO.andmed && LAO.andmed.tooted
       ? LAO.andmed.tooted.filter(function (t) { return !t.arhiveeritud && LAO.onNimeta(t); }).length : 0;
     if (nimeta) {
@@ -403,7 +403,7 @@
   // VAADE: SEADED
   // -------------------------------------------------------------------------
 
-  var RAKENDUSE_VERSIOON = 'v35'; // sama number mis ?v= failis index.html
+  var RAKENDUSE_VERSIOON = 'v36'; // sama number mis ?v= failis index.html
 
   function vaadeSeaded() {
     var configUrl = (window.LAO_CONFIG && window.LAO_CONFIG.API_URL) || '';
@@ -430,13 +430,13 @@
       '  <h2>Kaamera</h2>' +
       '  <p class="vaike">Kui telefon vahetab koodile lähedale minnes kaamerat või pilt jääb häguseks, vali siit kindel kaamera. ' +
       'iPhone\'il loeb lähedalt kõige teravamalt ülilainurkkaamera (Ultra Wide); tavaline tagakaamera vajab umbes 15 cm vahet.</p>' +
-      '  <label>Skännimise kaamera<select id="kaameraValik"><option value="">Automaatne (tagakaamera)</option>' +
+      '  <label>Skannimise kaamera<select id="kaameraValik"><option value="">Automaatne (tagakaamera)</option>' +
       (kaamera.id ? '<option value="' + esc(kaamera.id) + '" selected>' + esc(kaamera.nimi || 'Valitud kaamera') + '</option>' : '') +
       '</select></label>' +
       '  <div class="nupurida nupurida-vasak"><button type="button" id="otsiKaameraid" class="nupp">Otsi kaameraid</button></div>' +
       '  <p id="kaameraTulemus" class="vaike"></p>' +
       '  <h2>Arendusrežiim</h2>' +
-      '  <label class="linnuke"><input type="checkbox" id="arendus"' + (API.arendus() ? ' checked' : '') + '> Näita aegu (skännimisel ja siin)</label>' +
+      '  <label class="linnuke"><input type="checkbox" id="arendus"' + (API.arendus() ? ' checked' : '') + '> Näita aegu (skannimisel ja siin)</label>' +
       '  <div id="ajad"></div>' +
       (API.seanss() ? '  <h2>Kasutaja</h2><p>' + esc(API.seanss().kasutaja.nimi) + '</p>' +
         '  <div class="nupurida nupurida-vasak"><button type="button" id="valjaNupp" class="nupp">Logi välja</button></div>' : '') +
@@ -528,7 +528,7 @@
     if (!kast) return;
     if (!API.arendus()) { kast.innerHTML = ''; return; }
     var m = API.mootmised().reverse();
-    kast.innerHTML = !m.length ? '<p class="vaike">Mõõtmisi veel pole – skänni midagi.</p>' :
+    kast.innerHTML = !m.length ? '<p class="vaike">Mõõtmisi veel pole – skanni midagi.</p>' :
       '<table class="tabel ajad"><thead><tr><th>Kell</th><th>Tegevus</th><th>Kokku</th><th>Apps Scriptis</th></tr></thead><tbody>' +
       m.map(function (x) {
         return '<tr><td data-silt="Kell">' + new Date(x.aeg).toLocaleTimeString('et-EE') + '</td><td data-silt="Tegevus"><b>' + esc(AJA_NIMED[x.nimi] || x.nimi) +
@@ -605,7 +605,7 @@
     ajaTekst: ajaTekst
   };
 
-  // „Äratus”: Apps Script käivitub taustal juba rakenduse avamisel, mitte esimese skännimise ajal
+  // „Äratus”: Apps Script käivitub taustal juba rakenduse avamisel, mitte esimese skannimise ajal
   if (navigator.onLine && API.apiUrl()) API.kutsu('soe').catch(function () { /* vana server või võrk – pole oluline */ });
 
   // PWA: service worker (sw.js) hoiab rakenduse faile seadmes, et see avaneks ka ilma internetita.

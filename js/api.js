@@ -73,7 +73,7 @@
 
     return fetch(url, { method: 'POST', body: keha, redirect: 'follow' })
       .catch(function () {
-        throw ApiViga('Serveriga ei saa ühendust. Kontrolli internetti.', 'VORK');
+        throw ApiViga('Serveriga ei saa ühendust. Kontrolli internetiühendust.', 'VORK');
       })
       .then(function (vastus) {
         if (!vastus.ok) throw ApiViga('Server vastas veaga (' + vastus.status + ').', 'VORK');
